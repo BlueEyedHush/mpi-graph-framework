@@ -30,24 +30,22 @@ class OrdSet:
 def bfs(G, start):
     # same vertices are added multiple times to the vertices list
     path = []
-    visited = []
     start_node = G.nodes()[0]
-    vertices = OrdSet()
-    vertices.extend([start_node])
-    while vertices:
-        cv = vertices.fifo()
-        visited.append(cv)
-        path.append(cv)
-        cn = filter(lambda v: v not in visited, G.neighbors(cv))
-        print(u"Visiting {}, neighbours {}, vertices {}".format(cv, cn, vertices))
-        vertices.extend(cn)
-    return path
-
-def vertices_to_edges(vertices):
-    edges = []
-    for i in range(0, len(vertices) - 1):
-        edges.append((vertices[i], vertices[i+1]))
-    return edges
+    visited = {start_node}
+    edges = OrdSet()
+    edges.extend([(start_node, start_node)])
+    while edges:
+        # we are looking at neighbours of the edge's end, first is just for recording purposes
+        ce = edges.fifo()
+        s, e = ce
+        # now we perform visit of e
+        path.append(ce)
+        neighbour_vertices = filter(lambda v: v not in visited, G.neighbors(e))
+        visited.update(neighbour_vertices)
+        neighbour_edges = map(lambda nv: (e, nv), neighbour_vertices)
+        print(u"Visiting {}, neighbours {}, vertices {}".format(s, neighbour_vertices, edges))
+        edges.extend(neighbour_edges)
+    return path[1:]
 
 def test(actual, expected):
     if(actual == expected):
@@ -57,8 +55,8 @@ def test(actual, expected):
 
 def bfs_test(G):
     start = 0
-    actual = vertices_to_edges(bfs(G, start))
-    expected = list(nx.dfs_edges(G,start))
+    actual = bfs(G, start)
+    expected = list(nx.bfs_edges(G,start))
     return actual, expected
 
 tests = [
@@ -72,9 +70,9 @@ def run_tests():
         actual, expected = t()
         success, msg = test(actual, expected)
         if success:
-            print("Test {} succeeded")
+            print("Test {} succeeded".format(id))
         else:
-            print("Test {} failed: {}", msg)
+            print("Test {} failed: {}".format(id, msg))
 
 if __name__ == "__main__":
     run_tests()
