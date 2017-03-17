@@ -49,39 +49,32 @@ def vertices_to_edges(vertices):
         edges.append((vertices[i], vertices[i+1]))
     return edges
 
-def test1():
-    G = nx.complete_graph(10)
-    start = 0
-    actual = vertices_to_edges(bfs(G, start))
-    expected = list(nx.dfs_edges(G,start))
-    return actual == expected
+def test(actual, expected):
+    if(actual == expected):
+        return (True, "")
+    else:
+        return (False, "Actual: {}, Expected: {}".format(actual, expected))
 
-def test2():
-    G = nx.path_graph(10)
+def bfs_test(G):
     start = 0
     actual = vertices_to_edges(bfs(G, start))
     expected = list(nx.dfs_edges(G,start))
-    return actual == expected
+    return actual, expected
 
-def test3():
-    G = nx.star_graph(10)
-    start = 0
-    actual = vertices_to_edges(bfs(G, start))
-    expected = list(nx.dfs_edges(G,start))
-    return actual == expected
+tests = [
+    lambda: bfs_test(nx.complete_graph(10)),
+    lambda: bfs_test(nx.path_graph(10)),
+    lambda: bfs_test(nx.star_graph(10))
+]
+
+def run_tests():
+    for id, t in zip(range(0, len(tests)), tests):
+        actual, expected = t()
+        success, msg = test(actual, expected)
+        if success:
+            print("Test {} succeeded")
+        else:
+            print("Test {} failed: {}", msg)
 
 if __name__ == "__main__":
-    if test1():
-        print("test1 success")
-    else:
-        print("test1 failure")
-
-    if test2():
-        print("test2 success")
-    else:
-        print("test2 failure")
-
-    if test3():
-        print("test2 success")
-    else:
-        print("test2 failure")
+    run_tests()
