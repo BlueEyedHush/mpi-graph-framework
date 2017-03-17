@@ -63,6 +63,13 @@ def test2():
     expected = list(nx.dfs_edges(G,start))
     return actual == expected
 
+def test3():
+    G = nx.star_graph(10)
+    start = 0
+    actual = vertices_to_edges(bfs(G, start))
+    expected = list(nx.dfs_edges(G,start))
+    return actual == expected
+
 if __name__ == "__main__":
     if test1():
         print("test1 success")
@@ -70,6 +77,11 @@ if __name__ == "__main__":
         print("test1 failure")
 
     if test2():
+        print("test2 success")
+    else:
+        print("test2 failure")
+
+    if test3():
         print("test2 success")
     else:
         print("test2 failure")
