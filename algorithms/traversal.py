@@ -2,6 +2,7 @@
 
 import networkx as nx
 from collections import OrderedDict
+from testing import run_tests
 
 class OrdSet:
     def __init__(self):
@@ -71,11 +72,7 @@ def dfs(G, start):
         edges.extend(neighbour_edges)
     return path[1:]
 
-def test(actual, expected):
-    if(actual == expected):
-        return (True, "")
-    else:
-        return (False, "Actual: {}, Expected: {}".format(actual, expected))
+### testing ###
 
 def bfs_test(G):
     start = 0
@@ -84,7 +81,6 @@ def bfs_test(G):
 def dfs_test(G):
     start = 0
     return dfs(G, start), list(nx.dfs_edges(G,start))
-
 
 tests = [
     lambda: bfs_test(nx.complete_graph(10)),
@@ -95,14 +91,5 @@ tests = [
     lambda: dfs_test(nx.star_graph(10)),
 ]
 
-def run_tests():
-    for id, t in zip(range(0, len(tests)), tests):
-        actual, expected = t()
-        success, msg = test(actual, expected)
-        if success:
-            print("Test {} succeeded".format(id))
-        else:
-            print("Test {} failed: {}".format(id, msg))
-
 if __name__ == "__main__":
-    run_tests()
+    run_tests(tests)
