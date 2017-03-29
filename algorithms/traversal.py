@@ -28,7 +28,9 @@ class OrdSet:
         return self.storage.keys()
 
 def bfs(G, start):
-    # same vertices are added multiple times to the vertices list
+    # this could be simplified if our OrdSet considered elements with only
+    # first elements different identical. Since it doesn't, we need separate structure
+    # to track visited vertices
     path = []
     start_node = G.nodes()[0]
     visited = {start_node}
@@ -47,6 +49,28 @@ def bfs(G, start):
         edges.extend(neighbour_edges)
     return path[1:]
 
+def dfs(G, start):
+    # this could be simplified if our OrdSet considered elements with only
+    # first elements different identical. Since it doesn't, we need separate structure
+    # to track visited vertices
+    path = []
+    start_node = G.nodes()[0]
+    visited = {start_node}
+    edges = OrdSet()
+    edges.extend([(start_node, start_node)])
+    while edges:
+        # we are looking at neighbours of the edge's end, first is just for recording purposes
+        ce = edges.lifo()
+        s, e = ce
+        # now we perform visit of e
+        path.append(ce)
+        neighbour_vertices = filter(lambda v: v not in visited, G.neighbors(e))
+        visited.update(neighbour_vertices)
+        neighbour_edges = map(lambda nv: (e, nv), neighbour_vertices)
+        print(u"Visiting {}, neighbours {}, vertices {}".format(s, neighbour_vertices, edges))
+        edges.extend(neighbour_edges)
+    return path[1:]
+
 def test(actual, expected):
     if(actual == expected):
         return (True, "")
@@ -55,14 +79,20 @@ def test(actual, expected):
 
 def bfs_test(G):
     start = 0
-    actual = bfs(G, start)
-    expected = list(nx.bfs_edges(G,start))
-    return actual, expected
+    return bfs(G, start), list(nx.bfs_edges(G,start))
+
+def dfs_test(G):
+    start = 0
+    return dfs(G, start), list(nx.dfs_edges(G,start))
+
 
 tests = [
     lambda: bfs_test(nx.complete_graph(10)),
     lambda: bfs_test(nx.path_graph(10)),
-    lambda: bfs_test(nx.star_graph(10))
+    lambda: bfs_test(nx.star_graph(10)),
+    lambda: dfs_test(nx.complete_graph(10)),
+    lambda: dfs_test(nx.path_graph(10)),
+    lambda: dfs_test(nx.star_graph(10)),
 ]
 
 def run_tests():
