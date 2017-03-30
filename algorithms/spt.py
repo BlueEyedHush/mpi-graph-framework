@@ -19,9 +19,11 @@ def kruscal(G):
             spt[u][v]["weight"] = G[u][v]["weight"]
         return spt
 
+    sorted_edges = sorted(G.edges(), key = lambda (u,v): G[u][v]["weight"])
+
     # create singleton sets for every vertex
     # if not is not yet in UnionFind, it'll be added by [] operator
-    for u,v in G.edges():
+    for u,v in sorted_edges:
         u_root = uf[u]
         v_root = uf[v]
         if u_root != v_root:
