@@ -1,10 +1,26 @@
 #!/usr/bin/env python
 
 import networkx as nx
+from networkx.utils.union_find import UnionFind
 from testing import run_tests, with_weight_w
 
 def kruscal(G):
-    pass
+    uf = UnionFind()
+
+    # create singleton sets for every vertex
+    # if not is not yet in UnionFind, it'll be added by [] operator
+    for u,v in G.edges():
+        u_root = uf[u]
+        v_root = uf[v]
+        if u_root != v_root:
+            uf.union(u_root, v_root)
+
+            # terminate if all vertices in uf
+            vlist = list(uf)
+            if len(vlist) == len(G.nodes()):
+                return vlist
+
+    raise Exception("Something went wrong, algorithm should never end up here")
 
 ### tests ###
 
@@ -31,7 +47,7 @@ def spt_func_test(impl, G):
 
 tests = [
     lambda: spt_func_test(nx.minimum_spanning_tree, with_weight_w(nx.complete_graph(10), 2.0)),
-    # lambda: spt_func_test(kruscal, with_weight_w(nx.complete_graph(10), 2.0)),
+    lambda: spt_func_test(kruscal, with_weight_w(nx.complete_graph(10), 2.0)),
 ]
 
 if __name__ == "__main__":
