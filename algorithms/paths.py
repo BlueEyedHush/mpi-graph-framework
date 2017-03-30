@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import networkx as nx
-from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, ww
+from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, G_spt_different_weights
 from heapq import *
+from sys import maxint
 
 negative_cycle = Exception("negative_cycle")
 
@@ -78,8 +79,50 @@ def bellman_ford(G, source):
 
     return list_to_dict(distances)
 
+# casts weights using int(w)
 def dial(G, source):
-    pass
+    node_count = len(G.nodes())
+
+    # find max weight
+    max_weight = 0
+    for u,v in G.edges():
+        w = int(G[u][v]["weight"])
+        if w < 0:
+            raise Exception("Dial doesn't work with negative weights")
+        elif w > max_weight:
+            max_weight = w
+
+    buckets_no = max_weight*node_count
+    id_to_initial_dist = lambda id: 0 if id == source else buckets_no-1
+    permament_labels_count = 0
+    distances = map(id_to_initial_dist, range(0, node_count))
+    buckets = [[] for _ in xrange(buckets_no)]
+
+    buckets[0].append(source)
+    buckets[-1] = filter(lambda id: id != source, range(0, node_count))
+
+    def bucket_pop():
+        for i in range(0, len(buckets)):
+            if buckets[i]:
+                v = buckets[i][0]
+                buckets[i] = buckets[i][1:]
+                return v
+        raise Exception("all buckets empty - this should never happen!")
+
+    while permament_labels_count < node_count:
+        v = bucket_pop()
+        for u in G.neighbors(v):
+            dist_through_v = distances[v] + int(G[u][v]["weight"])
+            u_curr_dist = distances[u]
+
+            if dist_through_v < u_curr_dist:
+                buckets[u_curr_dist].remove(u)
+                buckets[dist_through_v].append(u)
+                distances[u] = dist_through_v
+
+        permament_labels_count += 1
+
+    return list_to_dict(distances)
 
 ### testing ###
 
@@ -121,6 +164,7 @@ tests = [
     lambda: sssp_test(dial, with_weight_w(nx.star_graph(10), 2.0), 0), # 13
     lambda: sssp_test(dial, with_weight_w(nx.complete_graph(10)), 0), # 14
     lambda: sssp_test(dial, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 15
+    lambda: sssp_test(dial, G_spt_different_weights, 0), # 16
 ]
 
 if __name__ == "__main__":
