@@ -57,7 +57,7 @@ def bellman_ford(G, source):
             w = G[u][v]["weight"]
 
             dist_through_u = distances[u] + w
-            if(dist_through_u < distances[v]):
+            if dist_through_u < distances[v]:
                 distances[v] = dist_through_u
                 shortened_no += 1
 
@@ -84,9 +84,9 @@ G_negative_edges = \
 
 G_negative_cycle = \
     nx.DiGraph([
-        ww(0,1,2), ww(2,3,5),
+        ww(0,1,2), ww(2,3,4),
         ww(1,2,-1), ww(2,1,-1), # negative cycle
-        ww(1,5,1), ww(5,6,1), ww(6,2,1), # alternative path without negative cycle
+        ww(1,4,1), ww(4,5,1), ww(5,2,1), # alternative path without negative cycle
     ])
 
 def with_weight_w(G, w = 1.0):
@@ -107,8 +107,10 @@ def sssp_negative_cycle_test(impl, G, source):
         impl(G, source)
         return not_thrown, thrown
     except Exception as e:
-        return thrown if is_negative_cycle_ex(e) else not_thrown, thrown
-
+        if is_negative_cycle_ex(e):
+            return thrown, thrown
+        else:
+            raise
 
 tests = [
     # Dijkstra
