@@ -45,7 +45,32 @@ def dijkstra(G, source):
     return list_to_dict(distances)
 
 def bellman_ford(G, source):
-    pass
+    node_count = len(G.nodes())
+
+    id_to_initial_dist = lambda id: 0.0 if id == source else float('Inf')
+    distances = map(id_to_initial_dist, range(0, node_count))
+
+    def try_shorten():
+        shortened_no = 0
+
+        for u, v in G.edges():
+            w = G[u][v]["weight"]
+
+            dist_through_u = distances[u] + w
+            if(dist_through_u < distances[v]):
+                distances[v] = dist_through_u
+                shortened_no += 1
+
+        return shortened_no
+
+    for i in range(0, node_count-1):
+        try_shorten()
+
+    # check for negative cycle
+    if try_shorten() > 0:
+        raise negative_cycle
+
+    return list_to_dict(distances)
 
 ### testing ###
 ww = lambda u,v,w: (u, v, {"weight": float(w)})
@@ -87,17 +112,17 @@ def sssp_negative_cycle_test(impl, G, source):
 
 tests = [
     # Dijkstra
-    lambda: sssp_test(dijkstra, with_weight_w(nx.path_graph(10)), 0),
-    lambda: sssp_test(dijkstra, with_weight_w(nx.star_graph(10), 2.0), 0),
-    lambda: sssp_test(dijkstra, with_weight_w(nx.complete_graph(10)), 0),
-    lambda: sssp_test(dijkstra, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0),
+    lambda: sssp_test(dijkstra, with_weight_w(nx.path_graph(10)), 0), # 0
+    lambda: sssp_test(dijkstra, with_weight_w(nx.star_graph(10), 2.0), 0), # 1
+    lambda: sssp_test(dijkstra, with_weight_w(nx.complete_graph(10)), 0), # 2
+    lambda: sssp_test(dijkstra, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 3
     # Bellman-Ford
-    lambda: sssp_negative_cycle_test(bellman_ford, G_negative_cycle, 0),
-    lambda: sssp_test(bellman_ford, with_weight_w(nx.path_graph(10)), 0),
-    lambda: sssp_test(bellman_ford, with_weight_w(nx.star_graph(10), 2.0), 0),
-    lambda: sssp_test(bellman_ford, with_weight_w(nx.complete_graph(10)), 0),
-    lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0),
-    lambda: sssp_test(bellman_ford, G_negative_edges, 0),
+    lambda: sssp_negative_cycle_test(bellman_ford, G_negative_cycle, 0), # 4
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.path_graph(10)), 0), # 5
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.star_graph(10), 2.0), 0), # 6
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.complete_graph(10)), 0), # 7
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 8
+    lambda: sssp_test(bellman_ford, G_negative_edges, 0), # 9
 ]
 
 if __name__ == "__main__":
