@@ -20,6 +20,9 @@ def list_to_dict(list):
         dict[i] = list[i]
     return dict
 
+def ensure_directed(G):
+    return G.to_directed() if not nx.is_directed(G) else G
+
 def dijkstra(G, source):
     id_to_initial_dist = lambda id: 0.0 if id == source else float('Inf')
 
@@ -45,6 +48,9 @@ def dijkstra(G, source):
     return list_to_dict(distances)
 
 def bellman_ford(G, source):
+    # if we are working with undirected graph we need edges back & forth
+    G = ensure_directed(G)
+
     node_count = len(G.nodes())
 
     id_to_initial_dist = lambda id: 0.0 if id == source else float('Inf')
@@ -124,7 +130,9 @@ tests = [
     lambda: sssp_test(bellman_ford, with_weight_w(nx.star_graph(10), 2.0), 0), # 6
     lambda: sssp_test(bellman_ford, with_weight_w(nx.complete_graph(10)), 0), # 7
     lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 8
-    lambda: sssp_test(bellman_ford, G_negative_edges, 0), # 9
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(4), 2.0), 0), # 9
+    lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(6), 2.0), 0), # 10
+    lambda: sssp_test(bellman_ford, G_negative_edges, 0), # 11
 ]
 
 if __name__ == "__main__":
