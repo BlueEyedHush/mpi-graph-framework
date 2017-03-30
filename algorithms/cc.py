@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from array import array
 import networkx as nx
 from testing import run_tests
 
@@ -74,6 +73,8 @@ def disjoint_union(Gs):
 tests = [
     lambda: dfs_test(nx.path_graph(10)),
     lambda: scc_test(disjoint_union([rnd_graph, rnd_graph, rnd_graph])),
+    lambda: scc_test(nx.DiGraph(data = [(0,1), (0,2), (2,1)])),
+    lambda: scc_test(nx.DiGraph(data = [(0,1), (1,2), (2,1), (2,3)])),
 ]
 
 if __name__ == "__main__":
