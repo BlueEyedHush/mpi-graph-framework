@@ -1,4 +1,6 @@
 
+import networkx as nx
+
 def _test(actual, expected):
     if(actual == expected):
         return (True, "")
@@ -13,3 +15,25 @@ def run_tests(test_list):
             print("Test {} succeeded".format(id))
         else:
             print("Test {} failed: {}".format(id, msg))
+
+ww = lambda u,v,w: (u, v, {"weight": float(w)})
+
+G_negative_edges = \
+    nx.DiGraph([
+        ww(0,1,1), ww(1,2,2), ww(2,3,3), ww(3,4,0),
+        ww(1,5,1), ww(5,3,1),
+        ww(1,6,10), ww(6,7,-11), ww(7,8,-1), ww(8,3,1),
+    ])
+
+G_negative_cycle = \
+    nx.DiGraph([
+        ww(0,1,2), ww(2,3,4),
+        ww(1,2,-1), ww(2,1,-1), # negative cycle
+        ww(1,4,1), ww(4,5,1), ww(5,2,1), # alternative path without negative cycle
+    ])
+
+def with_weight_w(G, w = 1.0):
+    for u, v in G.edges():
+        G[u][v]['weight'] = w
+    return G
+
