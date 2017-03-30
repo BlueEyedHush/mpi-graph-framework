@@ -32,6 +32,13 @@ G_negative_cycle = \
         ww(1,4,1), ww(4,5,1), ww(5,2,1), # alternative path without negative cycle
     ])
 
+G_spt_different_weights = \
+    nx.Graph([
+        ww(0,1,10), ww(1,2,10), ww(2,3,10),
+        ww(4,0,1), ww(4,1,2), ww(4,2,3), ww(4,3,4),
+        ww(5,0,4), ww(5,1,3), ww(5,2,2), ww(5,3,1),
+    ])
+
 def with_weight_w(G, w = 1.0):
     for u, v in G.edges():
         G[u][v]['weight'] = w

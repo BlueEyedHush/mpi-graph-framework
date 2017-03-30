@@ -2,7 +2,7 @@
 
 import networkx as nx
 from networkx.utils.union_find import UnionFind
-from testing import run_tests, with_weight_w
+from testing import run_tests, with_weight_w, G_spt_different_weights
 
 def kruscal(G):
     node_count = len(G.nodes())
@@ -53,7 +53,10 @@ def spt_func_test(impl, G):
     # edges in SPT should be subset of edges in G
     edges_subset_msg = {True: "edge_subset", False: "additional_edges"}
     edges_without_data = lambda G: map(lambda t: t[0:2], G.edges())
-    es_test_result = edges_without_data(spt_actual) <= edges_without_data(G)
+    # this is needed because for undirected graphs NetworkX has edges only in one direction
+    edges_without_data_G = edges_without_data(G)
+    edges_both_dirs_G = edges_without_data_G + map(lambda t: tuple(reversed(t)), edges_without_data_G)
+    es_test_result = set(edges_without_data(spt_actual)) <= set(edges_both_dirs_G)
 
     result_str_repr = lambda vp, ce, es: vertices_present_msg[vp] + "_" + cost_equal_msg[ce] + "_" + edges_subset_msg[es]
 
@@ -61,6 +64,7 @@ def spt_func_test(impl, G):
 
 tests = [
     lambda: spt_func_test(kruscal, with_weight_w(nx.complete_graph(10), 2.0)),
+    lambda: spt_func_test(kruscal, G_spt_different_weights),
 ]
 
 if __name__ == "__main__":
