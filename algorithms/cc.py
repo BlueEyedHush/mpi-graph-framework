@@ -4,21 +4,58 @@ from array import array
 import networkx as nx
 from testing import run_tests
 
-def _dfs(G, start_id, finish_func):
+def _dfs(G, start_id, finish_func, node_filter = lambda id: True):
     visited = [False] * len(G.nodes())
 
     def _dfs_r(vertex_id):
-        # visiting vertex_id
-        visited[vertex_id] = True
-        # visiting it's neighbours
-        for neigh_id in filter(lambda i: not visited[i], G.neighbors(vertex_id)):
-            _dfs_r(neigh_id)
-        finish_func(vertex_id)
+        if not visited[vertex_id]:
+            # visiting vertex_id
+            visited[vertex_id] = True
+            # visiting it's neighbours, check for visited is not really needed
+            for neigh_id in filter(lambda i: not visited[i] and node_filter(vertex_id), G.neighbors(vertex_id)):
+                _dfs_r(neigh_id)
+            finish_func(vertex_id)
 
     _dfs_r(start_id)
 
+# merge visited & component
 def digraph_scc_count(G):
-    pass
+    node_count = len(G.nodes())
+
+    component_ids = [-1] * node_count
+    next_id = 0
+
+    # first DFS traversal, build prospective components
+    vertices_postorder = []
+
+    for i in G.nodes():
+        if(component_ids[i] == -1):
+            def postfinish(id):
+                vertices_postorder.append(id)
+                component_ids[id] = next_id
+            _dfs(G, i, postfinish)
+            next_id += 1
+
+    # invert graph
+    Ginv = G.reverse()
+
+    # final DFS traversal
+    vertices_postorder.reverse()
+    second_iteration_traversal_order = vertices_postorder
+
+    final_components_ids = [-1] * node_count
+    next_id = 0
+
+    for start_vertex_id in second_iteration_traversal_order:
+        if final_components_ids[start_vertex_id] == -1:
+            def postfinish(id):
+                final_components_ids[id] = next_id
+
+            _dfs(Ginv, start_vertex_id, postfinish, lambda id: component_ids[id] == component_ids[start_vertex_id])
+            next_id += 1
+
+    return next_id
+
 
 def dfs_test(G):
     postorder_visit = []
