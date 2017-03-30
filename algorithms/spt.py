@@ -5,7 +5,19 @@ from networkx.utils.union_find import UnionFind
 from testing import run_tests, with_weight_w
 
 def kruscal(G):
+    node_count = len(G.nodes())
     uf = UnionFind()
+
+    # we need tree as result of this algorithm, not set of vertices
+    # so edges are kept in union-find structures for convenience
+    # this means that stop condition is uf reaching size of 2*V-1
+    # /we need V-1 edges to connect V vertices assuming no cycles/
+    def uflist_to_graph(uf_list):
+        edges = filter(lambda x: isinstance(x, tuple), uf_list)
+        spt = nx.Graph(edges)
+        for u,v in edges:
+            spt[u][v]["weight"] = G[u][v]["weight"]
+        return spt
 
     # create singleton sets for every vertex
     # if not is not yet in UnionFind, it'll be added by [] operator
@@ -14,11 +26,13 @@ def kruscal(G):
         v_root = uf[v]
         if u_root != v_root:
             uf.union(u_root, v_root)
+            # add edge to union-find
+            uf.union(u_root, uf[(u,v)])
 
             # terminate if all vertices in uf
-            vlist = list(uf)
-            if len(vlist) == len(G.nodes()):
-                return vlist
+            uflist = list(uf)
+            if len(uflist) == 2*node_count-1:
+                return uflist_to_graph(uflist)
 
     raise Exception("Something went wrong, algorithm should never end up here")
 
@@ -46,7 +60,6 @@ def spt_func_test(impl, G):
     return result_str_repr(vp_test_result, ce_test_result, es_test_result), result_str_repr(True, True, True)
 
 tests = [
-    lambda: spt_func_test(nx.minimum_spanning_tree, with_weight_w(nx.complete_graph(10), 2.0)),
     lambda: spt_func_test(kruscal, with_weight_w(nx.complete_graph(10), 2.0)),
 ]
 
