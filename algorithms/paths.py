@@ -78,6 +78,9 @@ def bellman_ford(G, source):
 
     return list_to_dict(distances)
 
+def dial(G, source):
+    pass
+
 ### testing ###
 
 # output expected from impl: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
@@ -113,6 +116,11 @@ tests = [
     lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(4), 2.0), 0), # 9
     lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(6), 2.0), 0), # 10
     lambda: sssp_test(bellman_ford, G_negative_edges, 0), # 11
+    # Dial's
+    lambda: sssp_test(dial, with_weight_w(nx.path_graph(10)), 0), # 12
+    lambda: sssp_test(dial, with_weight_w(nx.star_graph(10), 2.0), 0), # 13
+    lambda: sssp_test(dial, with_weight_w(nx.complete_graph(10)), 0), # 14
+    lambda: sssp_test(dial, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 15
 ]
 
 if __name__ == "__main__":
