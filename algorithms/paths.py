@@ -38,17 +38,22 @@ def dijkstra(G, source):
 
     return list_to_dict(distances)
 
+def with_weight_1(G):
+    for u, v in G.edges():
+        G[u][v]['weight'] = 1.0
+    return G
+
 # output expected from impl: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
 def sssp_test(impl, G, source):
-    expected = nx.single_source_shortest_path_length(G, source)
+    expected = nx.shortest_path_length(G, source, weight="weight")
     actual = impl(G, source)
     return actual, expected
 
 tests = [
-    lambda: sssp_test(dijkstra, nx.path_graph(10), 0),
-    lambda: sssp_test(dijkstra, nx.star_graph(10), 0),
-    lambda: sssp_test(dijkstra, nx.complete_graph(10), 0),
-    lambda: sssp_test(dijkstra, nx.circular_ladder_graph(20), 0),
+    lambda: sssp_test(dijkstra, with_weight_1(nx.path_graph(10)), 0),
+    lambda: sssp_test(dijkstra, with_weight_1(nx.star_graph(10)), 0),
+    lambda: sssp_test(dijkstra, with_weight_1(nx.complete_graph(10)), 0),
+    lambda: sssp_test(dijkstra, with_weight_1(nx.circular_ladder_graph(20)), 0),
 ]
 
 if __name__ == "__main__":
