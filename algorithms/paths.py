@@ -4,6 +4,7 @@ import networkx as nx
 from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, G_spt_different_weights
 from heapq import *
 from sys import maxint
+import math
 
 negative_cycle = Exception("negative_cycle")
 
@@ -79,11 +80,7 @@ def bellman_ford(G, source):
 
     return list_to_dict(distances)
 
-# casts weights using int(w)
-def dial(G, source):
-    node_count = len(G.nodes())
-
-    # find max weight
+def _find_max_weight(G):
     max_weight = 0
     for u,v in G.edges():
         w = int(G[u][v]["weight"])
@@ -91,6 +88,15 @@ def dial(G, source):
             raise Exception("Dial doesn't work with negative weights")
         elif w > max_weight:
             max_weight = w
+    return max_weight
+
+# casts weights using int(w)
+# you can't use bucket_no-1 as initial distance - won't work for vertices which are not reachable
+def dial(G, source):
+    node_count = len(G.nodes())
+
+    # find max weight
+    max_weight = _find_max_weight(G)
 
     buckets_no = max_weight*node_count
     id_to_initial_dist = lambda id: 0 if id == source else buckets_no-1
@@ -124,8 +130,69 @@ def dial(G, source):
 
     return list_to_dict(distances)
 
+def _list_of_lists(size):
+    return [[] for _ in xrange(size)]
+
+delta = 1.0
+
+# reuse buckets
+# handle undirected graphs more efficiently?
 def delta_stepping(G, source):
-    pass
+    G = ensure_directed(G)
+
+    node_count = len(G.nodes())
+    max_weight = _find_max_weight(G)
+    buckets_no = int(math.ceil((max_weight*node_count)/delta))
+
+    heavy_e = _list_of_lists(node_count)
+    light_e = _list_of_lists(node_count)
+
+    for u,v in G.edges():
+        w = G[u][v]["weight"]
+        if w < delta:
+            light_e[u].append((u,v))
+        else:
+            heavy_e[u].append((u,v))
+
+    distances = [float("Inf")] * node_count
+
+    buckets = _list_of_lists(buckets_no)
+
+    def idx(dist):
+        return buckets_no-1 if dist == float("Inf") else int(math.floor(dist/delta))
+
+    def relax(v, new_dist):
+        curr_dist = distances[v]
+        if new_dist < curr_dist:
+            buckets[idx(curr_dist)].remove(v)
+            buckets[idx(new_dist)].append(v)
+            distances[v] = new_dist
+
+    def try_relax(edges):
+        for u,v in edges:
+            dist_via_u = distances[u] + G[u][v]["weight"]
+            relax(v, dist_via_u)
+
+    distances[source] = 0
+    buckets[0].append(source)
+    buckets[-1] = filter(lambda v: v != source, G.nodes())
+
+    for bucket_id in xrange(buckets_no):
+        S = []
+        # process light edges
+        while buckets[bucket_id]:
+            v = buckets[bucket_id][0]
+            buckets[bucket_id] = buckets[bucket_id][1:]
+
+            try_relax(light_e[v])
+
+            S.append(v)
+
+        # process heavy edges
+        for v in S:
+            try_relax(heavy_e[v])
+
+    return list_to_dict(distances)
 
 ### testing ###
 
