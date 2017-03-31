@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import networkx as nx
-from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, G_spt_different_weights
+from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, G_spt_different_weights, G_disconnected_graph
 from heapq import *
 from sys import maxint
 import math
@@ -200,7 +200,8 @@ def delta_stepping(G, source):
 def sssp_test(impl, G, source):
     pred, expected_dists = nx.bellman_ford(G, source, weight="weight")
     actual = impl(G, source)
-    return actual, expected_dists
+    actual_without_unreachable = dict(filter(lambda (k,v): v != float("Inf"), actual.iteritems()))
+    return actual_without_unreachable, expected_dists
 
 def sssp_negative_cycle_test(impl, G, source):
     thrown = "{} thrown".format(negative_cycle)
@@ -215,12 +216,10 @@ def sssp_negative_cycle_test(impl, G, source):
             raise
 
 tests = [
-    # Dijkstra
     lambda: sssp_test(dijkstra, with_weight_w(nx.path_graph(10)), 0), # 0
     lambda: sssp_test(dijkstra, with_weight_w(nx.star_graph(10), 2.0), 0), # 1
     lambda: sssp_test(dijkstra, with_weight_w(nx.complete_graph(10)), 0), # 2
     lambda: sssp_test(dijkstra, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 3
-    # Bellman-Ford
     lambda: sssp_negative_cycle_test(bellman_ford, G_negative_cycle, 0), # 4
     lambda: sssp_test(bellman_ford, with_weight_w(nx.path_graph(10)), 0), # 5
     lambda: sssp_test(bellman_ford, with_weight_w(nx.star_graph(10), 2.0), 0), # 6
@@ -229,18 +228,20 @@ tests = [
     lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(4), 2.0), 0), # 9
     lambda: sssp_test(bellman_ford, with_weight_w(nx.circular_ladder_graph(6), 2.0), 0), # 10
     lambda: sssp_test(bellman_ford, G_negative_edges, 0), # 11
-    # Dial's
     lambda: sssp_test(dial, with_weight_w(nx.path_graph(10)), 0), # 12
     lambda: sssp_test(dial, with_weight_w(nx.star_graph(10), 2.0), 0), # 13
     lambda: sssp_test(dial, with_weight_w(nx.complete_graph(10)), 0), # 14
     lambda: sssp_test(dial, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 15
     lambda: sssp_test(dial, G_spt_different_weights, 0), # 16
-    # Delta-stepping
     lambda: sssp_test(delta_stepping, with_weight_w(nx.path_graph(10)), 0), # 17
     lambda: sssp_test(delta_stepping, with_weight_w(nx.star_graph(10), 2.0), 0), # 18
     lambda: sssp_test(delta_stepping, with_weight_w(nx.complete_graph(10)), 0), # 19
     lambda: sssp_test(delta_stepping, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 20
     lambda: sssp_test(delta_stepping, G_spt_different_weights, 0), # 21
+    lambda: sssp_test(delta_stepping, G_disconnected_graph, 0), # 22
+    lambda: sssp_test(dial, G_disconnected_graph, 0), # 23
+    lambda: sssp_test(bellman_ford, G_disconnected_graph, 0), # 24
+    lambda: sssp_test(dijkstra, G_disconnected_graph, 0), # 25
 ]
 
 if __name__ == "__main__":

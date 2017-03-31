@@ -39,6 +39,12 @@ G_spt_different_weights = \
         ww(5,0,4), ww(5,1,3), ww(5,2,2), ww(5,3,1),
     ])
 
+G_disconnected_graph = \
+    nx.Graph([
+        ww(0,1,1), ww(1,2,2), ww(2,0,3),
+        ww(3,4,1), ww(4,5,2), ww(5,3,3),
+    ])
+
 def with_weight_w(G, w = 1.0):
     for u, v in G.edges():
         G[u][v]['weight'] = w
