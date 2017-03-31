@@ -124,6 +124,9 @@ def dial(G, source):
 
     return list_to_dict(distances)
 
+def delta_stepping(G, source):
+    pass
+
 ### testing ###
 
 # output expected from impl: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
@@ -165,6 +168,12 @@ tests = [
     lambda: sssp_test(dial, with_weight_w(nx.complete_graph(10)), 0), # 14
     lambda: sssp_test(dial, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 15
     lambda: sssp_test(dial, G_spt_different_weights, 0), # 16
+    # Delta-stepping
+    lambda: sssp_test(delta_stepping, with_weight_w(nx.path_graph(10)), 0), # 17
+    lambda: sssp_test(delta_stepping, with_weight_w(nx.star_graph(10), 2.0), 0), # 18
+    lambda: sssp_test(delta_stepping, with_weight_w(nx.complete_graph(10)), 0), # 19
+    lambda: sssp_test(delta_stepping, with_weight_w(nx.circular_ladder_graph(20), 2.0), 0), # 20
+    lambda: sssp_test(delta_stepping, G_spt_different_weights, 0), # 21
 ]
 
 if __name__ == "__main__":
