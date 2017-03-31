@@ -3,7 +3,7 @@
 import networkx as nx
 from testing import run_tests, G_negative_edges, G_negative_cycle, with_weight_w, G_spt_different_weights, G_disconnected_graph
 from heapq import *
-from sys import maxint
+import sys
 import math
 
 negative_cycle = Exception("negative_cycle")
@@ -99,13 +99,16 @@ def dial(G, source):
     max_weight = _find_max_weight(G)
 
     buckets_no = max_weight*node_count
-    id_to_initial_dist = lambda id: 0 if id == source else buckets_no-1
+    id_to_initial_dist = lambda id: 0 if id == source else sys.maxint
     permament_labels_count = 0
     distances = map(id_to_initial_dist, range(0, node_count))
     buckets = [[] for _ in xrange(buckets_no)]
 
     buckets[0].append(source)
     buckets[-1] = filter(lambda id: id != source, range(0, node_count))
+
+    def idx(dist):
+        return dist if dist != sys.maxint else buckets_no-1
 
     def bucket_pop():
         for i in range(0, len(buckets)):
@@ -122,8 +125,8 @@ def dial(G, source):
             u_curr_dist = distances[u]
 
             if dist_through_v < u_curr_dist:
-                buckets[u_curr_dist].remove(u)
-                buckets[dist_through_v].append(u)
+                buckets[idx(u_curr_dist)].remove(u)
+                buckets[idx(dist_through_v)].append(u)
                 distances[u] = dist_through_v
 
         permament_labels_count += 1
@@ -200,7 +203,7 @@ def delta_stepping(G, source):
 def sssp_test(impl, G, source):
     pred, expected_dists = nx.bellman_ford(G, source, weight="weight")
     actual = impl(G, source)
-    actual_without_unreachable = dict(filter(lambda (k,v): v != float("Inf"), actual.iteritems()))
+    actual_without_unreachable = dict(filter(lambda (k,v): v != float("Inf") and v != sys.maxint, actual.iteritems()))
     return actual_without_unreachable, expected_dists
 
 def sssp_negative_cycle_test(impl, G, source):
