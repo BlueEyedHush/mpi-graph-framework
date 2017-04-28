@@ -1,3 +1,6 @@
 .idea/
 *.pyc
 
+framework/CMake*
+framework/cmake*
+framework/target
