@@ -8,4 +8,4 @@ ARTIFACT="$OUT_DIR"framework
 
 mkdir -p "$OUT_DIR"
 
-mpicc -cc=gcc -std=c11 -o "$ARTIFACT" "$DIR"main.c
+mpicc -cc=g++ -std=c++11 -o "$ARTIFACT" "$DIR"main.cpp

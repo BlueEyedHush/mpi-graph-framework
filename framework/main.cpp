@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <inttypes.h>
+#include <cstdio>
+#include <cinttypes>
 #include <mpi.h>
 
 /* complete graph with 4 vertices */
