@@ -4,3 +4,6 @@
 framework/CMake*
 framework/cmake*
 framework/target
+framework/framework
+framework/framework.cbp
+framework/Makefile
