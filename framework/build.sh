@@ -8,4 +8,5 @@ ARTIFACT="$OUT_DIR"framework
 
 mkdir -p "$OUT_DIR"
 
-mpicc -cc=g++ -std=c++11 -o "$ARTIFACT" "$DIR"main.cpp
+shopt -s globstar
+mpicc -cc=g++ -std=c++11 -o "$ARTIFACT" "${DIR}"src/**/*.cpp

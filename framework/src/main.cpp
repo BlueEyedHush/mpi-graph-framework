@@ -1,122 +1,19 @@
 #include <cstdio>
 #include <cinttypes>
 #include <mpi.h>
+#include "Graph.h"
+#include "representations/SimpleStaticGraph.h"
 
-#define VERTEX_ID_TYPE uint16_t
-#define SIZE_TYPE uint16_t
-
-template <class T> class Iterator {
-public:
-	virtual bool hasNext() = 0;
-	virtual T next() = 0;
-	virtual ~Iterator() {};
-};
 
 /*
  * @ToDo:
- * - split into multiple files
+ * - algorithm abstraction
  * - get neighbour count
  * - iterator over vertex ids
  * - vertex id string representation (+ use std::string isntead of char arrays)
- * - algorithm abstraction
  * - abstract away vertex id
  * - split vertices between processes
  */
-
-class Graph {
-public:
-	virtual SIZE_TYPE getVertexCount() = 0;
-	virtual SIZE_TYPE getEdgeCount() = 0;
-
-	virtual Iterator<VERTEX_ID_TYPE> *getNeighbourIterator(VERTEX_ID_TYPE vertexId) = 0;
-
-	virtual ~Graph() {};
-};
-
-void printGraph(Graph *g) {
-	for(SIZE_TYPE i = 0; i < g->getVertexCount(); i++) {
-		printf("%" SCNd16 ": ", i);
-		Iterator<VERTEX_ID_TYPE> *neighIt = g->getNeighbourIterator(i);
-		for(VERTEX_ID_TYPE id = 0; neighIt->hasNext(); id = neighIt->next()) {
-			printf("%" SCNd16 ", ", id);
-		}
-		delete neighIt;
-		printf("\n");
-	}
-}
-
-/* *** */
-
-/* complete graph with 4 vertices */
-#define E_N 12
-#define V_N 4
-
-class SimpleStaticGraph : public Graph {
-private:
-	static constexpr VERTEX_ID_TYPE E[E_N] = {
-			1, 2, 3,
-			0, 2, 3,
-			0, 1, 3,
-			0, 1, 2
-	};
-
-	static constexpr VERTEX_ID_TYPE V_OFFSETS[V_N] = {
-			0,
-			3,
-			6,
-			9
-	};
-
-	class NeighIt : public Iterator<VERTEX_ID_TYPE> {
-	private:
-		VERTEX_ID_TYPE nextId;
-		const VERTEX_ID_TYPE *neighbours;
-		SIZE_TYPE count;
-
-	public:
-		NeighIt(VERTEX_ID_TYPE v) : nextId(0) {
-			neighbours = &E[V_OFFSETS[v]];
-			count = nextId < (v != V_N - 1) ? (V_OFFSETS[v+1] - V_OFFSETS[v]) : (E_N - V_OFFSETS[V_N-1]);
-		}
-
-		virtual VERTEX_ID_TYPE next() override {
-			VERTEX_ID_TYPE el = neighbours[nextId];
-			nextId++;
-			return el;
-		}
-
-		virtual bool hasNext() override {
-			return nextId < count;
-		}
-
-		virtual ~NeighIt() override {}
-	};
-
-public:
-	virtual SIZE_TYPE getVertexCount() override {
-		return V_N;
-	}
-
-	virtual SIZE_TYPE getEdgeCount() override {
-		return E_N;
-	}
-
-	/*
-	 * User is responsible for removing iterator
-	 */
-	virtual Iterator<VERTEX_ID_TYPE> *getNeighbourIterator(VERTEX_ID_TYPE vertexId) {
-		return new NeighIt(vertexId);
-	}
-
-};
-
-constexpr VERTEX_ID_TYPE SimpleStaticGraph::V_OFFSETS[V_N];
-constexpr VERTEX_ID_TYPE SimpleStaticGraph::E[E_N];
-
-/* *** */
-
-
-/* *** */
 
 /*int main() {
 	Graph *g = new SimpleStaticGraph();
