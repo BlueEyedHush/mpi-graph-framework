@@ -9,4 +9,4 @@ ARTIFACT="$OUT_DIR"framework
 mkdir -p "$OUT_DIR"
 
 shopt -s globstar
-mpicc -cc=g++ -std=c++11 -o "$ARTIFACT" "${DIR}"src/**/*.cpp
+mpicc -cc=g++ -std=c++11 -ggdb3 -O0 -o "$ARTIFACT" "${DIR}"src/**/*.cpp

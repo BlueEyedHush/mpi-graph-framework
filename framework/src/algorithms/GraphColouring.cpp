@@ -15,7 +15,8 @@
 
 /*
  * @ToDo:
- * - debug logging
+ * - short-circuit for local nodes
+ * - get_local_nodes & get_node_owner - move to framework
  * - another list for 0ed vertices
  * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
  * - don't create set for vertices with 0 wait_count
@@ -24,7 +25,7 @@
  * - unit tests
  * - optimize functions for vertex <-> node placement? + unit tests for them
  * - correct error handling
- * - try to replace cleanup loops with waitsome
+ * - try to replace cleanup loops with waitsome or test_any/all
  * - dynamically adjust number of outstanding requests
  * - more generic buffer pool class + extend for special request buffer pool
  * - same function for cleaning up receive & send pools
@@ -32,6 +33,12 @@
 
 #define MPI_TAG 0
 #define OUTSTANDING_RECEIVE_REQUESTS 5
+#define WAIT_FOR_DEBUGGER 0
+
+#if WAIT_FOR_DEBUGGER == 1
+#include <unistd.h>
+#include <signal.h>
+#endif
 
 struct Message {
 	int receiving_node_id;
@@ -101,7 +108,7 @@ std::pair <int, int> get_current_process_range(int V, int N, int rank) {
 	int count = base + std::max(0, std::min(1, excess - rank));
 	int start = base * rank + std::min(rank, excess);
 
-	return std::make_pair(count, start);
+	return std::make_pair(start, start+count);
 };
 
 int get_node_from_vertex_id(int V, int N, int vertex_id) {
@@ -122,6 +129,13 @@ bool GraphColouring::run(Graph *g) {
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
+	#if WAIT_FOR_DEBUGGER == 1
+	volatile short execute_loop = 1;
+	fprintf(stderr, "[%d] PID: %d\n", world_rank, getpid());
+	//raise(SIGSTOP);
+	while(execute_loop == 1) {}
+	#endif
+
 	std::pair <int, int> v_range = get_current_process_range(g->getVertexCount(), world_size, world_rank);
 	int v_count = v_range.second - v_range.first;
 
@@ -138,6 +152,8 @@ bool GraphColouring::run(Graph *g) {
 	Message *receive_buffers = new Message[OUTSTANDING_RECEIVE_REQUESTS];
 	MPI_Request* *receive_requests = new MPI_Request*[OUTSTANDING_RECEIVE_REQUESTS];
 
+	fprintf(stderr, "[%d] Finished initialization\n", world_rank);
+
 	/* start outstanding receive requests */
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 		MPI_Request *receive_request = new MPI_Request;
@@ -145,22 +161,25 @@ bool GraphColouring::run(Graph *g) {
 		MPI_Irecv(&receive_buffers[i], 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, receive_request);
 	}
 
+	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", world_rank);
+
 	/* gather information about rank of neighbours */
 
-	for(int v_id = v_range.first; v_id < v_range.second; v_id++) {
-		int id = 0;
-		Iterator<int> *neighIt = g->getNeighbourIterator(world_rank);
+	for(int v_id = 0; v_id < v_count; v_id++) {
+		int neigh_id = 0;
+		Iterator<int> *neighIt = g->getNeighbourIterator(v_id);
 		while(neighIt->hasNext()) {
-			id = neighIt->next();
-			if (id > world_rank) {
+			neigh_id = neighIt->next();
+			if (neigh_id > v_range.first + v_id) {
 				wait_counters[v_id]++;
 			}
-
-			fprintf(stderr, "[RANK %" SCNd16 "] Node %" SCNd16 " wait for %" SCNd16 " nodes to establish colouring\n",
-			        world_rank, v_id, wait_counters[v_id]);
 		}
 		delete neighIt;
+		fprintf(stderr, "[%d] Node %d waits for %d nodes to establish colouring\n", world_rank, v_range.first + v_id,
+		        wait_counters[v_id]);
 	}
+
+	fprintf(stderr, "[%d] Finished gathering information about neighbours\n", world_rank);
 
 	int coloured_count = 0;
 	while(coloured_count < v_count) {
@@ -178,12 +197,15 @@ bool GraphColouring::run(Graph *g) {
 				}
 				int chosen_colour = previous_used_colour + 1;
 
+				fprintf(stderr, "!!! [%d] All neighbours of %d chosed colours, we choose %d\n", world_rank,
+				        rel_v_id + v_range.first, chosen_colour);
+
 				/* inform neighbours */
 				int neigh_id = 0;
-				Iterator<int> *neighIt = g->getNeighbourIterator(world_rank);
+				Iterator<int> *neighIt = g->getNeighbourIterator(v_range.first + rel_v_id);
 				while(neighIt->hasNext()) {
 					neigh_id = neighIt->next();
-					if (neigh_id < world_rank) {
+					if (neigh_id < v_range.first + rel_v_id) {
 						/* if it's larger it already has colour and is not interested */
 						BufferAndRequest *b = sendBuffers.allocateBuffer();
 						b->buffer.receiving_node_id = neigh_id;
@@ -191,26 +213,18 @@ bool GraphColouring::run(Graph *g) {
 
 						int target_node = get_node_from_vertex_id(g->getVertexCount(), world_size, neigh_id);
 						MPI_Isend(&b->buffer, 1, mpi_message_type, target_node, MPI_TAG, MPI_COMM_WORLD, &b->request);
+						fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node, neigh_id,
+						        chosen_colour);
 					}
-					delete neighIt;
 				}
+				delete neighIt;
+				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", world_rank);
 
+				wait_counters[rel_v_id] = -1;
 				coloured_count += 1;
-
-				/* wait for send requests and clean them up */
-				sendBuffers.tryFreeBuffers([](BufferAndRequest* b) {
-					int result = 0;
-					MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
-					if(result != 0) {
-						MPI_Wait(&b->request, MPI_STATUS_IGNORE);
-						return true;
-					} else {
-						return false;
-					}
-				});
-
 			}
 		}
+		fprintf(stderr, "[%d] Finished processing of 0-wait-count vertices\n", world_rank);
 
 		/* check if any outstanding receive request completed */
 		int receive_result;
@@ -220,15 +234,33 @@ bool GraphColouring::run(Graph *g) {
 
 			if(receive_result != 0) {
 				/* completed */
+				fprintf(stderr, "[%d] Before wait\n", world_rank);
 				MPI_Wait(receive_requests[i], MPI_STATUS_IGNORE);
-				int vid = receive_buffers[i].receiving_node_id;
-				wait_counters[vid] -= 1;
-				used_colours[vid].insert(receive_buffers[i].used_colour);
+				fprintf(stderr, "[%d] After wait\n", world_rank);
+				int rel_idx = receive_buffers[i].receiving_node_id - v_range.first;
+				wait_counters[rel_idx] -= 1;
+				used_colours[rel_idx].insert(receive_buffers[i].used_colour);
+				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", world_rank,
+				        receive_buffers[i].receiving_node_id, receive_buffers[i].used_colour);
 
 				/* post new request */
 				MPI_Irecv(&receive_buffers[i], 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, receive_requests[i]);
 			}
 		}
+		fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", world_rank);
+
+		/* wait for send requests and clean them up */
+		sendBuffers.tryFreeBuffers([](BufferAndRequest* b) {
+			int result = 0;
+			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
+			if(result != 0) {
+				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
+				return true;
+			} else {
+				return false;
+			}
+		});
+		fprintf(stderr, "[%d] Finished (for current iteration) waiting for send buffers\n", world_rank);
 	}
 
 	/* clean up */
@@ -241,6 +273,7 @@ bool GraphColouring::run(Graph *g) {
 
 	delete[] used_colours;
 	delete[] wait_counters;
+	fprintf(stderr, "[%d] Cleanup finished, terminating\n", world_rank);
 
 	return true;
 }
