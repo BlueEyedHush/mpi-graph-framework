@@ -11,30 +11,30 @@
 #define E_N 12
 #define V_N 4
 
-extern VERTEX_ID_TYPE E[E_N];
-extern SIZE_TYPE V_OFFSETS[V_N];
+extern int E[E_N];
+extern int V_OFFSETS[V_N];
 
-class NeighIt : public Iterator<VERTEX_ID_TYPE> {
+class NeighIt : public Iterator<int> {
 private:
-	VERTEX_ID_TYPE nextId;
-	const VERTEX_ID_TYPE *neighbours;
-	SIZE_TYPE count;
+	int nextId;
+	const int *neighbours;
+	int count;
 
 public:
-	NeighIt(VERTEX_ID_TYPE v);
-	virtual VERTEX_ID_TYPE next() override;
+	NeighIt(int v);
+	virtual int next() override;
 	virtual bool hasNext() override;
 	virtual ~NeighIt() override;
 };
 
 class SimpleStaticGraph : public Graph {
 public:
-	virtual SIZE_TYPE getVertexCount() override;
-	virtual SIZE_TYPE getEdgeCount() override;
+	virtual int getVertexCount() override;
+	virtual int getEdgeCount() override;
 	/*
 	 * User is responsible for removing iterator
 	 */
-	virtual Iterator<VERTEX_ID_TYPE> *getNeighbourIterator(VERTEX_ID_TYPE vertexId) override;
+	virtual Iterator<int> *getNeighbourIterator(int vertexId) override;
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

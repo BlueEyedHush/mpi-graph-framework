@@ -34,14 +34,14 @@
 #define OUTSTANDING_RECEIVE_REQUESTS 5
 
 struct Message {
-	VERTEX_ID_TYPE receiving_node_id;
-	uint16_t used_colour;
+	int receiving_node_id;
+	int used_colour;
 };
 
 void register_mpi_message(MPI_Datatype *memory) {
 	int blocklengths[] = {1, 1};
 	MPI_Aint displacements[] = {offsetof(Message, receiving_node_id), offsetof(Message, used_colour)};
-	MPI_Datatype building_types[] = {MPI_UINT16_T, MPI_UINT16_T};
+	MPI_Datatype building_types[] = {MPI_INT, MPI_INT};
 	MPI_Type_create_struct(2, blocklengths, displacements, building_types, memory);
 
 	MPI_Type_commit(memory);
@@ -94,24 +94,24 @@ public:
  * @param rank - rank of the requesting node
  * @return std::pair where first is index of first vertex and second is index of one vertex after last
  */
-std::pair <SIZE_TYPE, SIZE_TYPE> get_current_process_range(SIZE_TYPE V, int N, int rank) {
-	SIZE_TYPE base = V/N;
-	SIZE_TYPE excess = V%N;
+std::pair <int, int> get_current_process_range(int V, int N, int rank) {
+	int base = V/N;
+	int excess = V%N;
 
-	SIZE_TYPE count = base + std::max(0, std::min(1, excess - rank));
-	SIZE_TYPE start = base * rank + std::min(rank, excess);
+	int count = base + std::max(0, std::min(1, excess - rank));
+	int start = base * rank + std::min(rank, excess);
 
 	return std::make_pair(count, start);
 };
 
-int get_node_from_vertex_id(SIZE_TYPE V, int N, VERTEX_ID_TYPE vertex_id) {
-	SIZE_TYPE base = V/N;
-	SIZE_TYPE excess = V%N;
+int get_node_from_vertex_id(int V, int N, int vertex_id) {
+	int base = V/N;
+	int excess = V%N;
 
-	SIZE_TYPE prognosed_node = vertex_id/base;
+	int prognosed_node = vertex_id/base;
 	/* above would be target node if we didn't decided to partition excess the way we did
 	 * excess must be smaller than bucket width, so our vertex won't go much further than node_id back */
-	SIZE_TYPE prognosed_start = base * prognosed_node + std::min(prognosed_node, excess);
+	int prognosed_start = base * prognosed_node + std::min(prognosed_node, excess);
 
 	return (vertex_id >= prognosed_start) ? prognosed_node : prognosed_node-1;
 }
@@ -122,13 +122,13 @@ bool GraphColouring::run(Graph *g) {
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-	std::pair <SIZE_TYPE, SIZE_TYPE> v_range = get_current_process_range(g->getVertexCount(), world_size, world_rank);
-	SIZE_TYPE v_count = v_range.second - v_range.first;
+	std::pair <int, int> v_range = get_current_process_range(g->getVertexCount(), world_size, world_rank);
+	int v_count = v_range.second - v_range.first;
 
-	SIZE_TYPE *wait_counters = new SIZE_TYPE[v_count];
-	for(SIZE_TYPE i = 0; i < v_count; i++) wait_counters[i] = 0;
+	int *wait_counters = new int[v_count];
+	for(int i = 0; i < v_count; i++) wait_counters[i] = 0;
 
-	std::set <uint16_t> *used_colours = new std::set[v_count];
+	std::set <int> *used_colours = new std::set[v_count];
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
@@ -147,9 +147,9 @@ bool GraphColouring::run(Graph *g) {
 
 	/* gather information about rank of neighbours */
 
-	for(SIZE_TYPE v_id = v_range.first; v_id < v_range.second; v_id++) {
-		VERTEX_ID_TYPE id = 0;
-		Iterator<VERTEX_ID_TYPE> *neighIt = g->getNeighbourIterator(world_rank);
+	for(int v_id = v_range.first; v_id < v_range.second; v_id++) {
+		int id = 0;
+		Iterator<int> *neighIt = g->getNeighbourIterator(world_rank);
 		while(neighIt->hasNext()) {
 			id = neighIt->next();
 			if (id > world_rank) {
@@ -162,13 +162,13 @@ bool GraphColouring::run(Graph *g) {
 		delete neighIt;
 	}
 
-	SIZE_TYPE coloured_count = 0;
+	int coloured_count = 0;
 	while(coloured_count < v_count) {
 		/* process vertices with count == 0 */
-		for(VERTEX_ID_TYPE rel_v_id = 0; rel_v_id < v_count; rel_v_id++) {
+		for(int rel_v_id = 0; rel_v_id < v_count; rel_v_id++) {
 			if(wait_counters[rel_v_id] == 0) {
 				/* lets find smallest unused colour */
-				SIZE_TYPE iter_count = 0;
+				int iter_count = 0;
 				int previous_used_colour = -1;
 				/* find first gap */
 				for(auto used_colour: used_colours[rel_v_id]) {
@@ -176,11 +176,11 @@ bool GraphColouring::run(Graph *g) {
 					previous_used_colour = used_colour;
 					iter_count += 1;
 				}
-				uint16_t chosen_colour = previous_used_colour + 1;
+				int chosen_colour = previous_used_colour + 1;
 
 				/* inform neighbours */
-				VERTEX_ID_TYPE neigh_id = 0;
-				Iterator<VERTEX_ID_TYPE> *neighIt = g->getNeighbourIterator(world_rank);
+				int neigh_id = 0;
+				Iterator<int> *neighIt = g->getNeighbourIterator(world_rank);
 				while(neighIt->hasNext()) {
 					neigh_id = neighIt->next();
 					if (neigh_id < world_rank) {
@@ -214,14 +214,14 @@ bool GraphColouring::run(Graph *g) {
 
 		/* check if any outstanding receive request completed */
 		int receive_result;
-		for(VERTEX_ID_TYPE i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
+		for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 			receive_result = 0;
 			MPI_Test(receive_requests[i], &receive_result, MPI_STATUS_IGNORE);
 
 			if(receive_result != 0) {
 				/* completed */
 				MPI_Wait(receive_requests[i], MPI_STATUS_IGNORE);
-				VERTEX_ID_TYPE vid = receive_buffers[i].receiving_node_id;
+				int vid = receive_buffers[i].receiving_node_id;
 				wait_counters[vid] -= 1;
 				used_colours[vid].insert(receive_buffers[i].used_colour);
 

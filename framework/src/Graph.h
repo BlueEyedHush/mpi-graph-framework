@@ -7,9 +7,6 @@
 
 #include <cinttypes>
 
-#define VERTEX_ID_TYPE uint16_t
-#define SIZE_TYPE uint16_t
-
 template <class T> class Iterator {
 public:
 	virtual bool hasNext() = 0;
@@ -19,10 +16,10 @@ public:
 
 class Graph {
 public:
-	virtual SIZE_TYPE getVertexCount() = 0;
-	virtual SIZE_TYPE getEdgeCount() = 0;
+	virtual int getVertexCount() = 0;
+	virtual int getEdgeCount() = 0;
 
-	virtual Iterator<VERTEX_ID_TYPE> *getNeighbourIterator(VERTEX_ID_TYPE vertexId) = 0;
+	virtual Iterator<int> *getNeighbourIterator(int vertexId) = 0;
 
 	virtual ~Graph() {};
 };
