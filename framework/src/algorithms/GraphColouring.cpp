@@ -128,7 +128,7 @@ bool GraphColouring::run(Graph *g) {
 	int *wait_counters = new int[v_count];
 	for(int i = 0; i < v_count; i++) wait_counters[i] = 0;
 
-	std::set <int> *used_colours = new std::set[v_count];
+	std::set<int> *used_colours = new std::set<int>[v_count]();
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
@@ -232,7 +232,6 @@ bool GraphColouring::run(Graph *g) {
 	}
 
 	/* clean up */
-	delete sendBuffers;
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 		MPI_Cancel(receive_requests[i]);
 		delete receive_requests[i];
