@@ -24,13 +24,14 @@ bool GraphColouring::run(Graph *g) {
 	/* gather information about rank of neighbours */
 
 	int wait_counter = 0;
+	VERTEX_ID_TYPE id = 0;
 	Iterator<VERTEX_ID_TYPE> *neighIt = g->getNeighbourIterator(world_rank);
-	for(VERTEX_ID_TYPE id = 0; neighIt->hasNext(); id = neighIt->next()) {
+	while(neighIt->hasNext()) {
+		id = neighIt->next();
 		if (id > world_rank) {
 			wait_counter++;
 		}
 	}
-	delete neighIt;
 	fprintf(stderr, "[RANK %" SCNd16 "] Waiting for %" SCNd16 " nodes to establish colouring\n", world_rank, wait_counter);
 
 	/* wait until neighbours establish their colour */
@@ -61,12 +62,14 @@ bool GraphColouring::run(Graph *g) {
 
 	/* informing neighbours with lower id */
 
+	id = 0;
 	neighIt = g->getNeighbourIterator(world_rank);
-	for(VERTEX_ID_TYPE id = 0; neighIt->hasNext(); id = neighIt->next()) {
+	while(neighIt->hasNext()) {
+		id = neighIt->next();
 		if(id < world_rank) {
 			MPI_Send(&chosen_colour, 1, MPI_UINT16_T, id, 0, MPI_COMM_WORLD);
 		}
 	}
-	delete neighIt;
 
+	return true;
 }
