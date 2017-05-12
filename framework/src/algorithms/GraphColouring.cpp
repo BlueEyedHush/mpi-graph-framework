@@ -66,15 +66,15 @@ struct BufferAndRequest {
 	Message buffer;
 };
 
-class BufferPool {
+template <class T> class BufferPool {
 private:
-	std::list<BufferAndRequest*> freeBuffers;
-	std::list<BufferAndRequest*> allocatedBuffers;
+	std::list<T*> freeBuffers;
+	std::list<T*> allocatedBuffers;
 
 public:
 	BufferPool(int initialSize = 0) {
 		for(int i = 0; i < initialSize; i++) {
-			freeBuffers.push_front(new BufferAndRequest);
+			freeBuffers.push_front(new T);
 		}
 	}
 
@@ -95,10 +95,10 @@ public:
 	 * Always returns free buffer, even if it has to be allocated first
 	 * @return
 	 */
-	BufferAndRequest *getNewBuffer() {
-		BufferAndRequest *b = nullptr;
+	T *getNew() {
+		T *b = nullptr;
 		if (freeBuffers.empty()) {
-			b = new BufferAndRequest();
+			b = new T();
 		} else {
 			b = freeBuffers.front();
 			freeBuffers.pop_front();
@@ -113,7 +113,7 @@ public:
 	 * Otherwise return false
 	 * @param f
 	 */
-	void foreachFreeBuffer(const std::function<bool(BufferAndRequest *)> &f) {
+	void foreachFree(const std::function<bool(T *)> &f) {
 		iterate(freeBuffers, allocatedBuffers, f);
 	}
 
@@ -123,14 +123,14 @@ public:
 	 * If you're still using the buffer, return false
 	 * @param f
 	 */
-	void foreachUsedBuffer(const std::function<bool(BufferAndRequest *)> &f) {
+	void foreachUsed(const std::function<bool(T *)> &f) {
 		iterate(allocatedBuffers, freeBuffers, f);
 	}
 
 private:
-	static void iterate(std::list<BufferAndRequest*> &first,
-	                    std::list<BufferAndRequest*> &second,
-	                    const std::function<bool(BufferAndRequest *)> &f) {
+	static void iterate(std::list<T*> &first,
+	                    std::list<T*> &second,
+	                    const std::function<bool(T*)> &f) {
 		for (auto it = first.begin(); it != first.end();) {
 			if (f(*it)) {
 				second.push_front(*it);
@@ -162,13 +162,13 @@ bool GraphColouring::run(Graph *g) {
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
 
-	BufferPool sendBuffers;
-	BufferPool receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
+	BufferPool<BufferAndRequest> sendBuffers;
+	BufferPool<BufferAndRequest> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
 	fprintf(stderr, "[%d] Finished initialization\n", world_rank);
 
 	/* start outstanding receive requests */
-	receiveBuffers.foreachFreeBuffer([&](BufferAndRequest *b) {
+	receiveBuffers.foreachFree([&](BufferAndRequest *b) {
 		MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
 		return true;
 	});
@@ -220,7 +220,7 @@ bool GraphColouring::run(Graph *g) {
 							fprintf(stderr, "[%d] %d is local, informing about colour %d\n", world_rank, neigh_id,
 							        chosen_colour);
 						} else {
-							BufferAndRequest *b = sendBuffers.getNewBuffer();
+							BufferAndRequest *b = sendBuffers.getNew();
 							b->buffer.receiving_node_id = neigh_id;
 							b->buffer.used_colour = chosen_colour;
 
@@ -241,11 +241,11 @@ bool GraphColouring::run(Graph *g) {
 
 		/* check if any outstanding receive request completed */
 		int receive_result;
-		receiveBuffers.foreachUsedBuffer([&](BufferAndRequest *b) {
+		receiveBuffers.foreachUsed([&](BufferAndRequest *b) {
 			receive_result = 0;
 			MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
 
-			if(receive_result != 0) {
+			if (receive_result != 0) {
 				/* completed */
 				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 				int t_id = b->buffer.receiving_node_id;
@@ -264,7 +264,7 @@ bool GraphColouring::run(Graph *g) {
 		fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", world_rank);
 
 		/* wait for send requests and clean them up */
-		sendBuffers.foreachUsedBuffer([](BufferAndRequest *b) {
+		sendBuffers.foreachUsed([](BufferAndRequest *b) {
 			int result = 0;
 			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
 			if (result != 0) {
@@ -278,7 +278,7 @@ bool GraphColouring::run(Graph *g) {
 	}
 
 	/* clean up */
-	receiveBuffers.foreachUsedBuffer([&](BufferAndRequest* b) {
+	receiveBuffers.foreachUsed([&](BufferAndRequest *b) {
 		MPI_Cancel(&b->request);
 		return true;
 	});
