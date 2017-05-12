@@ -6,20 +6,14 @@
 #define FRAMEWORK_GRAPH_H
 
 #include <cinttypes>
-
-template <class T> class Iterator {
-public:
-	virtual bool hasNext() = 0;
-	virtual T next() = 0;
-	virtual ~Iterator() {};
-};
+#include <functional>
 
 class Graph {
 public:
 	virtual int getVertexCount() = 0;
 	virtual int getEdgeCount() = 0;
 
-	virtual Iterator<int> *getNeighbourIterator(int vertexId) = 0;
+	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) = 0;
 
 	virtual ~Graph() {};
 };

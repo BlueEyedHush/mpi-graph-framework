@@ -18,23 +18,6 @@ int V_OFFSETS[V_N] = {
 	9
 };
 
-NeighIt::NeighIt(int v) : nextId(0) {
-	neighbours = &E[V_OFFSETS[v]];
-	count = nextId < (v != V_N - 1) ? (V_OFFSETS[v+1] - V_OFFSETS[v]) : (E_N - V_OFFSETS[V_N-1]);
-}
-
-int NeighIt::next() {
-	int el = neighbours[nextId];
-	nextId++;
-	return el;
-}
-
-bool NeighIt::hasNext() {
-	return nextId < count;
-}
-
-NeighIt::~NeighIt() {}
-
 int SimpleStaticGraph::getVertexCount() {
 	return V_N;
 }
@@ -43,6 +26,11 @@ int SimpleStaticGraph::getEdgeCount() {
 	return E_N;
 }
 
-Iterator<int> *SimpleStaticGraph::getNeighbourIterator(int vertexId) {
-	return new NeighIt(vertexId);
+void SimpleStaticGraph::forEachNeighbour(int v, std::function<void(int)> f) {
+	int *neighbours = &E[V_OFFSETS[v]];
+	int count = (v != V_N - 1) ? (V_OFFSETS[v+1] - V_OFFSETS[v]) : (E_N - V_OFFSETS[V_N-1]);
+
+	for(int i = 0; i < count; i++) {
+		f(neighbours[i]);
+	}
 }

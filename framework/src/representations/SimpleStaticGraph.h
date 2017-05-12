@@ -14,19 +14,6 @@
 extern int E[E_N];
 extern int V_OFFSETS[V_N];
 
-class NeighIt : public Iterator<int> {
-private:
-	int nextId;
-	const int *neighbours;
-	int count;
-
-public:
-	NeighIt(int v);
-	virtual int next() override;
-	virtual bool hasNext() override;
-	virtual ~NeighIt() override;
-};
-
 class SimpleStaticGraph : public Graph {
 public:
 	virtual int getVertexCount() override;
@@ -34,7 +21,7 @@ public:
 	/*
 	 * User is responsible for removing iterator
 	 */
-	virtual Iterator<int> *getNeighbourIterator(int vertexId) override;
+	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) override;
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

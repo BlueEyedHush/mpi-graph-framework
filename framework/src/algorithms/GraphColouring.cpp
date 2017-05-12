@@ -15,13 +15,13 @@
 
 /*
  * @ToDo:
- * - short-circuit for local nodes
  * - get_local_nodes & get_node_owner - move to framework
+ * - short-circuit for local nodes
+ * - iterate over vertices - use foreach
  * - another list for 0ed vertices
  * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
  * - don't create set for vertices with 0 wait_count
  * - single initialization loop
- * - C++ features: auto loops (instead iterators), use std iterator instead of your own
  * - unit tests
  * - optimize functions for vertex <-> node placement? + unit tests for them
  * - correct error handling
@@ -166,15 +166,11 @@ bool GraphColouring::run(Graph *g) {
 	/* gather information about rank of neighbours */
 
 	for(int v_id = 0; v_id < v_count; v_id++) {
-		int neigh_id = 0;
-		Iterator<int> *neighIt = g->getNeighbourIterator(v_id);
-		while(neighIt->hasNext()) {
-			neigh_id = neighIt->next();
+		g->forEachNeighbour(v_id, [&](int neigh_id) {
 			if (neigh_id > v_range.first + v_id) {
 				wait_counters[v_id]++;
 			}
-		}
-		delete neighIt;
+		});
 		fprintf(stderr, "[%d] Node %d waits for %d nodes to establish colouring\n", world_rank, v_range.first + v_id,
 		        wait_counters[v_id]);
 	}
@@ -201,10 +197,7 @@ bool GraphColouring::run(Graph *g) {
 				        rel_v_id + v_range.first, chosen_colour);
 
 				/* inform neighbours */
-				int neigh_id = 0;
-				Iterator<int> *neighIt = g->getNeighbourIterator(v_range.first + rel_v_id);
-				while(neighIt->hasNext()) {
-					neigh_id = neighIt->next();
+				g->forEachNeighbour(v_range.first + rel_v_id, [&](int neigh_id) {
 					if (neigh_id < v_range.first + rel_v_id) {
 						/* if it's larger it already has colour and is not interested */
 						BufferAndRequest *b = sendBuffers.allocateBuffer();
@@ -216,8 +209,7 @@ bool GraphColouring::run(Graph *g) {
 						fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node, neigh_id,
 						        chosen_colour);
 					}
-				}
-				delete neighIt;
+				});
 				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", world_rank);
 
 				wait_counters[rel_v_id] = -1;
