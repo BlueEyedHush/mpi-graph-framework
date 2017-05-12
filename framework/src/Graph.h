@@ -11,9 +11,12 @@
 class Graph {
 public:
 	virtual int getVertexCount() = 0;
+	virtual int getLocalVertexCount() = 0;
 	virtual int getEdgeCount() = 0;
 
 	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) = 0;
+	virtual void forEachLocalVertex(std::function<void(int)> f) = 0;
+	virtual int getNodeResponsibleForVertex(int id) = 0;
 
 	virtual ~Graph() {};
 };

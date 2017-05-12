@@ -16,7 +16,6 @@
 
 /*
  * @ToDo:
- * - get_local_nodes & get_node_owner - move to framework
  * - short-circuit for local nodes
  * - iterate over vertices - use foreach
  * - another list for 0ed vertices
@@ -101,36 +100,7 @@ public:
 	}
 };
 
-/**
- * Each node gets vertex_no/world_size vertices. The excess (k = vertex_no % world_rank) is distributed between
- * first k nodes
- *
- * @param V - number of vertices
- * @param N - number of nodes
- * @param rank - rank of the requesting node
- * @return std::pair where first is index of first vertex and second is index of one vertex after last
- */
-std::pair <int, int> get_current_process_range(int V, int N, int rank) {
-	int base = V/N;
-	int excess = V%N;
 
-	int count = base + std::max(0, std::min(1, excess - rank));
-	int start = base * rank + std::min(rank, excess);
-
-	return std::make_pair(start, start+count);
-};
-
-int get_node_from_vertex_id(int V, int N, int vertex_id) {
-	int base = V/N;
-	int excess = V%N;
-
-	int prognosed_node = vertex_id/base;
-	/* above would be target node if we didn't decided to partition excess the way we did
-	 * excess must be smaller than bucket width, so our vertex won't go much further than node_id back */
-	int prognosed_start = base * prognosed_node + std::min(prognosed_node, excess);
-
-	return (vertex_id >= prognosed_start) ? prognosed_node : prognosed_node-1;
-}
 
 bool GraphColouring::run(Graph *g) {
 	int world_rank;
@@ -144,8 +114,6 @@ bool GraphColouring::run(Graph *g) {
 	//raise(SIGSTOP);
 	while(execute_loop == 1) {}
 	#endif
-
-	std::pair <int, int> v_range = get_current_process_range(g->getVertexCount(), world_size, world_rank);
 
 	std::unordered_map<int, VertexTempData*> vertexDataMap;
 
@@ -169,8 +137,7 @@ bool GraphColouring::run(Graph *g) {
 	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", world_rank);
 
 	/* gather information about rank of neighbours & initialize temporary structures */
-
-	for(int v_id = v_range.first; v_id < v_range.second; v_id++) {
+	g->forEachLocalVertex([&](int v_id) {
 		vertexDataMap[v_id] = new VertexTempData();
 
 		g->forEachNeighbour(v_id, [&](int neigh_id) {
@@ -181,14 +148,14 @@ bool GraphColouring::run(Graph *g) {
 
 		fprintf(stderr, "[%d] Node %d waits for %d nodes to establish colouring\n", world_rank, v_id,
 		        vertexDataMap[v_id]->wait_counter);
-	}
+	});
 
 	fprintf(stderr, "[%d] Finished gathering information about neighbours\n", world_rank);
 
 	int coloured_count = 0;
-	while(coloured_count < (v_range.second - v_range.first)) {
+	while(coloured_count < g->getLocalVertexCount()) {
 		/* process vertices with count == 0 */
-		for(int v_id = v_range.first; v_id < v_range.second; v_id++) {
+		g->forEachLocalVertex([&](int v_id) {
 			if(vertexDataMap[v_id]->wait_counter == 0) {
 				/* lets find smallest unused colour */
 				int iter_count = 0;
@@ -212,7 +179,7 @@ bool GraphColouring::run(Graph *g) {
 						b->buffer.receiving_node_id = neigh_id;
 						b->buffer.used_colour = chosen_colour;
 
-						int target_node = get_node_from_vertex_id(g->getVertexCount(), world_size, neigh_id);
+						int target_node = g->getNodeResponsibleForVertex(neigh_id);
 						MPI_Isend(&b->buffer, 1, mpi_message_type, target_node, MPI_TAG, MPI_COMM_WORLD, &b->request);
 						fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node, neigh_id,
 						        chosen_colour);
@@ -223,7 +190,7 @@ bool GraphColouring::run(Graph *g) {
 				vertexDataMap[v_id]->wait_counter = -1;
 				coloured_count += 1;
 			}
-		}
+		});
 		fprintf(stderr, "[%d] Finished processing of 0-wait-count vertices\n", world_rank);
 
 		/* check if any outstanding receive request completed */

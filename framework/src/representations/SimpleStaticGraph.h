@@ -16,12 +16,29 @@ extern int V_OFFSETS[V_N];
 
 class SimpleStaticGraph : public Graph {
 public:
+	SimpleStaticGraph();
+
 	virtual int getVertexCount() override;
+	virtual int getLocalVertexCount() override;
 	virtual int getEdgeCount() override;
 	/*
 	 * User is responsible for removing iterator
 	 */
 	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) override;
+	virtual void forEachLocalVertex(std::function<void(int)> f) override;
+	virtual int getNodeResponsibleForVertex(int id) override;
+
+private:
+	int world_size;
+	int world_rank;
+
+	int base_allocation;
+	int excess;
+
+	int first;
+	int one_after_last;
+
+	std::pair <int, int> get_process_range(int rank);
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

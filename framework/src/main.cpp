@@ -21,9 +21,9 @@
 }*/
 
 int main() {
-	Graph *g = new SimpleStaticGraph();
-
 	MPI_Init(NULL, NULL);
+
+	Graph *g = new SimpleStaticGraph();
 
 	Algorithm *algorithm = new GraphColouring();
 	bool result = algorithm->run(g);
