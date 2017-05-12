@@ -15,6 +15,8 @@ public:
 	virtual int getEdgeCount() = 0;
 
 	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) = 0;
+
+	virtual bool isLocalVertex(int id) = 0;
 	virtual void forEachLocalVertex(std::function<void(int)> f) = 0;
 	virtual int getNodeResponsibleForVertex(int id) = 0;
 

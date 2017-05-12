@@ -53,6 +53,10 @@ void SimpleStaticGraph::forEachNeighbour(int v, std::function<void(int)> f) {
 	}
 }
 
+bool SimpleStaticGraph::isLocalVertex(int id) {
+	return id >= first && id < one_after_last;
+};
+
 void SimpleStaticGraph::forEachLocalVertex(std::function<void(int)> f) {
 	for(int i = first; i < one_after_last; i++) {
 		f(i);
@@ -80,4 +84,4 @@ std::pair <int, int> SimpleStaticGraph::get_process_range(int rank) {
 	int start = base_allocation * rank + std::min(rank, excess);
 
 	return std::make_pair(start, start+count);
-};
+}

@@ -21,10 +21,10 @@ public:
 	virtual int getVertexCount() override;
 	virtual int getLocalVertexCount() override;
 	virtual int getEdgeCount() override;
-	/*
-	 * User is responsible for removing iterator
-	 */
+
 	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) override;
+
+	virtual bool isLocalVertex(int id) override;
 	virtual void forEachLocalVertex(std::function<void(int)> f) override;
 	virtual int getNodeResponsibleForVertex(int id) override;
 

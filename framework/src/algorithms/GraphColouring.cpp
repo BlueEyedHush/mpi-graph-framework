@@ -16,7 +16,6 @@
 
 /*
  * @ToDo:
- * - short-circuit for local nodes
  * - iterate over vertices - use foreach
  * - another list for 0ed vertices
  * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
@@ -175,14 +174,21 @@ bool GraphColouring::run(Graph *g) {
 				g->forEachNeighbour(v_id, [&](int neigh_id) {
 					if (neigh_id < v_id) {
 						/* if it's larger it already has colour and is not interested */
-						BufferAndRequest *b = sendBuffers.allocateBuffer();
-						b->buffer.receiving_node_id = neigh_id;
-						b->buffer.used_colour = chosen_colour;
+						if(g->isLocalVertex(neigh_id)) {
+							vertexDataMap[neigh_id]->wait_counter -= 1;
+							vertexDataMap[neigh_id]->used_colours.insert(chosen_colour);
+							fprintf(stderr, "[%d] %d is local, informing about colour %d\n", world_rank, neigh_id,
+							        chosen_colour);
+						} else {
+							BufferAndRequest *b = sendBuffers.allocateBuffer();
+							b->buffer.receiving_node_id = neigh_id;
+							b->buffer.used_colour = chosen_colour;
 
-						int target_node = g->getNodeResponsibleForVertex(neigh_id);
-						MPI_Isend(&b->buffer, 1, mpi_message_type, target_node, MPI_TAG, MPI_COMM_WORLD, &b->request);
-						fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node, neigh_id,
-						        chosen_colour);
+							int target_node = g->getNodeResponsibleForVertex(neigh_id);
+							MPI_Isend(&b->buffer, 1, mpi_message_type, target_node, MPI_TAG, MPI_COMM_WORLD, &b->request);
+							fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node,
+							        neigh_id, chosen_colour);
+						}
 					}
 				});
 				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", world_rank);
