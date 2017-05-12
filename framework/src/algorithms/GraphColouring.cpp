@@ -6,9 +6,8 @@
 #include <algorithm>
 #include <cstring>
 #include <cstddef>
-#include <utility>
+#include <functional>
 #include <set>
-#include <stack>
 #include <list>
 #include <unordered_map>
 #include <mpi.h>
@@ -16,6 +15,9 @@
 
 /*
  * @ToDo:
+ * - dynamically adjust number of outstanding requests
+ * - same functions for receive & send pools, same function for spawning new outstanding receive requests
+ * - more generic buffer pool class + extend for special request buffer pool
  * - iterate over vertices - use foreach
  * - another list for 0ed vertices
  * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
@@ -25,10 +27,8 @@
  * - optimize functions for vertex <-> node placement? + unit tests for them
  * - correct error handling
  * - try to replace cleanup loops with waitsome or test_any/all
- * - dynamically adjust number of outstanding requests
- * - more generic buffer pool class + extend for special request buffer pool
- * - same function for cleaning up receive & send pools
  * - is MPI_Wait needed with MPI_Test?
+ * - pass std::functions by reference
  */
 
 #define MPI_TAG 0
@@ -68,30 +68,73 @@ struct BufferAndRequest {
 
 class BufferPool {
 private:
-	std::stack<BufferAndRequest*> freeBuffers;
+	std::list<BufferAndRequest*> freeBuffers;
 	std::list<BufferAndRequest*> allocatedBuffers;
 
 public:
-	BufferPool() {}
-	~BufferPool() {}
+	BufferPool(int initialSize = 0) {
+		for(int i = 0; i < initialSize; i++) {
+			freeBuffers.push_front(new BufferAndRequest);
+		}
+	}
 
-	BufferAndRequest *allocateBuffer() {
+	~BufferPool() {
+		for(auto b: freeBuffers) {
+			delete b;
+		}
+
+		if(!allocatedBuffers.empty()) {
+			fprintf(stderr, "WARN: some buffers in BufferPool remain not freed!");
+			for(auto b: allocatedBuffers) {
+				delete b;
+			}
+		}
+	}
+
+	/**
+	 * Always returns free buffer, even if it has to be allocated first
+	 * @return
+	 */
+	BufferAndRequest *getNewBuffer() {
 		BufferAndRequest *b = nullptr;
 		if (freeBuffers.empty()) {
 			b = new BufferAndRequest();
 		} else {
-			b = freeBuffers.top();
-			freeBuffers.pop();
+			b = freeBuffers.front();
+			freeBuffers.pop_front();
 		}
 		allocatedBuffers.push_front(b);
 		return b;
 	}
 
-	void tryFreeBuffers(bool (*freer)(BufferAndRequest*)) {
-		for (auto it = allocatedBuffers.begin(); it != allocatedBuffers.end();) {
-			if (freer(*it)) {
-				freeBuffers.push(*it);
-				it = allocatedBuffers.erase(it);
+	/**
+	 * Iterates over all free.
+	 * To singal that buffer is now used, return true.
+	 * Otherwise return false
+	 * @param f
+	 */
+	void foreachFreeBuffer(const std::function<bool(BufferAndRequest *)> &f) {
+		iterate(freeBuffers, allocatedBuffers, f);
+	}
+
+	/**
+	 * Iterates over all used buffers.
+	 * To singal that buffer has been freed, return true from f.
+	 * If you're still using the buffer, return false
+	 * @param f
+	 */
+	void foreachUsedBuffer(const std::function<bool(BufferAndRequest *)> &f) {
+		iterate(allocatedBuffers, freeBuffers, f);
+	}
+
+private:
+	static void iterate(std::list<BufferAndRequest*> &first,
+	                    std::list<BufferAndRequest*> &second,
+	                    const std::function<bool(BufferAndRequest *)> &f) {
+		for (auto it = first.begin(); it != first.end();) {
+			if (f(*it)) {
+				second.push_front(*it);
+				it = first.erase(it);
 			} else {
 				it++;
 			}
@@ -120,18 +163,15 @@ bool GraphColouring::run(Graph *g) {
 	register_mpi_message(&mpi_message_type);
 
 	BufferPool sendBuffers;
-
-	Message *receive_buffers = new Message[OUTSTANDING_RECEIVE_REQUESTS];
-	MPI_Request* *receive_requests = new MPI_Request*[OUTSTANDING_RECEIVE_REQUESTS];
+	BufferPool receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
 	fprintf(stderr, "[%d] Finished initialization\n", world_rank);
 
 	/* start outstanding receive requests */
-	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
-		MPI_Request *receive_request = new MPI_Request;
-		receive_requests[i] = receive_request;
-		MPI_Irecv(&receive_buffers[i], 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, receive_request);
-	}
+	receiveBuffers.foreachFreeBuffer([&](BufferAndRequest *b) {
+		MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
+		return true;
+	});
 
 	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", world_rank);
 
@@ -180,7 +220,7 @@ bool GraphColouring::run(Graph *g) {
 							fprintf(stderr, "[%d] %d is local, informing about colour %d\n", world_rank, neigh_id,
 							        chosen_colour);
 						} else {
-							BufferAndRequest *b = sendBuffers.allocateBuffer();
+							BufferAndRequest *b = sendBuffers.getNewBuffer();
 							b->buffer.receiving_node_id = neigh_id;
 							b->buffer.used_colour = chosen_colour;
 
@@ -201,32 +241,33 @@ bool GraphColouring::run(Graph *g) {
 
 		/* check if any outstanding receive request completed */
 		int receive_result;
-		for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
+		receiveBuffers.foreachUsedBuffer([&](BufferAndRequest *b) {
 			receive_result = 0;
-			MPI_Test(receive_requests[i], &receive_result, MPI_STATUS_IGNORE);
+			MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
 
 			if(receive_result != 0) {
 				/* completed */
-				fprintf(stderr, "[%d] Before wait\n", world_rank);
-				MPI_Wait(receive_requests[i], MPI_STATUS_IGNORE);
-				fprintf(stderr, "[%d] After wait\n", world_rank);
-				int t_id = receive_buffers[i].receiving_node_id;
+				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
+				int t_id = b->buffer.receiving_node_id;
 				vertexDataMap[t_id]->wait_counter -= 1;
-				vertexDataMap[t_id]->used_colours.insert(receive_buffers[i].used_colour);
-				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", world_rank,
-				        receive_buffers[i].receiving_node_id, receive_buffers[i].used_colour);
+				vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
+				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", world_rank, b->buffer.receiving_node_id,
+				        b->buffer.used_colour);
 
 				/* post new request */
-				MPI_Irecv(&receive_buffers[i], 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, receive_requests[i]);
+				MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
 			}
-		}
+
+			/* one way or another, buffer doesn't change it's status */
+			return false;
+		});
 		fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", world_rank);
 
 		/* wait for send requests and clean them up */
-		sendBuffers.tryFreeBuffers([](BufferAndRequest* b) {
+		sendBuffers.foreachUsedBuffer([](BufferAndRequest *b) {
 			int result = 0;
 			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
-			if(result != 0) {
+			if (result != 0) {
 				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 				return true;
 			} else {
@@ -237,12 +278,10 @@ bool GraphColouring::run(Graph *g) {
 	}
 
 	/* clean up */
-	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
-		MPI_Cancel(receive_requests[i]);
-		delete receive_requests[i];
-	}
-	delete[] receive_requests;
-	delete[] receive_buffers;
+	receiveBuffers.foreachUsedBuffer([&](BufferAndRequest* b) {
+		MPI_Cancel(&b->request);
+		return true;
+	});
 
 	for(auto kv: vertexDataMap) {
 		delete kv.second;
