@@ -54,6 +54,13 @@ void register_mpi_message(MPI_Datatype *memory) {
 	MPI_Type_commit(memory);
 }
 
+struct VertexTempData {
+	VertexTempData() : wait_counter(0) {}
+
+	std::set<int> used_colours;
+	int wait_counter;
+};
+
 struct BufferAndRequest {
 	MPI_Request request;
 	Message buffer;
@@ -139,10 +146,7 @@ bool GraphColouring::run(Graph *g) {
 	std::pair <int, int> v_range = get_current_process_range(g->getVertexCount(), world_size, world_rank);
 	int v_count = v_range.second - v_range.first;
 
-	int *wait_counters = new int[v_count];
-	for(int i = 0; i < v_count; i++) wait_counters[i] = 0;
-
-	std::set<int> *used_colours = new std::set<int>[v_count]();
+	VertexTempData *vertexData = new VertexTempData[v_count];
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
@@ -168,11 +172,11 @@ bool GraphColouring::run(Graph *g) {
 	for(int v_id = 0; v_id < v_count; v_id++) {
 		g->forEachNeighbour(v_id, [&](int neigh_id) {
 			if (neigh_id > v_range.first + v_id) {
-				wait_counters[v_id]++;
+				vertexData[v_id].wait_counter++;
 			}
 		});
 		fprintf(stderr, "[%d] Node %d waits for %d nodes to establish colouring\n", world_rank, v_range.first + v_id,
-		        wait_counters[v_id]);
+		        vertexData[v_id].wait_counter);
 	}
 
 	fprintf(stderr, "[%d] Finished gathering information about neighbours\n", world_rank);
@@ -181,12 +185,12 @@ bool GraphColouring::run(Graph *g) {
 	while(coloured_count < v_count) {
 		/* process vertices with count == 0 */
 		for(int rel_v_id = 0; rel_v_id < v_count; rel_v_id++) {
-			if(wait_counters[rel_v_id] == 0) {
+			if(vertexData[rel_v_id].wait_counter == 0) {
 				/* lets find smallest unused colour */
 				int iter_count = 0;
 				int previous_used_colour = -1;
 				/* find first gap */
-				for(auto used_colour: used_colours[rel_v_id]) {
+				for(auto used_colour: vertexData[rel_v_id].used_colours) {
 					if (iter_count < used_colour) break; /* we found gap */
 					previous_used_colour = used_colour;
 					iter_count += 1;
@@ -212,7 +216,7 @@ bool GraphColouring::run(Graph *g) {
 				});
 				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", world_rank);
 
-				wait_counters[rel_v_id] = -1;
+				vertexData[rel_v_id].wait_counter = -1;
 				coloured_count += 1;
 			}
 		}
@@ -230,8 +234,8 @@ bool GraphColouring::run(Graph *g) {
 				MPI_Wait(receive_requests[i], MPI_STATUS_IGNORE);
 				fprintf(stderr, "[%d] After wait\n", world_rank);
 				int rel_idx = receive_buffers[i].receiving_node_id - v_range.first;
-				wait_counters[rel_idx] -= 1;
-				used_colours[rel_idx].insert(receive_buffers[i].used_colour);
+				vertexData[rel_idx].wait_counter -= 1;
+				vertexData[rel_idx].used_colours.insert(receive_buffers[i].used_colour);
 				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", world_rank,
 				        receive_buffers[i].receiving_node_id, receive_buffers[i].used_colour);
 
@@ -263,8 +267,7 @@ bool GraphColouring::run(Graph *g) {
 	delete[] receive_requests;
 	delete[] receive_buffers;
 
-	delete[] used_colours;
-	delete[] wait_counters;
+	delete[] vertexData;
 	fprintf(stderr, "[%d] Cleanup finished, terminating\n", world_rank);
 
 	return true;
