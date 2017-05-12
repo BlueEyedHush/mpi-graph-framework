@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <mpi.h>
 #include "GraphColouring.h"
-#include "../utils/BufferPool.h"
+#include <utils/BufferPool.h>
 
 /*
  * @ToDo:
@@ -21,16 +21,11 @@
  * - iterate over vertices - use foreach
  * - another list for 0ed vertices
  * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
- * - don't create set for vertices with 0 wait_count
- * - single initialization loop
  * - unit tests
- * - optimize functions for vertex <-> node placement? + unit tests for them
  * - correct error handling
  * - try to replace cleanup loops with waitsome or test_any/all
  * - is MPI_Wait needed with MPI_Test?
  * - pass std::functions by reference
- * - used absolute include paths
- * - use CMake for building instead script
  */
 
 #define MPI_TAG 0

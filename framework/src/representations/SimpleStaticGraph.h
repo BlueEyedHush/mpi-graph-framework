@@ -5,7 +5,7 @@
 #ifndef FRAMEWORK_SIMPLESTATICGRAPH_H
 #define FRAMEWORK_SIMPLESTATICGRAPH_H
 
-#include "../Graph.h"
+#include <Graph.h>
 
 /* complete graph with 4 vertices */
 #define E_N 12

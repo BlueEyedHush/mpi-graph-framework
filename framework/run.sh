@@ -5,6 +5,6 @@ NODES=2
 REL_DIR="$(dirname "${BASH_SOURCE[0]}")"
 DIR="$(readlink -e $REL_DIR)"/
 
-ARTIFACT="$DIR"target/framework
+ARTIFACT="$DIR"/framework
 
 mpiexec -n $NODES "$ARTIFACT" $@
