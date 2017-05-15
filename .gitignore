@@ -1,8 +1,9 @@
 .idea/
 *.pyc
 
-framework/CMake*
-framework/cmake*
+framework/CMakeCache.txt
+framework/CMakeFiles/
+framework/cmake_install.cmake
 framework/target
 framework/framework
 framework/framework.cbp
