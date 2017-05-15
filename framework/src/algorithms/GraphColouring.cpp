@@ -209,3 +209,9 @@ bool GraphColouringMP::run(Graph *g) {
 
 	return true;
 }
+
+
+
+bool GraphColouringRMA::run(Graph *g) {
+
+}

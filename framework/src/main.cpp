@@ -25,7 +25,7 @@ int main() {
 
 	Graph *g = new SimpleStaticGraph();
 
-	Algorithm *algorithm = new GraphColouringMP();
+	Algorithm *algorithm = new GraphColouringRMA();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);

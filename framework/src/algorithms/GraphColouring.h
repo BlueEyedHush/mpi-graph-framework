@@ -11,5 +11,8 @@ class GraphColouringMP : public Algorithm {
 	virtual bool run(Graph *g) override;
 };
 
+class GraphColouringRMA : public Algorithm {
+	virtual bool run(Graph *g) override;
+};
 
 #endif //FRAMEWORK_GRAPHCOLOURING_H
