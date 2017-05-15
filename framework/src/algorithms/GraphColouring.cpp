@@ -29,14 +29,13 @@ bool GraphColouring::run(Graph *g) {
 	SIZE_TYPE neighbours_processed = 0;
 	MPI_Win_create(&neighbours_processed, sizeof(SIZE_TYPE), sizeof(SIZE_TYPE), MPI_INFO_NULL, MPI_COMM_WORLD,
 	               &neighbours_processed_w);
-	MPI_Win_fence(0, neighbours_processed_w);
+	MPI_Win_lock_all(MPI_MODE_NOCHECK, neighbours_processed_w);
 
 	COLOUR_TYPE *used_colours = new COLOUR_TYPE[g->getVertexCount()];
+	memset(used_colours, 0, sizeof(SIZE_TYPE)*g->getVertexCount());
 	MPI_Win used_colours_w;
 	MPI_Win_create(used_colours, sizeof(COLOUR_TYPE)*g->getVertexCount(), sizeof(COLOUR_TYPE), MPI_INFO_NULL, MPI_COMM_WORLD, &used_colours_w);
-
-	memset(used_colours, 0, sizeof(SIZE_TYPE)*g->getVertexCount());
-	MPI_Win_post(world_group, 0, used_colours_w);
+	MPI_Win_lock_all(MPI_MODE_NOCHECK, used_colours_w);
 
 	/* gather information about rank of neighbours */
 
@@ -61,6 +60,7 @@ bool GraphColouring::run(Graph *g) {
 		                   &local_neighbours_processed, 1, SIZE_MPI_TYPE,
 		                   world_rank, 0, 1, SIZE_MPI_TYPE,
 		                   MPI_NO_OP, neighbours_processed_w);
+		MPI_Win_flush(world_rank, neighbours_processed_w);
 
 		//fprintf(stderr, "[RANK %" SCNd16 "] Accumulate result: %" SCNd8 "\n", world_rank, local_neighbours_processed);
 
@@ -75,15 +75,20 @@ bool GraphColouring::run(Graph *g) {
 
 	/* choose colour */
 
-	MPI_Win_wait(used_colours_w); // why hangs here???
 	COLOUR_TYPE chosen_colour = 0;
 	bool colour_found = 0;
+	SIZE_TYPE *used_colours_l = new SIZE_TYPE[g->getVertexCount()];
+	MPI_Get_accumulate(&dummy, 1,MPI_INT, // no-op, so this is not important
+	                   used_colours_l, g->getVertexCount(), SIZE_MPI_TYPE,
+	                   world_rank, 0, g->getVertexCount(), SIZE_MPI_TYPE,
+	                   MPI_NO_OP, used_colours_w);
 	for(SIZE_TYPE i = 0; i < g->getVertexCount() && !colour_found; i++) {
-		if (used_colours[i] == 0) {
+		if (used_colours_l[i] == 0) {
 			chosen_colour = i;
 			colour_found = true;
 		}
 	}
+	delete used_colours_l;
 	fprintf(stderr, "[RANK %" SCNd16 "] Colouring with %" SCNd16 "\n", world_rank, chosen_colour);
 
 	/* informing neighbours with lower id */
@@ -93,24 +98,21 @@ bool GraphColouring::run(Graph *g) {
 		VERTEX_ID_TYPE id = neighIt->next();
 		if(id < world_rank) {
 			COLOUR_TYPE used_marker = 1;
+			SIZE_TYPE one = 1;
 			/* mark your colour as used */
-			MPI_Win_start(world_group, 0, used_colours_w);
-			MPI_Put(&used_marker, 1, COLOUR_MPI_TYPE, id, chosen_colour, 1, COLOUR_MPI_TYPE, used_colours_w);
-			MPI_Win_complete(used_colours_w);
+			MPI_Accumulate(&one, 1, SIZE_MPI_TYPE, id, chosen_colour, 1, SIZE_MPI_TYPE, MPI_REPLACE, used_colours_w);
 
 			/* increment his counter of processed neighbours */
-			SIZE_TYPE one = 1;
 			MPI_Accumulate(&one, 1, SIZE_MPI_TYPE, id, 0, 1, SIZE_MPI_TYPE, MPI_SUM, neighbours_processed_w);
 			fprintf(stderr, "[RANK %" SCNd16 "] Informing %" SCNd16 " about changes\n", world_rank, id);
+			MPI_Win_flush(id, used_colours_w);
 		}
 	}
 	delete neighIt;
 
-	/*
-	 * Fatal error in MPI_Win_free: Wrong synchronization of RMA calls , error stack:
-	 * MPI_Win_free(134).: MPI_Win_free(win=0x7ffce8d511ac) failed
-	 * MPIDI_Win_free(49): Wrong synchronization of RMA calls
-	 */
+	MPI_Win_unlock_all(used_colours_w);
+	MPI_Win_unlock_all(neighbours_processed_w);
+
 	MPI_Win_free(&neighbours_processed_w);
 	MPI_Win_free(&used_colours_w);
 	delete[] used_colours;
