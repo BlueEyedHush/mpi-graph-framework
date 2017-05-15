@@ -35,7 +35,6 @@ bool GraphColouring::run(Graph *g) {
 	memset(used_colours, 0, sizeof(SIZE_TYPE)*g->getVertexCount());
 	MPI_Win used_colours_w;
 	MPI_Win_create(used_colours, sizeof(COLOUR_TYPE)*g->getVertexCount(), sizeof(COLOUR_TYPE), MPI_INFO_NULL, MPI_COMM_WORLD, &used_colours_w);
-	MPI_Win_lock_all(MPI_MODE_NOCHECK, used_colours_w);
 
 	/* gather information about rank of neighbours */
 
@@ -77,18 +76,15 @@ bool GraphColouring::run(Graph *g) {
 
 	COLOUR_TYPE chosen_colour = 0;
 	bool colour_found = 0;
-	SIZE_TYPE *used_colours_l = new SIZE_TYPE[g->getVertexCount()];
-	MPI_Get_accumulate(&dummy, 1,MPI_INT, // no-op, so this is not important
-	                   used_colours_l, g->getVertexCount(), SIZE_MPI_TYPE,
-	                   world_rank, 0, g->getVertexCount(), SIZE_MPI_TYPE,
-	                   MPI_NO_OP, used_colours_w);
+	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, world_rank, 0, used_colours_w);
+	MPI_Win_sync(used_colours_w);
 	for(SIZE_TYPE i = 0; i < g->getVertexCount() && !colour_found; i++) {
-		if (used_colours_l[i] == 0) {
+		if (used_colours[i] == 0) {
 			chosen_colour = i;
 			colour_found = true;
 		}
 	}
-	delete used_colours_l;
+	MPI_Win_unlock(world_rank, used_colours_w);
 	fprintf(stderr, "[RANK %" SCNd16 "] Colouring with %" SCNd16 "\n", world_rank, chosen_colour);
 
 	/* informing neighbours with lower id */
@@ -100,17 +96,18 @@ bool GraphColouring::run(Graph *g) {
 			COLOUR_TYPE used_marker = 1;
 			SIZE_TYPE one = 1;
 			/* mark your colour as used */
+			MPI_Win_lock(MPI_LOCK_SHARED, id, 0, used_colours_w); // only to establish epoch
 			MPI_Accumulate(&one, 1, SIZE_MPI_TYPE, id, chosen_colour, 1, SIZE_MPI_TYPE, MPI_REPLACE, used_colours_w);
+			MPI_Win_unlock(id, used_colours_w);
 
 			/* increment his counter of processed neighbours */
 			MPI_Accumulate(&one, 1, SIZE_MPI_TYPE, id, 0, 1, SIZE_MPI_TYPE, MPI_SUM, neighbours_processed_w);
 			fprintf(stderr, "[RANK %" SCNd16 "] Informing %" SCNd16 " about changes\n", world_rank, id);
-			MPI_Win_flush(id, used_colours_w);
+			MPI_Win_flush(id, neighbours_processed_w);
 		}
 	}
 	delete neighIt;
 
-	MPI_Win_unlock_all(used_colours_w);
 	MPI_Win_unlock_all(neighbours_processed_w);
 
 	MPI_Win_free(&neighbours_processed_w);
