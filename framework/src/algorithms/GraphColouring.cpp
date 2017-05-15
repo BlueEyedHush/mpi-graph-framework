@@ -63,7 +63,7 @@ struct BufferAndRequest {
 	Message buffer;
 };
 
-bool GraphColouring::run(Graph *g) {
+bool GraphColouringMP::run(Graph *g) {
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	int world_size;

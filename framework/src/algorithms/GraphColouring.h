@@ -7,7 +7,7 @@
 
 #include <Algorithm.h>
 
-class GraphColouring : public Algorithm {
+class GraphColouringMP : public Algorithm {
 	virtual bool run(Graph *g) override;
 };
 
