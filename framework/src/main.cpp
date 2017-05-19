@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <mpi.h>
-#include "Graph.h"
+#include "GraphPartition.h"
 #include "representations/SimpleStaticGraph.h"
 #include "algorithms/GraphColouring.h"
 
@@ -15,7 +15,7 @@
  */
 
 /*int main() {
-	Graph *g = new SimpleStaticGraph();
+	GraphPartition *g = new SimpleStaticGraph();
 	printGraph(g);
 	delete g;
 }*/
@@ -23,9 +23,9 @@
 int main() {
 	MPI_Init(NULL, NULL);
 
-	Graph *g = new SimpleStaticGraph();
+	GraphPartition *g = new SimpleStaticGraph();
 
-	Algorithm *algorithm = new GraphColouringRMA();
+	Algorithm *algorithm = new GraphColouringMP();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);

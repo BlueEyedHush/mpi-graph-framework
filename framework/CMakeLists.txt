@@ -10,6 +10,6 @@ include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 # for absolute includes
 include_directories(src/)
 
-set(SOURCE_FILES src/main.cpp src/Graph.h src/Graph.cpp src/representations/SimpleStaticGraph.h src/representations/SimpleStaticGraph.cpp src/Algorithm.h src/algorithms/GraphColouring.cpp src/algorithms/GraphColouring.h src/utils/BufferPool.h)
+set(SOURCE_FILES src/main.cpp src/GraphPartition.h src/representations/SimpleStaticGraph.h src/representations/SimpleStaticGraph.cpp src/Algorithm.h src/algorithms/GraphColouring.cpp src/algorithms/GraphColouring.h src/utils/BufferPool.h)
 add_executable(framework ${SOURCE_FILES})
 target_link_libraries(framework ${MPI_C_LIBRARIES})

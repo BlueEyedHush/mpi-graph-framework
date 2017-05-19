@@ -38,7 +38,7 @@
 #endif
 
 struct Message {
-	int receiving_node_id;
+	LocalVertexId receiving_node_id;
 	int used_colour;
 };
 
@@ -63,17 +63,14 @@ struct BufferAndRequest {
 	Message buffer;
 };
 
-bool GraphColouringMP::run(Graph *g) {
-	int world_rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	int world_size;
-	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+bool GraphColouringMP::run(GraphPartition *g) {
+	int nodeId = g->getNodeId();
 
 	#if WAIT_FOR_DEBUGGER == 1
 	volatile short execute_loop = 1;
-	fprintf(stderr, "[%d] PID: %d\n", world_rank, getpid());
-	//raise(SIGSTOP);
-	while(execute_loop == 1) {}
+	fprintf(stderr, "[%d] PID: %d\n", nodeId, getpid());
+	raise(SIGSTOP);
+	//while(execute_loop == 1) {}
 	#endif
 
 	std::unordered_map<int, VertexTempData*> vertexDataMap;
@@ -84,7 +81,7 @@ bool GraphColouringMP::run(Graph *g) {
 	BufferPool<BufferAndRequest> sendBuffers;
 	BufferPool<BufferAndRequest> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
-	fprintf(stderr, "[%d] Finished initialization\n", world_rank);
+	fprintf(stderr, "[%d] Finished initialization\n", nodeId);
 
 	/* start outstanding receive requests */
 	receiveBuffers.foreachFree([&](BufferAndRequest *b) {
@@ -92,29 +89,40 @@ bool GraphColouringMP::run(Graph *g) {
 		return true;
 	});
 
-	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", world_rank);
+	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", nodeId);
 
 	/* gather information about rank of neighbours & initialize temporary structures */
-	g->forEachLocalVertex([&](int v_id) {
+	g->forEachLocalVertex([&](LocalVertexId v_id) {
+		GlobalVertexId globalForVId(nodeId, v_id);
+		unsigned long long v_id_num = g->toNumerical(globalForVId);
+
 		vertexDataMap[v_id] = new VertexTempData();
 
-		g->forEachNeighbour(v_id, [&](int neigh_id) {
-			if (neigh_id > v_id) {
+		fprintf(stderr, "[%d] Looking @ (%d, %d, %llu) neighbours\n", nodeId, nodeId, v_id, v_id_num);
+		g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
+			unsigned long long neigh_num = g->toNumerical(neigh_id);
+			fprintf(stderr, "[%d] Looking @ (%d,%d,%llu)\n", nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num);
+			if (neigh_num > v_id_num) {
 				vertexDataMap[v_id]->wait_counter++;
+				fprintf(stderr, "[%d] Qualified!\n", nodeId);
+			} else {
+				fprintf(stderr, "[%d] Rejected!\n", nodeId);
 			}
 		});
 
-		fprintf(stderr, "[%d] Node %d waits for %d nodes to establish colouring\n", world_rank, v_id,
-		        vertexDataMap[v_id]->wait_counter);
+		fprintf(stderr, "[%d] Waiting for %d nodes to establish colouring\n", nodeId, vertexDataMap[v_id]->wait_counter);
 	});
 
-	fprintf(stderr, "[%d] Finished gathering information about neighbours\n", world_rank);
+	fprintf(stderr, "[%d] Finished gathering information about neighbours\n", nodeId);
 
 	int coloured_count = 0;
 	while(coloured_count < g->getLocalVertexCount()) {
 		/* process vertices with count == 0 */
-		g->forEachLocalVertex([&](int v_id) {
+		g->forEachLocalVertex([&](LocalVertexId v_id) {
 			if(vertexDataMap[v_id]->wait_counter == 0) {
+				GlobalVertexId globalForVId(nodeId, v_id);
+				unsigned long long v_id_num = g->toNumerical(globalForVId);
+
 				/* lets find smallest unused colour */
 				int iter_count = 0;
 				int previous_used_colour = -1;
@@ -126,37 +134,38 @@ bool GraphColouringMP::run(Graph *g) {
 				}
 				int chosen_colour = previous_used_colour + 1;
 
-				fprintf(stderr, "!!! [%d] All neighbours of %d chosed colours, we choose %d\n", world_rank, v_id,
-				        chosen_colour);
+				fprintf(stderr, "!!! [%d] All neighbours of (%d, %d,%llu) chosen colours, we choose %d\n", nodeId, nodeId,
+				        v_id, v_id_num, chosen_colour);
 
 				/* inform neighbours */
-				g->forEachNeighbour(v_id, [&](int neigh_id) {
-					if (neigh_id < v_id) {
+				g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
+					unsigned long long neigh_num = g->toNumerical(neigh_id);
+					if (neigh_num < v_id_num) {
 						/* if it's larger it already has colour and is not interested */
 						if(g->isLocalVertex(neigh_id)) {
-							vertexDataMap[neigh_id]->wait_counter -= 1;
-							vertexDataMap[neigh_id]->used_colours.insert(chosen_colour);
-							fprintf(stderr, "[%d] %d is local, informing about colour %d\n", world_rank, neigh_id,
-							        chosen_colour);
+							vertexDataMap[neigh_id.localId]->wait_counter -= 1;
+							vertexDataMap[neigh_id.localId]->used_colours.insert(chosen_colour);
+							fprintf(stderr, "[%d] (%d,%d,%llu) is local, informing about colour %d\n", nodeId,
+							        neigh_id.nodeId, neigh_id.localId, neigh_num, chosen_colour);
 						} else {
 							BufferAndRequest *b = sendBuffers.getNew();
-							b->buffer.receiving_node_id = neigh_id;
+							b->buffer.receiving_node_id = neigh_id.localId;
 							b->buffer.used_colour = chosen_colour;
 
-							int target_node = g->getNodeResponsibleForVertex(neigh_id);
-							MPI_Isend(&b->buffer, 1, mpi_message_type, target_node, MPI_TAG, MPI_COMM_WORLD, &b->request);
-							fprintf(stderr, "[%d] Isend to %d about node %d, colour %d\n", world_rank, target_node,
-							        neigh_id, chosen_colour);
+							MPI_Isend(&b->buffer, 1, mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
+
+							fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d\n",
+							        nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, nodeId, v_id, v_id_num, chosen_colour);
 						}
 					}
 				});
-				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", world_rank);
+				fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", nodeId);
 
 				vertexDataMap[v_id]->wait_counter = -1;
 				coloured_count += 1;
 			}
 		});
-		fprintf(stderr, "[%d] Finished processing of 0-wait-count vertices\n", world_rank);
+		fprintf(stderr, "[%d] Finished processing of 0-wait-count vertices\n", nodeId);
 
 		/* check if any outstanding receive request completed */
 		int receive_result;
@@ -170,7 +179,7 @@ bool GraphColouringMP::run(Graph *g) {
 				int t_id = b->buffer.receiving_node_id;
 				vertexDataMap[t_id]->wait_counter -= 1;
 				vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", world_rank, b->buffer.receiving_node_id,
+				fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", nodeId, b->buffer.receiving_node_id,
 				        b->buffer.used_colour);
 
 				/* post new request */
@@ -180,7 +189,7 @@ bool GraphColouringMP::run(Graph *g) {
 			/* one way or another, buffer doesn't change it's status */
 			return false;
 		});
-		fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", world_rank);
+		fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", nodeId);
 
 		/* wait for send requests and clean them up */
 		sendBuffers.foreachUsed([](BufferAndRequest *b) {
@@ -193,7 +202,7 @@ bool GraphColouringMP::run(Graph *g) {
 				return false;
 			}
 		});
-		fprintf(stderr, "[%d] Finished (for current iteration) waiting for send buffers\n", world_rank);
+		fprintf(stderr, "[%d] Finished (for current iteration) waiting for send buffers\n", nodeId);
 	}
 
 	/* clean up */
@@ -205,13 +214,13 @@ bool GraphColouringMP::run(Graph *g) {
 	for(auto kv: vertexDataMap) {
 		delete kv.second;
 	}
-	fprintf(stderr, "[%d] Cleanup finished, terminating\n", world_rank);
+	fprintf(stderr, "[%d] Cleanup finished, terminating\n", nodeId);
 
 	return true;
 }
 
 
 
-bool GraphColouringRMA::run(Graph *g) {
+bool GraphColouringRMA::run(GraphPartition *g) {
 
 }

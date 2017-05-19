@@ -4,6 +4,7 @@
 
 #include <mpi.h>
 #include <algorithm>
+#include <climits>
 #include "SimpleStaticGraph.h"
 
 int E[E_N] = {
@@ -32,45 +33,45 @@ SimpleStaticGraph::SimpleStaticGraph() {
 	one_after_last = v_range.second;
 }
 
-int SimpleStaticGraph::getVertexCount() {
-	return V_N;
-}
-
 int SimpleStaticGraph::getLocalVertexCount() {
 	return one_after_last - first;
 }
 
-int SimpleStaticGraph::getEdgeCount() {
-	return E_N;
-}
+void SimpleStaticGraph::forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) {
+	int *neighbours = &E[V_OFFSETS[first + id]];
+	int count = (id != V_N - 1) ? (V_OFFSETS[id+1] - V_OFFSETS[id]) : (E_N - V_OFFSETS[V_N-1]);
 
-void SimpleStaticGraph::forEachNeighbour(int v, std::function<void(int)> f) {
-	int *neighbours = &E[V_OFFSETS[v]];
-	int count = (v != V_N - 1) ? (V_OFFSETS[v+1] - V_OFFSETS[v]) : (E_N - V_OFFSETS[V_N-1]);
-
+	GlobalVertexId fakeGlobalId;
 	for(int i = 0; i < count; i++) {
-		f(neighbours[i]);
+		LocalVertexId v_id = neighbours[i];
+		fakeGlobalId.nodeId = get_node_id_for(V_N, world_size, world_rank, v_id);
+		int start = base_allocation * fakeGlobalId.nodeId + std::min(fakeGlobalId.nodeId, excess);
+		fakeGlobalId.localId = v_id - start;
+		f(fakeGlobalId);
 	}
 }
 
-bool SimpleStaticGraph::isLocalVertex(int id) {
-	return id >= first && id < one_after_last;
+bool SimpleStaticGraph::isLocalVertex(GlobalVertexId id) {
+	return id.nodeId == world_rank;
 };
 
-void SimpleStaticGraph::forEachLocalVertex(std::function<void(int)> f) {
-	for(int i = first; i < one_after_last; i++) {
+void SimpleStaticGraph::forEachLocalVertex(std::function<void(LocalVertexId)> f) {
+	for(int i = 0; i < one_after_last - first; i++) {
 		f(i);
 	}
 }
 
-int SimpleStaticGraph::getNodeResponsibleForVertex(int id) {
-	int prognosed_node = id/base_allocation;
-	/* above would be target node if we didn't decided to partition excess the way we did
-	 * excess must be smaller than bucket width, so our vertex won't go much further than node_id back */
-	int prognosed_start = base_allocation * prognosed_node + std::min(prognosed_node, excess);
-
-	return (id >= prognosed_start) ? prognosed_node : prognosed_node-1;
+NodeId SimpleStaticGraph::getNodeId() {
+	return world_rank;
 }
+
+unsigned long long SimpleStaticGraph::toNumerical(GlobalVertexId id) {
+	unsigned int halfBitsInUll = (sizeof(unsigned long long)*CHAR_BIT)/2;
+	unsigned long long numerical = ((unsigned long long) id.localId) << halfBitsInUll;
+	numerical |= ((unsigned int) id.nodeId);
+	return numerical;
+}
+
 
 /**
  * Each node gets vertex_no/world_size vertices. The excess (k = vertex_no % world_rank) is distributed between
@@ -85,3 +86,17 @@ std::pair <int, int> SimpleStaticGraph::get_process_range(int rank) {
 
 	return std::make_pair(start, start+count);
 }
+
+int SimpleStaticGraph::get_node_id_for(int V, int N, int current_rank, int id) {
+	int base_allocation = V/N;
+	int excess = V%N;
+	int prognosed_node = id/base_allocation;
+	/* above would be target node if we didn't decided to partition excess the way we did
+	 * excess must be smaller than bucket width, so our vertex won't go much further than node_id back */
+	int prognosed_start = base_allocation * prognosed_node + std::min(prognosed_node, excess);
+
+	int actual_node_id = (id >= prognosed_start) ? prognosed_node : prognosed_node-1;
+}
+
+
+

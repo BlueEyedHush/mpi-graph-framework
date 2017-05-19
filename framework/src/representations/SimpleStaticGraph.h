@@ -5,7 +5,7 @@
 #ifndef FRAMEWORK_SIMPLESTATICGRAPH_H
 #define FRAMEWORK_SIMPLESTATICGRAPH_H
 
-#include <Graph.h>
+#include <GraphPartition.h>
 
 /* complete graph with 4 vertices */
 #define E_N 12
@@ -14,19 +14,18 @@
 extern int E[E_N];
 extern int V_OFFSETS[V_N];
 
-class SimpleStaticGraph : public Graph {
+class SimpleStaticGraph : public GraphPartition {
 public:
 	SimpleStaticGraph();
 
-	virtual int getVertexCount() override;
 	virtual int getLocalVertexCount() override;
-	virtual int getEdgeCount() override;
 
-	virtual void forEachNeighbour(int vertexId, std::function<void(int)> f) override;
+	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) override;
+	virtual void forEachLocalVertex(std::function<void(LocalVertexId)> f) override;
 
-	virtual bool isLocalVertex(int id) override;
-	virtual void forEachLocalVertex(std::function<void(int)> f) override;
-	virtual int getNodeResponsibleForVertex(int id) override;
+	virtual bool isLocalVertex(GlobalVertexId id) override;
+	virtual NodeId getNodeId() override;
+	virtual unsigned long long toNumerical(GlobalVertexId id) override;
 
 private:
 	int world_size;
@@ -38,6 +37,7 @@ private:
 	int first;
 	int one_after_last;
 
+	int get_node_id_for(int V, int N, int current_rank, int id);
 	std::pair <int, int> get_process_range(int rank);
 };
 

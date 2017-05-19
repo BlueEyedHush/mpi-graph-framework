@@ -8,11 +8,11 @@
 #include <Algorithm.h>
 
 class GraphColouringMP : public Algorithm {
-	virtual bool run(Graph *g) override;
+	virtual bool run(GraphPartition *g) override;
 };
 
 class GraphColouringRMA : public Algorithm {
-	virtual bool run(Graph *g) override;
+	virtual bool run(GraphPartition *g) override;
 };
 
 #endif //FRAMEWORK_GRAPHCOLOURING_H
