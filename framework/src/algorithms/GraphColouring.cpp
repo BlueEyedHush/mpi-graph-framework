@@ -63,6 +63,55 @@ struct BufferAndRequest {
 	Message buffer;
 };
 
+
+class MPIAsync {
+public:
+	MPIAsync() {
+		nextToProcess = 0;
+		requests = new std::vector<MPI_Request*>();
+		callbacks = new std::vector<std::function<void(void)>>();
+	}
+
+	/**
+	 *
+	 * @param request - takes ownership of the memory and'll clean it up
+	 */
+	void callWhenFinished(MPI_Request *request, const std::function<void(void)> callback) {
+		requests->push_back(request);
+		callbacks->push_back(callback);
+	}
+
+	void pollNext(int x) {
+		for(int i = 0; i < x; i++) {
+			MPI_Request *rq = requests->at(i);
+
+			int result = 0;
+			MPI_Test(rq, &result, MPI_STATUS_IGNORE);
+			if (result != 0) {
+				MPI_Wait(rq, MPI_STATUS_IGNORE);
+
+				auto cb = callbacks->at(i);
+				cb();
+			}
+
+			if (nextToProcess >= requests->size()) {
+				nextToProcess = 0;
+			}
+		}
+	}
+
+	void pollAll() {
+		int toPoll = requests->size() - nextToProcess;
+		pollNext(toPoll);
+	}
+
+private:
+	int nextToProcess;
+	std::vector<MPI_Request*> *requests;
+	std::vector<std::function<void(void)>> *callbacks;
+};
+
+
 bool GraphColouringMP::run(GraphPartition *g) {
 	int nodeId = g->getNodeId();
 
