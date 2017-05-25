@@ -4,9 +4,11 @@
 
 #include "MPIAsync.h"
 
-MPIAsync::MPIAsync() {
+MPIAsync::MPIAsync(MPIRequestCleaner *requestCleaner, bool cleanUpCleaner) {
 	nextToProcess = 0;
 	taskList = new std::vector<El>();
+	cleaner = requestCleaner;
+	this->cleanUpCleaner = cleanUpCleaner;
 }
 
 void MPIAsync::callWhenFinished(MPI_Request *request, Callback *callback) {
@@ -54,8 +56,12 @@ void MPIAsync::shutdown() {
 		El el = taskList->at(i);
 		if (el.rq != nullptr) {
 			MPI_Cancel(el.rq);
-			delete el.rq;
+			(*cleaner)(el.rq);
 		}
+	}
+
+	if (cleanUpCleaner) {
+		delete cleaner;
 	}
 }
 
@@ -72,6 +78,6 @@ void MPIAsync::executeCallbackAt(size_t i) {
 	}
 
 	if (el.rq != nullptr) {
-		delete el.rq;
+		(*cleaner)(el.rq);
 	}
 }

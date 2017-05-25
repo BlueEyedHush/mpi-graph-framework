@@ -12,6 +12,7 @@
 #include <list>
 #include <unordered_map>
 #include <mpi.h>
+#include <boost/pool/pool.hpp>
 #include <boost/pool/object_pool.hpp>
 #include <utils/MPIAsync.h>
 #include <utils/CliColours.h>
@@ -20,8 +21,8 @@
 #define MPI_TAG 0
 #define OUTSTANDING_RECEIVE_REQUESTS 5
 
-static MPI_Request* scheduleReceive(Message *b, MPI_Datatype *mpi_message_type) {
-	MPI_Request *rq = new MPI_Request;
+static MPI_Request* scheduleReceive(Message *b, MPI_Datatype *mpi_message_type, boost::pool<> *rqPool) {
+	MPI_Request *rq = reinterpret_cast<MPI_Request *>(rqPool->malloc());
 	MPI_Irecv(b, 1, *mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, rq);
 	return rq;
 }
@@ -44,6 +45,7 @@ namespace {
 		boost::object_pool<OnReceiveFinished> *receiveFinishedCbPool;
 		boost::object_pool<OnSendFinished> *sendFinishedCbPool;
 		boost::object_pool<ColourVertex> *colourVertexCbPool;
+		boost::pool<> *mpiRequestPool;
 	};
 
 	struct OnSendFinished : public MPIAsync::Callback {
@@ -105,7 +107,7 @@ namespace {
 						b->receiving_node_id = neigh_id.localId;
 						b->used_colour = chosen_colour;
 
-						MPI_Request *rq = new MPI_Request;
+						MPI_Request *rq = reinterpret_cast<MPI_Request *>(gd->mpiRequestPool->malloc());
 						MPI_Isend(b, 1, *gd->mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, rq);
 
 						fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d scheduled\n",
@@ -137,7 +139,7 @@ namespace {
 			gd->vertexDataMap->at(t_id)->used_colours.insert(b->used_colour);
 
 			/* post new request */
-			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type);
+			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type, gd->mpiRequestPool);
 			OnReceiveFinished *cb = gd->receiveFinishedCbPool->construct(b, gd);
 			gd->am->callWhenFinished(rq, cb);
 
@@ -149,6 +151,16 @@ namespace {
 
 			gd->receiveFinishedCbPool->destroy(this);
 		}
+	};
+
+	struct RequestCleaner : public MPIAsync::MPIRequestCleaner {
+		boost::pool<>& rqPool;
+
+		RequestCleaner(boost::pool<>& requestPool) : rqPool(requestPool) {}
+
+		virtual void operator()(MPI_Request* r) {
+			rqPool.free(r);
+		};
 	};
 }
 
@@ -162,13 +174,15 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
 
-	MPIAsync am;
 	boost::object_pool<Message> sendPool;
 	boost::object_pool<Message> receivePool;
 	boost::object_pool<OnReceiveFinished> receiveFinishedCbPool;
 	boost::object_pool<OnSendFinished> sendFinishedCbPool;
 	boost::object_pool<ColourVertex> colourVertexCbPool;
+	boost::pool<> requestPool(sizeof(MPI_Request));
 
+	RequestCleaner *rc = new RequestCleaner(requestPool);
+	MPIAsync am(rc);
 	int coloured_count = 0;
 
 	fprintf(stderr, "[%d] Finished initialization\n", nodeId);
@@ -184,11 +198,12 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	globalData.receiveFinishedCbPool = &receiveFinishedCbPool;
 	globalData.sendFinishedCbPool = &sendFinishedCbPool;
 	globalData.colourVertexCbPool = &colourVertexCbPool;
+	globalData.mpiRequestPool = &requestPool;
 
 	/* start outstanding receive requests */
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 		Message *b = receivePool.construct();
-		MPI_Request *rq = scheduleReceive(b, &mpi_message_type);
+		MPI_Request *rq = scheduleReceive(b, &mpi_message_type, &requestPool);
 		am.callWhenFinished(rq, receiveFinishedCbPool.construct(b, &globalData));
 	}
 

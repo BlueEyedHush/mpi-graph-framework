@@ -14,6 +14,10 @@ public:
 	struct Callback {
 		virtual void operator()() = 0;
 	};
+
+	struct MPIRequestCleaner {
+		virtual void operator()(MPI_Request*) = 0;
+	};
 private:
 	struct El {
 		MPI_Request *rq;
@@ -21,11 +25,12 @@ private:
 	};
 
 public:
-	MPIAsync();
+	MPIAsync(MPIRequestCleaner *requestCleaner, bool cleanUpCleaner = true);
 
 	/**
 	 *
-	 * @param request - takes ownership of the memory and'll clean it up
+	 * @param request - when request is no longer needed, requestCleander'll be called
+	 * @param callback - must deallocate itself
 	 */
 	void callWhenFinished(MPI_Request *request, Callback *callback);
 	void pollNext(size_t x);
@@ -35,6 +40,8 @@ public:
 private:
 	size_t nextToProcess;
 	std::vector<El> *taskList;
+	MPIRequestCleaner *cleaner;
+	bool cleanUpCleaner;
 
 	void executeCallbackAt(size_t i);
 };
