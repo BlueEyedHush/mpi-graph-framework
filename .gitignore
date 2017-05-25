@@ -8,3 +8,4 @@ framework/target
 framework/framework
 framework/framework.cbp
 framework/Makefile
+framework/lib/
