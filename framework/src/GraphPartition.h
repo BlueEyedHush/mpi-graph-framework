@@ -10,6 +10,8 @@
 
 typedef int NodeId;
 typedef int LocalVertexId;
+#define NODE_ID_MPI_TYPE MPI_INT
+#define LOCAL_VERTEX_ID_MPI_TYPE MPI_INT
 
 struct GlobalVertexId {
 	GlobalVertexId() {GlobalVertexId(-1, -1);}
