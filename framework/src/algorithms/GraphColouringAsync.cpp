@@ -12,7 +12,7 @@
 #include <list>
 #include <unordered_map>
 #include <mpi.h>
-#include <utils/BufferPool.h>
+#include <boost/pool/object_pool.hpp>
 #include <utils/MPIAsync.h>
 #include <utils/CliColours.h>
 #include "shared.h"
@@ -28,23 +28,34 @@ static MPI_Request* scheduleReceive(Message *b, MPI_Datatype *mpi_message_type) 
 
 
 namespace {
-	struct OnSendFinished : public MPIAsync::Callback {
-		Message *b;
-
-		OnSendFinished(Message *b) : b(b) {}
-		virtual void operator()() override {
-			/* free buffer */
-		}
-	};
+	class OnReceiveFinished;
+	class OnSendFinished;
+	class ColourVertex;
 
 	struct GlobalData {
 		std::unordered_map<int, VertexTempData*> *vertexDataMap;
 		int nodeId;
 		MPI_Datatype *mpi_message_type;
 		GraphPartition *g;
-		BufferPool<Message> *sendPool;
 		int *coloured_count;
 		MPIAsync *am;
+
+		boost::object_pool<Message> *sendPool;
+		boost::object_pool<OnReceiveFinished> *receiveFinishedCbPool;
+		boost::object_pool<OnSendFinished> *sendFinishedCbPool;
+		boost::object_pool<ColourVertex> *colourVertexCbPool;
+	};
+
+	struct OnSendFinished : public MPIAsync::Callback {
+		Message *b;
+		GlobalData *gd;
+
+		OnSendFinished(Message *b, GlobalData *gd) : b(b), gd(gd) {}
+
+		virtual void operator()() override {
+			gd->sendPool->destroy(b);
+			gd->sendFinishedCbPool->destroy(this);
+		}
 	};
 
 	struct ColourVertex : public MPIAsync::Callback {
@@ -85,11 +96,12 @@ namespace {
 
 						/* it might be already processed, then it's wait_counter'll < 0 */
 						if (gd->vertexDataMap->at(neigh_id.localId)->wait_counter == 0) {
-							gd->am->callWhenFinished(nullptr, new ColourVertex(neigh_id.localId, gd));
+							ColourVertex *cb = gd->colourVertexCbPool->construct(neigh_id.localId, gd);
+							gd->am->callWhenFinished(nullptr, cb);
 							fprintf(stderr, "[%d] Scheduled\n", gd->nodeId);
 						}
 					} else {
-						Message *b = gd->sendPool->getNew();
+						Message *b = gd->sendPool->construct();
 						b->receiving_node_id = neigh_id.localId;
 						b->used_colour = chosen_colour;
 
@@ -99,12 +111,15 @@ namespace {
 						fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d scheduled\n",
 						        gd->nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, gd->nodeId, v_id, v_id_num, chosen_colour);
 
-						gd->am->callWhenFinished(rq, new OnSendFinished(b));
+						OnSendFinished *cb = gd->sendFinishedCbPool->construct(b, gd);
+						gd->am->callWhenFinished(rq, cb);
 					}
 				}
 			});
 			fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", gd->nodeId);
 			*gd->coloured_count += 1;
+
+			gd->colourVertexCbPool->destroy(this);
 		}
 	};
 
@@ -123,12 +138,16 @@ namespace {
 
 			/* post new request */
 			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type);
-			gd->am->callWhenFinished(rq, new OnReceiveFinished(b, gd));
+			OnReceiveFinished *cb = gd->receiveFinishedCbPool->construct(b, gd);
+			gd->am->callWhenFinished(rq, cb);
 
 			if(gd->vertexDataMap->at(t_id)->wait_counter == 0) {
 			/* handle if count decreased to 0, and is not below 0 - this happens in case of already processed vertices */
-				gd->am->callWhenFinished(nullptr, new ColourVertex(t_id, gd));
+				ColourVertex *cb = gd->colourVertexCbPool->construct(t_id, gd);
+				gd->am->callWhenFinished(nullptr, cb);
 			}
+
+			gd->receiveFinishedCbPool->destroy(this);
 		}
 	};
 }
@@ -144,8 +163,11 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	register_mpi_message(&mpi_message_type);
 
 	MPIAsync am;
-	BufferPool<Message> sendBuffers;
-	BufferPool<Message> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
+	boost::object_pool<Message> sendPool;
+	boost::object_pool<Message> receivePool;
+	boost::object_pool<OnReceiveFinished> receiveFinishedCbPool;
+	boost::object_pool<OnSendFinished> sendFinishedCbPool;
+	boost::object_pool<ColourVertex> colourVertexCbPool;
 
 	int coloured_count = 0;
 
@@ -157,14 +179,17 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	globalData.g = g;
 	globalData.mpi_message_type = &mpi_message_type;
 	globalData.nodeId = nodeId;
-	globalData.sendPool = &sendBuffers;
 	globalData.vertexDataMap = &vertexDataMap;
+	globalData.sendPool = &sendPool;
+	globalData.receiveFinishedCbPool = &receiveFinishedCbPool;
+	globalData.sendFinishedCbPool = &sendFinishedCbPool;
+	globalData.colourVertexCbPool = &colourVertexCbPool;
 
 	/* start outstanding receive requests */
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
-		Message *b = receiveBuffers.getNew();
+		Message *b = receivePool.construct();
 		MPI_Request *rq = scheduleReceive(b, &mpi_message_type);
-		am.callWhenFinished(rq, new OnReceiveFinished(b, &globalData));
+		am.callWhenFinished(rq, receiveFinishedCbPool.construct(b, &globalData));
 	}
 
 	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", nodeId);
@@ -191,7 +216,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 
 		vertexDataMap[v_id]->wait_counter += wait_counter;
 		if (wait_counter == 0) {
-			am.callWhenFinished(nullptr, new ColourVertex(v_id, &globalData));
+			am.callWhenFinished(nullptr, colourVertexCbPool.construct(v_id, &globalData));
 		}
 
 		fprintf(stderr, "[%d] Waiting for %d nodes to establish colouring\n", nodeId, vertexDataMap[v_id]->wait_counter);
@@ -213,5 +238,5 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	}
 	fprintf(stderr, "[%d] Cleanup finished, terminating\n", nodeId);
 
-	return false;
+	return true;
 }
