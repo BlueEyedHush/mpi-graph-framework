@@ -11,6 +11,10 @@ class GraphColouringMP : public Algorithm {
 	virtual bool run(GraphPartition *g) override;
 };
 
+class GraphColouringMPAsync : public Algorithm {
+	virtual bool run(GraphPartition *g) override;
+};
+
 class GraphColouringRMA : public Algorithm {
 	virtual bool run(GraphPartition *g) override;
 };

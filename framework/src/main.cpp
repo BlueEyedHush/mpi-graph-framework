@@ -14,13 +14,21 @@
  * - split vertices between processes
  */
 
-/*int main() {
-	GraphPartition *g = new SimpleStaticGraph();
-	printGraph(g);
-	delete g;
-}*/
+#define WAIT_FOR_DEBUGGER 0
+
+#if WAIT_FOR_DEBUGGER == 1
+#include <unistd.h>
+#include <signal.h>
+#endif
 
 int main() {
+	#if WAIT_FOR_DEBUGGER == 1
+	fprintf(stderr, "[%d] PID: %d\n", nodeId, getpid());
+	raise(SIGSTOP);
+	//volatile short execute_loop = 1;
+	//while(execute_loop == 1) {}
+	#endif
+
 	MPI_Init(NULL, NULL);
 
 	GraphPartition *g = new SimpleStaticGraph();
