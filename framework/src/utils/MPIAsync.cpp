@@ -18,28 +18,33 @@ void MPIAsync::callWhenFinished(MPI_Request *request, Callback *callback) {
 
 void MPIAsync::pollNext(size_t x) {
 	for(size_t i = 0; i < x; i++) {
-		El el = taskList->at(i);
+		if (nextToProcess >= taskList->size()) {
+			nextToProcess = 0;
+		}
+
+		El el = taskList->at(nextToProcess);
 
 		if (el.rq == nullptr) {
 			/* no need to wait, can execute immediatelly */
-			executeCallbackAt(i);
+			executeCallbackAt(nextToProcess);
 		} else {
 			int result = 0;
 			MPI_Test(el.rq, &result, MPI_STATUS_IGNORE);
 			if (result != 0) {
 				MPI_Wait(el.rq, MPI_STATUS_IGNORE);
 
-				executeCallbackAt(i);
+				executeCallbackAt(nextToProcess);
 			}
 		}
 
-		if (nextToProcess >= taskList->size()) {
-			nextToProcess = 0;
-		}
+		nextToProcess++;
 	}
 }
 
 void MPIAsync::pollAll() {
+	if (nextToProcess >= taskList->size()) {
+		nextToProcess = 0;
+	}
 	size_t toPoll = taskList->size() - nextToProcess;
 	pollNext(toPoll);
 }

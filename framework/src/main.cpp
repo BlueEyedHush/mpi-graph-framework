@@ -3,6 +3,7 @@
 #include "GraphPartition.h"
 #include "representations/SimpleStaticGraph.h"
 #include "algorithms/GraphColouring.h"
+#include "algorithms/GraphColouringAsync.h"
 
 
 /*
@@ -33,7 +34,7 @@ int main() {
 
 	GraphPartition *g = new SimpleStaticGraph();
 
-	Algorithm *algorithm = new GraphColouringMP();
+	Algorithm *algorithm = new GraphColouringMPAsync();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
