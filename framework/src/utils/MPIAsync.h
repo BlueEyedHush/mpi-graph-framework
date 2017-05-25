@@ -11,23 +11,32 @@
 
 class MPIAsync {
 public:
+	struct Callback {
+		virtual void operator()() = 0;
+	};
+private:
+	struct El {
+		MPI_Request *rq;
+		Callback *cb;
+	};
+
+public:
 	MPIAsync();
 
 	/**
 	 *
 	 * @param request - takes ownership of the memory and'll clean it up
 	 */
-	void callWhenFinished(MPI_Request *request, const std::function<void(void)> callback);
-	void pollNext(int x);
+	void callWhenFinished(MPI_Request *request, Callback *callback);
+	void pollNext(size_t x);
 	void pollAll();
 	void shutdown();
 
 private:
-	int nextToProcess;
-	std::vector<MPI_Request*> *requests;
-	std::vector<std::function<void(void)>> *callbacks;
+	size_t nextToProcess;
+	std::vector<El> *taskList;
 
-	void executeCallbackAt(MPI_Request *rq, int i);
+	void executeCallbackAt(size_t i);
 };
 
 

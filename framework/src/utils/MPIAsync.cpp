@@ -6,70 +6,67 @@
 
 MPIAsync::MPIAsync() {
 	nextToProcess = 0;
-	requests = new std::vector<MPI_Request*>();
-	callbacks = new std::vector<std::function<void(void)>>();
+	taskList = new std::vector<El>();
 }
 
-void MPIAsync::callWhenFinished(MPI_Request *request, const std::function<void(void)> callback) {
-	requests->push_back(request);
-	callbacks->push_back(callback);
+void MPIAsync::callWhenFinished(MPI_Request *request, Callback *callback) {
+	El el;
+	el.cb = callback;
+	el.rq = request;
+	taskList->push_back(el);
 }
 
-void MPIAsync::pollNext(int x) {
-	for(int i = 0; i < x; i++) {
-		MPI_Request *rq = requests->at(i);
+void MPIAsync::pollNext(size_t x) {
+	for(size_t i = 0; i < x; i++) {
+		El el = taskList->at(i);
 
-		if (rq == nullptr) {
+		if (el.rq == nullptr) {
 			/* no need to wait, can execute immediatelly */
-			executeCallbackAt(rq, i);
+			executeCallbackAt(i);
 		} else {
 			int result = 0;
-			MPI_Test(rq, &result, MPI_STATUS_IGNORE);
+			MPI_Test(el.rq, &result, MPI_STATUS_IGNORE);
 			if (result != 0) {
-				MPI_Wait(rq, MPI_STATUS_IGNORE);
+				MPI_Wait(el.rq, MPI_STATUS_IGNORE);
 
-				executeCallbackAt(rq, i);
+				executeCallbackAt(i);
 			}
 		}
 
-		if (nextToProcess >= requests->size()) {
+		if (nextToProcess >= taskList->size()) {
 			nextToProcess = 0;
 		}
 	}
 }
 
 void MPIAsync::pollAll() {
-	int toPoll = requests->size() - nextToProcess;
+	size_t toPoll = taskList->size() - nextToProcess;
 	pollNext(toPoll);
 }
 
 void MPIAsync::shutdown() {
-	for(int i = 0; i < requests->size(); i++) {
-		MPI_Request *rq = requests->at(i);
-		if (rq != nullptr) {
-			MPI_Cancel(rq);
+	for(int i = 0; i < taskList->size(); i++) {
+		El el = taskList->at(i);
+		if (el.rq != nullptr) {
+			MPI_Cancel(el.rq);
+			delete el.rq;
 		}
 	}
 }
 
-void MPIAsync::executeCallbackAt(MPI_Request *rq, int i) {
-	auto cb = callbacks->at(i);
-	cb();
+void MPIAsync::executeCallbackAt(size_t i) {
+	El el = taskList->at(i);
+	el.cb->operator()();
 
-	if (requests->size() >= 2) {
-		size_t lastIdx = requests->size() - 1;
-
-		requests->at(i) = requests->at(lastIdx);
-		callbacks->at(i) = callbacks->at(lastIdx);
-
-		requests->pop_back();
-		callbacks->pop_back();
+	if (taskList->size() >= 2) {
+		size_t lastIdx = taskList->size() - 1;
+		taskList->at(i) = taskList->at(lastIdx);
+		taskList->pop_back();
 	} else {
-		requests->clear();
-		callbacks->clear();
+		taskList->clear();
 	}
 
-	if (rq != nullptr) {
-		delete rq;
+	if (el.rq != nullptr) {
+		delete el.rq;
 	}
 }
