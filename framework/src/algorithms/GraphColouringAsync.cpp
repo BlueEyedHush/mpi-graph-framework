@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cstring>
 #include <cstddef>
-#include <functional>
 #include <set>
 #include <list>
 #include <unordered_map>
@@ -27,96 +26,106 @@ static MPI_Request* scheduleReceive(Message *b, MPI_Datatype *mpi_message_type) 
 }
 
 
-static std::function<void(void)> buildOnISendFinishedHandler(Message *b) {
-	return [](){
-		/* free buffer */
-	};
-}
+namespace {
+	struct OnSendFinished : public MPIAsync::Callback {
+		Message *b;
 
-
-static std::function<void(void)> buildVertexColourer(int v_id,
-                                              std::unordered_map<int, VertexTempData*> *vertexDataMap,
-                                              int nodeId,
-                                              MPI_Datatype *mpi_message_type,
-                                              GraphPartition *g,
-                                              BufferPool<Message> *sendPool,
-                                              int *coloured_count,
-                                              MPIAsync *am) {
-	return [=]() {
-		GlobalVertexId globalForVId(nodeId, v_id);
-		unsigned long long v_id_num = g->toNumerical(globalForVId);
-
-		/* lets find smallest unused colour */
-		int iter_count = 0;
-		int previous_used_colour = -1;
-		/* find first gap */
-		for(auto used_colour: vertexDataMap->at(v_id)->used_colours) {
-			if (iter_count < used_colour) break; /* we found gap */
-			previous_used_colour = used_colour;
-			iter_count += 1;
+		OnSendFinished(Message *b) : b(b) {}
+		virtual void operator()() override {
+			/* free buffer */
 		}
-		int chosen_colour = previous_used_colour + 1;
+	};
 
-		fprintf(stderr, "!!! [%d] All neighbours of (%d, %d,%llu) chosen colours, we choose %d\n", nodeId, nodeId,
-		        v_id, v_id_num, chosen_colour);
+	struct GlobalData {
+		std::unordered_map<int, VertexTempData*> *vertexDataMap;
+		int nodeId;
+		MPI_Datatype *mpi_message_type;
+		GraphPartition *g;
+		BufferPool<Message> *sendPool;
+		int *coloured_count;
+		MPIAsync *am;
+	};
 
-		/* inform neighbours */
-		g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
-			unsigned long long neigh_num = g->toNumerical(neigh_id);
-			if (neigh_num < v_id_num) {
-				/* if it's larger it already has colour and is not interested */
-				if(g->isLocalVertex(neigh_id)) {
-					vertexDataMap->at(neigh_id.localId)->wait_counter -= 1;
-					vertexDataMap->at(neigh_id.localId)->used_colours.insert(chosen_colour);
-					fprintf(stderr, "[%d] (%d,%d,%llu) is local, scheduling callback %d\n", nodeId,
-					        neigh_id.nodeId, neigh_id.localId, neigh_num, chosen_colour);
-					am->callWhenFinished(nullptr, buildVertexColourer(v_id, vertexDataMap, nodeId, mpi_message_type, g, sendPool, coloured_count, am));
-				} else {
-					Message *b = sendPool->getNew();
-					b->receiving_node_id = neigh_id.localId;
-					b->used_colour = chosen_colour;
+	struct ColourVertex : public MPIAsync::Callback {
+		int v_id;
+		GlobalData *gd;
 
-					MPI_Request *rq = new MPI_Request;
-					MPI_Isend(b, 1, *mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, rq);
+		ColourVertex(int v_id, GlobalData *gd) : v_id(v_id), gd(gd) {}
 
-					fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d scheduled\n",
-					        nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, nodeId, v_id, v_id_num, chosen_colour);
+		virtual void operator()() override {
+			GlobalVertexId globalForVId(gd->nodeId, v_id);
+			unsigned long long v_id_num = gd->g->toNumerical(globalForVId);
 
-					am->callWhenFinished(rq, buildOnISendFinishedHandler(b));
-				}
+			/* lets find smallest unused colour */
+			int iter_count = 0;
+			int previous_used_colour = -1;
+			/* find first gap */
+			for(auto used_colour: gd->vertexDataMap->at(v_id)->used_colours) {
+				if (iter_count < used_colour) break; /* we found gap */
+				previous_used_colour = used_colour;
+				iter_count += 1;
 			}
-		});
-		fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", nodeId);
-		*coloured_count += 1;
+			int chosen_colour = previous_used_colour + 1;
+
+			fprintf(stderr, "!!! [%d] All neighbours of (%d, %d,%llu) chosen colours, we choose %d\n", gd->nodeId,
+			        gd->nodeId, v_id, v_id_num, chosen_colour);
+
+			/* inform neighbours */
+			gd->g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
+				unsigned long long neigh_num = gd->g->toNumerical(neigh_id);
+				if (neigh_num < v_id_num) {
+					/* if it's larger it already has colour and is not interested */
+					if(gd->g->isLocalVertex(neigh_id)) {
+						gd->vertexDataMap->at(neigh_id.localId)->wait_counter -= 1;
+						gd->vertexDataMap->at(neigh_id.localId)->used_colours.insert(chosen_colour);
+						fprintf(stderr, "[%d] (%d,%d,%llu) is local, scheduling callback %d\n", gd->nodeId,
+						        neigh_id.nodeId, neigh_id.localId, neigh_num, chosen_colour);
+						gd->am->callWhenFinished(nullptr, new ColourVertex(v_id, gd));
+					} else {
+						Message *b = gd->sendPool->getNew();
+						b->receiving_node_id = neigh_id.localId;
+						b->used_colour = chosen_colour;
+
+						MPI_Request *rq = new MPI_Request;
+						MPI_Isend(b, 1, *gd->mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, rq);
+
+						fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d scheduled\n",
+						        gd->nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, gd->nodeId, v_id, v_id_num, chosen_colour);
+
+						gd->am->callWhenFinished(rq, new OnSendFinished(b));
+					}
+				}
+			});
+			fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", gd->nodeId);
+			*gd->coloured_count += 1;
+		}
 	};
-}
 
+	struct OnReceiveFinished : public MPIAsync::Callback {
+		Message *b;
+		GlobalData *gd;
 
-static std::function<void(void)> buildOnReceiveHandler(Message *b,
-                                                std::unordered_map<int, VertexTempData*> *vertexDataMap,
-                                                int nodeId,
-                                                MPI_Datatype *mpi_message_type,
-                                                GraphPartition *g,
-                                                BufferPool<Message> *sendPool,
-                                                int *coloured_count,
-                                                MPIAsync *am) {
-	return [=]() {
-		/* completed */
-		int t_id = b->receiving_node_id;
-		vertexDataMap->at(t_id)->wait_counter -= 1;
-		vertexDataMap->at(t_id)->used_colours.insert(b->used_colour);
-		fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", nodeId, b->receiving_node_id, b->used_colour);
+		OnReceiveFinished(Message *b, GlobalData *gb) : b(b), gd(gd) {}
 
-		/* post new request */
-		MPI_Request *rq = scheduleReceive(b, mpi_message_type);
-		am->callWhenFinished(rq, buildOnReceiveHandler(b, vertexDataMap, nodeId, mpi_message_type, g, sendPool, coloured_count, am));
+		virtual void operator()() override {
+			int t_id = b->receiving_node_id;
+			gd->vertexDataMap->at(t_id)->wait_counter -= 1;
+			gd->vertexDataMap->at(t_id)->used_colours.insert(b->used_colour);
+			fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", gd->nodeId, b->receiving_node_id, b->used_colour);
 
-		/* handle if count decreased to 0 */
-		if(vertexDataMap->at(t_id)->wait_counter == 0) {
-			am->callWhenFinished(nullptr, buildVertexColourer(t_id, vertexDataMap, nodeId, mpi_message_type, g, sendPool, coloured_count, am));
+			/* post new request */
+			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type);
+			gd->am->callWhenFinished(rq, new OnReceiveFinished(b, gd));
+
+			/* handle if count decreased to 0 */
+			if(gd->vertexDataMap->at(t_id)->wait_counter == 0) {
+				gd->am->callWhenFinished(nullptr, new ColourVertex(t_id, gd));
+			}
 		}
 	};
 }
+
+
 
 bool GraphColouringMPAsync::run(GraphPartition *g) {
 	int nodeId = g->getNodeId();
@@ -134,11 +143,20 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 
 	fprintf(stderr, "[%d] Finished initialization\n", nodeId);
 
+	GlobalData globalData;
+	globalData.am = &am;
+	globalData.coloured_count = &coloured_count;
+	globalData.g = g;
+	globalData.mpi_message_type = &mpi_message_type;
+	globalData.nodeId = nodeId;
+	globalData.sendPool = &sendBuffers;
+	globalData.vertexDataMap = &vertexDataMap;
+
 	/* start outstanding receive requests */
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 		Message *b = receiveBuffers.getNew();
 		MPI_Request *rq = scheduleReceive(b, &mpi_message_type);
-		am.callWhenFinished(rq, buildOnReceiveHandler(b, &vertexDataMap, nodeId, &mpi_message_type, g, &sendBuffers, &coloured_count, &am));
+		am.callWhenFinished(rq, new OnReceiveFinished(b, &globalData));
 	}
 
 	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", nodeId);
