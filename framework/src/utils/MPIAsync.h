@@ -32,7 +32,8 @@ public:
 	 * @param request - when request is no longer needed, requestCleander'll be called
 	 * @param callback - must deallocate itself
 	 */
-	void callWhenFinished(MPI_Request *request, Callback *callback);
+	void submitTask(Callback *callback);
+	void submitWaitingTask(MPI_Request *request, Callback *callback);
 	void pollNext(size_t x);
 	void pollAll();
 	void shutdown();

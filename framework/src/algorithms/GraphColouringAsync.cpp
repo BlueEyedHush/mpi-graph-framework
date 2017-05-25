@@ -99,7 +99,7 @@ namespace {
 						/* it might be already processed, then it's wait_counter'll < 0 */
 						if (gd->vertexDataMap->at(neigh_id.localId)->wait_counter == 0) {
 							ColourVertex *cb = gd->colourVertexCbPool->construct(neigh_id.localId, gd);
-							gd->am->callWhenFinished(nullptr, cb);
+							gd->am->submitTask(cb);
 							fprintf(stderr, "[%d] Scheduled\n", gd->nodeId);
 						}
 					} else {
@@ -114,7 +114,7 @@ namespace {
 						        gd->nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, gd->nodeId, v_id, v_id_num, chosen_colour);
 
 						OnSendFinished *cb = gd->sendFinishedCbPool->construct(b, gd);
-						gd->am->callWhenFinished(rq, cb);
+						gd->am->submitWaitingTask(rq, cb);
 					}
 				}
 			});
@@ -141,12 +141,12 @@ namespace {
 			/* post new request */
 			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type, gd->mpiRequestPool);
 			OnReceiveFinished *cb = gd->receiveFinishedCbPool->construct(b, gd);
-			gd->am->callWhenFinished(rq, cb);
+			gd->am->submitWaitingTask(rq, cb);
 
 			if(gd->vertexDataMap->at(t_id)->wait_counter == 0) {
 			/* handle if count decreased to 0, and is not below 0 - this happens in case of already processed vertices */
 				ColourVertex *cb = gd->colourVertexCbPool->construct(t_id, gd);
-				gd->am->callWhenFinished(nullptr, cb);
+				gd->am->submitTask(cb);
 			}
 
 			gd->receiveFinishedCbPool->destroy(this);
@@ -204,7 +204,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
 		Message *b = receivePool.construct();
 		MPI_Request *rq = scheduleReceive(b, &mpi_message_type, &requestPool);
-		am.callWhenFinished(rq, receiveFinishedCbPool.construct(b, &globalData));
+		am.submitWaitingTask(rq, receiveFinishedCbPool.construct(b, &globalData));
 	}
 
 	fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", nodeId);
@@ -231,7 +231,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 
 		vertexDataMap[v_id]->wait_counter += wait_counter;
 		if (wait_counter == 0) {
-			am.callWhenFinished(nullptr, colourVertexCbPool.construct(v_id, &globalData));
+			am.submitTask(colourVertexCbPool.construct(v_id, &globalData));
 		}
 
 		fprintf(stderr, "[%d] Waiting for %d nodes to establish colouring\n", nodeId, vertexDataMap[v_id]->wait_counter);

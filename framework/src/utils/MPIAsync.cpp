@@ -11,7 +11,11 @@ MPIAsync::MPIAsync(MPIRequestCleaner *requestCleaner, bool cleanUpCleaner) {
 	this->cleanUpCleaner = cleanUpCleaner;
 }
 
-void MPIAsync::callWhenFinished(MPI_Request *request, Callback *callback) {
+void MPIAsync::submitTask(MPIAsync::Callback *callback) {
+	submitWaitingTask(nullptr, callback);
+}
+
+void MPIAsync::submitWaitingTask(MPI_Request *request, Callback *callback) {
 	El el;
 	el.cb = callback;
 	el.rq = request;
