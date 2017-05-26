@@ -54,6 +54,11 @@ static std::vector<ull> parseLine(const std::string &line) {
 		}
 	}
 
+	if(charInProgress && num_str.size() > 0) {
+		ull num = std::stoull(num_str);
+		convertedLine.push_back(num);
+	}
+
 	return convertedLine;
 }
 
@@ -80,7 +85,8 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 	register_global_vertex_id(&globalVertexDatatype);
 
 	if (world_rank == 0) {
-		std::ifstream inputStream(path, std::ifstream::in);
+		std::ifstream inputStream;
+		inputStream.open(path, std::ifstream::in);
 		std::string line;
 		std::vector<ull> convertedLine;
 
@@ -126,6 +132,7 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 		NodeId nextNodeId = 0;
 		while(!allProcessed) {
 			for(int i = 0; i < VERTEX_BUFFER_SIZE && !allProcessed; i++) {
+				line.clear();
 				std::getline(inputStream, line);
 				if (!line.empty()) {
 					convertedLine = parseLine(line);
@@ -144,6 +151,9 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 					oinfo.adjListOffset += neighCount;
 					nodeToOffsetInfo[vertexGid.nodeId] = oinfo;
 
+					/* register mapping */
+					remappingTable[vertexId] = vertexGid;
+
 					nextNodeId++;
 					if(nextNodeId >= world_size) {
 						nextNodeId = 0;
@@ -158,7 +168,7 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 
 					for(int neighIdx = 1; neighIdx < convertedLine.size(); neighIdx++) {
 						ull neighId = convertedLine[neighIdx];
-						if(remappingTable.count(neighId)) {
+						if(remappingTable.count(neighId) > 0) {
 							mappedNeigh[neighIdx-1] = remappingTable[neighId];
 						} else {
 							/* not yet mapped, we have to postpone it */
@@ -180,17 +190,12 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 
 
 					/* and finally, remap those that were already distributed, but replaced with placeholder */
-					for(auto pair: toRemap) {
-						ull originalId = pair.first;
-						GlobalVertexId mappedId = remappingTable[originalId];
-						GlobalVertexId *pooledMappedId = reinterpret_cast<GlobalVertexId *>(adjListPool.malloc());
-						memcpy(pooledMappedId, &mappedId, sizeof(GlobalVertexId));
-
-						for(AdjListPos coords: pair.second) {
-							MPI_Put(pooledMappedId, 1, globalVertexDatatype,
-							        coords.nodeId, coords.adjListOffset, 1, globalVertexDatatype,
-							        adjListWin);
-						}
+					GlobalVertexId *pooledMappedId = reinterpret_cast<GlobalVertexId *>(adjListPool.malloc());
+					memcpy(pooledMappedId, &vertexGid, sizeof(GlobalVertexId));
+					for(AdjListPos coords: toRemap[vertexId]) {
+						MPI_Put(pooledMappedId, 1, globalVertexDatatype,
+						        coords.nodeId, coords.adjListOffset, 1, globalVertexDatatype,
+						        adjListWin);
 					}
 				} else {
 					allProcessed = true;
@@ -224,14 +229,14 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 		MPI_Win_flush_all(offsetTableWin);
 		localVertexIdPool.purge_memory();
 
-		MPI_Win_unlock_all(vertexEdgeWin);
-		MPI_Win_unlock_all(adjListWin);
-		MPI_Win_unlock_all(offsetTableWin);
-
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Win_sync(adjListWin);
 		MPI_Win_sync(offsetTableWin);
+
+		MPI_Win_unlock_all(vertexEdgeWin);
+		MPI_Win_unlock_all(adjListWin);
+		MPI_Win_unlock_all(offsetTableWin);
 		/* adjacency list and offset list should be available */
 
 	} else {
@@ -248,12 +253,20 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 		MPI_Win_allocate(offsetTableWinSize*sizeof(LocalVertexId), sizeof(LocalVertexId), MPI_INFO_NULL, MPI_COMM_WORLD,
 		                 &offsetTableWinMem, &offsetTableWin);
 
+		MPI_Win_lock_all(0, vertexEdgeWin);
+		MPI_Win_lock_all(0, adjListWin);
+		MPI_Win_lock_all(0, offsetTableWin);
+
 		/* wait for master to load all data */
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Win_sync(vertexEdgeWin);
 		MPI_Win_sync(adjListWin);
 		MPI_Win_sync(offsetTableWin);
+
+		MPI_Win_unlock_all(vertexEdgeWin);
+		MPI_Win_unlock_all(adjListWin);
+		MPI_Win_unlock_all(offsetTableWin);
 		/* adjacency list and offset list should be available */
 
 	}
@@ -302,7 +315,7 @@ void ALHPGraphPartition::forEachLocalVertex(std::function<void(LocalVertexId)> f
 }
 
 bool ALHPGraphPartition::isLocalVertex(GlobalVertexId id) {
-	return id.localId == dataSpaces.world_rank;
+	return id.nodeId == dataSpaces.world_rank;
 }
 
 NodeId ALHPGraphPartition::getNodeId() {

@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include "GraphPartition.h"
 #include "representations/SimpleStaticGraph.h"
+#include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"
 
@@ -32,15 +33,19 @@ int main() {
 
 	MPI_Init(NULL, NULL);
 
-	GraphPartition *g = new SimpleStaticGraph();
+	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
+	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
+	g = graphBuilder->buildGraph(std::string("graphs/simple4vertex.adjl"), g);
 
 	Algorithm *algorithm = new GraphColouringMPAsync();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Finalize();
 
+	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
+	delete algorithm;
 	delete g;
+	MPI_Finalize();
 
 	if (!result) {
 		fprintf(stderr, "Error occured while executing algorithm\n");

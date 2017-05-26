@@ -9,6 +9,7 @@
 #include <GraphPartition.h>
 
 class ALHPGraphBuilder : public GraphBuilder {
+public:
 	virtual GraphPartition* buildGraph(std::string path, GraphPartition *memory);
 };
 

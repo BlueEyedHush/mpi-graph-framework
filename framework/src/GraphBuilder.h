@@ -9,6 +9,7 @@
 #include "GraphPartition.h"
 
 class GraphBuilder {
+public:
 	virtual GraphPartition* buildGraph(std::string path, GraphPartition *memory) = 0;
 };
 
