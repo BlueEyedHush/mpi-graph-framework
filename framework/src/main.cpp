@@ -53,5 +53,5 @@ int main() {
 	} else {
 		fprintf(stderr, "Algorithm terminated successfully\n");
 		return 0;
-	}
+	}w
 }
