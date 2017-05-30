@@ -21,6 +21,8 @@ public:
 private:
 	struct El {
 		MPI_Request *rq;
+		/* either cb or fun are set - depends on whether cb == nullptr or not */
+		std::function<void(void)> fun;
 		Callback *cb;
 	};
 
@@ -33,7 +35,9 @@ public:
 	 * @param callback - must deallocate itself
 	 */
 	void submitTask(Callback *callback);
+	void submitTask(std::function<void(void)> callback);
 	void submitWaitingTask(MPI_Request *request, Callback *callback);
+	void submitWaitingTask(MPI_Request *request, std::function<void(void)> callback);
 	void pollNext(size_t x);
 	void pollAll();
 	void shutdown();

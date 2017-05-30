@@ -71,6 +71,7 @@ void MPIAsync::shutdown() {
 
 void MPIAsync::executeCallbackAt(size_t i) {
 	El el = taskList->at(i);
+
 	el.cb->operator()();
 
 	if (taskList->size() >= 2) {
@@ -84,4 +85,16 @@ void MPIAsync::executeCallbackAt(size_t i) {
 	if (el.rq != nullptr) {
 		(*cleaner)(el.rq);
 	}
+}
+
+void MPIAsync::submitTask(std::function<void(void)> callback) {
+	submitWaitingTask(nullptr, callback);
+}
+
+void MPIAsync::submitWaitingTask(MPI_Request *request, std::function<void(void)> callback) {
+	El el;
+	el.rq = request;
+	el.cb = nullptr;
+	el.fun = callback;
+	taskList->push_back(el);
 }
