@@ -5,6 +5,8 @@
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"
+#include "Validator.h"
+#include "validators/ColouringValidator.h"
 
 
 /*
@@ -42,16 +44,25 @@ int main() {
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	if (!result) {
+		fprintf(stderr, "Error occured while executing algorithm\n");
+	} else {
+		fprintf(stderr, "Algorithm terminated successfully\n");
+	}
+
+	Validator<int*> *validator = new ColouringValidator();
+	bool validationSuccessfull = validator->validate(g, algorithm->getResult());
+	if(!validationSuccessfull) {
+		fprintf(stderr, "Validation failure\n");
+	} else {
+		fprintf(stderr, "Validation success\n");
+	}
+
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
 	delete algorithm;
+	delete validator;
 	delete g;
 	MPI_Finalize();
 
-	if (!result) {
-		fprintf(stderr, "Error occured while executing algorithm\n");
-		return 1;
-	} else {
-		fprintf(stderr, "Algorithm terminated successfully\n");
-		return 0;
-	}
+	return 0;
 }
