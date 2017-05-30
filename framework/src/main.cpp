@@ -37,7 +37,7 @@ int main() {
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
 	g = graphBuilder->buildGraph(std::string("graphs/simple4vertex.adjl"), g);
 
-	Algorithm *algorithm = new GraphColouringMPAsync();
+	Algorithm<int*> *algorithm = new GraphColouringMPAsync();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -53,5 +53,5 @@ int main() {
 	} else {
 		fprintf(stderr, "Algorithm terminated successfully\n");
 		return 0;
-	}w
+	}
 }

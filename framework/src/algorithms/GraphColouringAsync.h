@@ -7,8 +7,19 @@
 
 #include <Algorithm.h>
 
-class GraphColouringMPAsync : public Algorithm {
+class GraphColouringMPAsync : public Algorithm<int*> {
+public:
+	GraphColouringMPAsync();
 	virtual bool run(GraphPartition *g) override;
+	/**
+	 *
+	 * @return colouring for local vertices
+	 */
+	virtual int *getResult() override;
+	virtual ~GraphColouringMPAsync() override ;
+
+private:
+	int *finalColouring;
 };
 
 

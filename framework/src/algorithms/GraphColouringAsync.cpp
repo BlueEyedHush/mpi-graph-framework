@@ -46,6 +46,8 @@ namespace {
 		boost::object_pool<OnSendFinished> *sendFinishedCbPool;
 		boost::object_pool<ColourVertex> *colourVertexCbPool;
 		boost::pool<> *mpiRequestPool;
+
+		int *finalColouring;
 	};
 
 	struct OnSendFinished : public MPIAsync::Callback {
@@ -80,6 +82,8 @@ namespace {
 				iter_count += 1;
 			}
 			int chosen_colour = previous_used_colour + 1;
+			gd->finalColouring[v_id] = chosen_colour;
+
 			gd->vertexDataMap->at(v_id)->wait_counter = -1;
 
 			fprintf(stderr, CLI_BOLD "[%d] All neighbours of (%d, %d, %llu) chosen colours, we choose %d\n" CLI_RESET,
@@ -170,6 +174,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	int nodeId = g->getNodeId();
 
 	std::unordered_map<int, VertexTempData*> vertexDataMap;
+	finalColouring = new int[g->getLocalVertexCount()];
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
@@ -199,6 +204,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	globalData.sendFinishedCbPool = &sendFinishedCbPool;
 	globalData.colourVertexCbPool = &colourVertexCbPool;
 	globalData.mpiRequestPool = &requestPool;
+	globalData.finalColouring = finalColouring;
 
 	/* start outstanding receive requests */
 	for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
@@ -255,3 +261,16 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 
 	return true;
 }
+
+int *GraphColouringMPAsync::getResult() {
+	return finalColouring;
+}
+
+GraphColouringMPAsync::GraphColouringMPAsync() {
+	finalColouring = nullptr;
+}
+
+GraphColouringMPAsync::~GraphColouringMPAsync() {
+	if (finalColouring != nullptr) delete[] finalColouring;
+}
+

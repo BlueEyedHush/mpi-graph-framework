@@ -186,7 +186,11 @@ bool GraphColouringMP::run(GraphPartition *g) {
 	return true;
 }
 
-bool GraphColouringRMA::run(GraphPartition *g) {
+int *GraphColouringMP::getResult() {
+	return nullptr;
+}
+
+GraphColouringMP::~GraphColouringMP() {
 
 }
 

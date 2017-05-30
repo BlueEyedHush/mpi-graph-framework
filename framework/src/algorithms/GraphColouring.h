@@ -7,12 +7,10 @@
 
 #include <Algorithm.h>
 
-class GraphColouringMP : public Algorithm {
+class GraphColouringMP : public Algorithm<int*> {
 	virtual bool run(GraphPartition *g) override;
-};
-
-class GraphColouringRMA : public Algorithm {
-	virtual bool run(GraphPartition *g) override;
+	virtual int *getResult() override;
+	virtual ~GraphColouringMP() override;
 };
 
 #endif //FRAMEWORK_GRAPHCOLOURING_H
