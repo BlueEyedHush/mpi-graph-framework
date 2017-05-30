@@ -16,7 +16,9 @@ public:
 	};
 
 	struct MPIRequestCleaner {
-		virtual void operator()(MPI_Request*) = 0;
+		virtual void operator()(MPI_Request* r) {
+			delete r;
+		}
 	};
 private:
 	struct El {
@@ -27,7 +29,7 @@ private:
 	};
 
 public:
-	MPIAsync(MPIRequestCleaner *requestCleaner, bool cleanUpCleaner = true);
+	MPIAsync(MPIRequestCleaner *requestCleaner = &defaultCleaner, bool cleanUpCleaner = false);
 
 	/**
 	 *
@@ -43,6 +45,8 @@ public:
 	void shutdown();
 
 private:
+	static MPIRequestCleaner defaultCleaner;
+
 	size_t nextToProcess;
 	std::vector<El> *taskList;
 	MPIRequestCleaner *cleaner;
