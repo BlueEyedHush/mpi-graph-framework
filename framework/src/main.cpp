@@ -37,7 +37,7 @@ int main() {
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
-	g = graphBuilder->buildGraph(std::string("graphs/simple4vertex.adjl"), g);
+	g = graphBuilder->buildGraph(std::string("graphs/test.adjl"), g);
 
 	Algorithm<int*> *algorithm = new GraphColouringMPAsync();
 	bool result = algorithm->run(g);
