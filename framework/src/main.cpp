@@ -1,5 +1,8 @@
 #include <cstdio>
+#include <iostream>
 #include <mpi.h>
+#include <boost/program_options.hpp>
+#include <boost/optional.hpp>
 #include "GraphPartition.h"
 #include "representations/SimpleStaticGraph.h"
 #include "representations/AdjacencyListHashPartition.h"
@@ -8,6 +11,7 @@
 #include "Validator.h"
 #include "validators/ColouringValidator.h"
 
+namespace po = boost::program_options;
 
 /*
  * @ToDo:
@@ -25,7 +29,32 @@
 #include <signal.h>
 #endif
 
-int main() {
+struct Configuration {
+	std::string graphFilePath;
+};
+
+boost::optional<Configuration> parse_cli_args(const int argc, const char** argv) {
+	po::options_description desc("Usage");
+	desc.add_options()
+			("graph,g", po::value<std::string>(), "name of graph file to load")
+			;
+
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::notify(vm);
+
+	Configuration config;
+	if (vm.count("graph")) {
+		config.graphFilePath = vm["graph"].as<std::string>();
+	} else {
+		std::cout << desc << std::endl;
+		return boost::none;
+	}
+
+	return config;
+}
+
+int main(const int argc, const char** argv) {
 	MPI_Init(NULL, NULL);
 
 	#if WAIT_FOR_DEBUGGER == 1
@@ -38,9 +67,16 @@ int main() {
 	#endif
 
 
+	Configuration config;
+	if(auto optConfig = parse_cli_args(argc, argv)) {
+		config = optConfig.value();
+	} else {
+		return 1;
+	}
+
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
-	g = graphBuilder->buildGraph(std::string("graphs/test.adjl"), g);
+	g = graphBuilder->buildGraph(config.graphFilePath, g);
 
 	Algorithm<int*> *algorithm = new GraphColouringMPAsync();
 	bool result = algorithm->run(g);
