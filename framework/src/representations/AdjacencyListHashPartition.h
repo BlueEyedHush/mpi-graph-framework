@@ -18,6 +18,8 @@ struct GraphData {
 	int world_rank;
 
 	MPI_Win vertexEdgeWin, adjListWin, offsetTableWin;
+	int offsetTableWinSize;
+	int adjListWinSize;
 	LocalVertexId *vertexEdgeWinMem;
 	LocalVertexId *offsetTableWinMem;
 	GlobalVertexId *adjListWinMem;
@@ -27,23 +29,24 @@ class ALHPGraphPartition : public GraphPartition {
 public:
 	ALHPGraphPartition(GraphData ds);
 
-	virtual int getLocalVertexCount();
+	virtual int getLocalVertexCount() override;
 
-	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f);
-	virtual void forEachLocalVertex(std::function<void(LocalVertexId)> f);
+	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) override;
+	virtual void forEachLocalVertex(std::function<void(LocalVertexId)> f) override;
 
-	virtual bool isLocalVertex(GlobalVertexId id);
-	virtual NodeId getNodeId();
+	virtual int getMaxLocalVertexCount() override;
+	virtual bool isLocalVertex(GlobalVertexId id) override;
+	virtual NodeId getNodeId() override ;
 	/**
 	 *
 	 * @return numerical value which is unique and comparable, but there might be gaps
 	 */
-	virtual unsigned long long toNumerical(GlobalVertexId id);
+	virtual unsigned long long toNumerical(GlobalVertexId id) override;
 
-	virtual ~ALHPGraphPartition();
+	virtual ~ALHPGraphPartition() override;
 
 private:
-	GraphData dataSpaces;
+	GraphData data;
 };
 
 

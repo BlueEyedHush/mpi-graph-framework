@@ -28,6 +28,7 @@ public:
 	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) = 0;
 	virtual void forEachLocalVertex(std::function<void(LocalVertexId)> f) = 0;
 
+	virtual int getMaxLocalVertexCount() = 0;
 	virtual bool isLocalVertex(GlobalVertexId id) = 0;
 	virtual NodeId getNodeId() = 0;
 	/**
