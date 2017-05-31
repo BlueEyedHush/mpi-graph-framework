@@ -36,6 +36,7 @@ public:
 
 	virtual int getMaxLocalVertexCount() override;
 	virtual bool isLocalVertex(GlobalVertexId id) override;
+	virtual int getNodeCount() override;
 	virtual NodeId getNodeId() override ;
 	/**
 	 *

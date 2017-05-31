@@ -26,14 +26,17 @@
 #endif
 
 int main() {
+	MPI_Init(NULL, NULL);
+
 	#if WAIT_FOR_DEBUGGER == 1
-	fprintf(stderr, "[%d] PID: %d\n", nodeId, getpid());
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	fprintf(stderr, "[%d] PID: %d\n", world_rank, getpid());
 	raise(SIGSTOP);
 	//volatile short execute_loop = 1;
 	//while(execute_loop == 1) {}
 	#endif
 
-	MPI_Init(NULL, NULL);
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));

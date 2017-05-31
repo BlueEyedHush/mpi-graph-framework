@@ -24,8 +24,9 @@ void MPIAsync::submitWaitingTask(MPI_Request *request, Callback *callback) {
 	taskList->push_back(el);
 }
 
-void MPIAsync::pollNext(size_t x) {
-	for(size_t i = 0; i < x; i++) {
+bool MPIAsync::pollNext(size_t x) {
+	size_t i = 0;
+	for(; i < x; i++) {
 		if (nextToProcess >= taskList->size()) {
 			nextToProcess = 0;
 		}
@@ -47,14 +48,16 @@ void MPIAsync::pollNext(size_t x) {
 
 		nextToProcess++;
 	}
+
+	return i > 0;
 }
 
-void MPIAsync::pollAll() {
+bool MPIAsync::pollAll() {
 	if (nextToProcess >= taskList->size()) {
 		nextToProcess = 0;
 	}
 	size_t toPoll = taskList->size() - nextToProcess;
-	pollNext(toPoll);
+	return pollNext(toPoll);
 }
 
 void MPIAsync::shutdown() {
@@ -74,7 +77,11 @@ void MPIAsync::shutdown() {
 void MPIAsync::executeCallbackAt(size_t i) {
 	El el = taskList->at(i);
 
-	el.cb->operator()();
+	if(el.cb != nullptr) {
+		el.cb->operator()();
+	} else {
+		el.fun();
+	}
 
 	if (taskList->size() >= 2) {
 		size_t lastIdx = taskList->size() - 1;

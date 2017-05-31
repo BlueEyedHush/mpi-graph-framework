@@ -42,8 +42,8 @@ public:
 	void submitTask(std::function<void(void)> callback);
 	void submitWaitingTask(MPI_Request *request, Callback *callback);
 	void submitWaitingTask(MPI_Request *request, std::function<void(void)> callback);
-	void pollNext(size_t x);
-	void pollAll();
+	bool pollNext(size_t x);
+	bool pollAll();
 	void shutdown();
 
 private:

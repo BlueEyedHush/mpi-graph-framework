@@ -174,7 +174,7 @@ bool GraphColouringMPAsync::run(GraphPartition *g) {
 	int nodeId = g->getNodeId();
 
 	std::unordered_map<int, VertexTempData*> vertexDataMap;
-	finalColouring = new int[g->getLocalVertexCount()];
+	finalColouring = new int[g->getMaxLocalVertexCount()];
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
