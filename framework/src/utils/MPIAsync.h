@@ -16,6 +16,8 @@ public:
 	};
 
 	struct MPIRequestCleaner {
+		MPIRequestCleaner() {}
+
 		virtual void operator()(MPI_Request* r) {
 			delete r;
 		}

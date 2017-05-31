@@ -4,6 +4,8 @@
 
 #include "MPIAsync.h"
 
+MPIAsync::MPIRequestCleaner MPIAsync::defaultCleaner = MPIAsync::MPIRequestCleaner();
+
 MPIAsync::MPIAsync(MPIRequestCleaner *requestCleaner, bool cleanUpCleaner) {
 	nextToProcess = 0;
 	taskList = new std::vector<El>();
