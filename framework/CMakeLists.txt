@@ -13,6 +13,7 @@ add_executable(framework ${SOURCE_FILES})
 
 
 # dependencies
+# Boost
 set(BOOST_ROOT lib/boost_1_64_0)
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
@@ -28,11 +29,27 @@ else()
     message(FATAL_ERROR "Can't find Boost")
 endif()
 
+# MPI
 find_package(MPI REQUIRED)
 if(MPI_C_FOUND)
+    message(STATUS "Found MPI")
     include_directories(SYSTEM ${MPI_INCLUDE_PATH})
     target_link_libraries(framework ${MPI_C_LIBRARIES})
 else()
     message(FATAL_ERROR "Can't find MPI")
 endif()
 
+# Google Test
+set(GTEST_ROOT lib/googletest/googletest)
+enable_testing()
+find_package(GTest REQUIRED)
+if(GTEST_FOUND)
+    message(STATUS "Found GoogleTest")
+    add_executable(tests src/Tests.cpp)
+    include_directories(${GTEST_INCLUDE_DIRS})
+    target_link_libraries(tests ${GTEST_BOTH_LIBRARIES})
+else()
+    message(FATAL_ERROR "Can't find GoogleTest")
+endif()
+
+add_test(AllTests tests)
