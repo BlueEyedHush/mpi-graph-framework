@@ -1,13 +1,15 @@
-# dummy
-
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-target
+target/
 framework
+!framework/
+tests
+!tests/
 framework.cbp
 Makefile
 lib/
 Testing/
 CTestTestfile.cmake
+*.a
 

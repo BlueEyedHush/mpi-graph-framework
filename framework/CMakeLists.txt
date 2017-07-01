@@ -5,12 +5,31 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0")
 
 # for absolute includes
-include_directories(src/)
+include_directories(src/framework)
 
 # executable configuration
-file(GLOB_RECURSE SOURCE_FILES src/*.cpp src/*.h)
-add_executable(framework ${SOURCE_FILES})
+file(GLOB_RECURSE FRAMEWORK_SRC src/framework/*.cpp src/framework/*.h)
+add_library(framework_lib ${FRAMEWORK_SRC})
 
+set(FRAMEWORK_MAIN src/framework_main/main.cpp)
+add_executable(framework ${FRAMEWORK_MAIN})
+target_link_libraries(framework framework_lib)
+
+# tests configuration
+set(GTEST_ROOT lib/googletest/googletest)
+enable_testing()
+find_package(GTest REQUIRED)
+if(GTEST_FOUND)
+    message(STATUS "Found GoogleTest")
+    file(GLOB_RECURSE TEST_SRC src/framework_tests/*.cpp src/framework_tests/*.h)
+    add_executable(tests ${TEST_SRC})
+    include_directories(${GTEST_INCLUDE_DIRS})
+    target_link_libraries(tests ${GTEST_BOTH_LIBRARIES} framework_lib)
+else()
+    message(FATAL_ERROR "Can't find GoogleTest")
+endif()
+
+add_test(AllTests tests)
 
 # dependencies
 # Boost
@@ -38,18 +57,3 @@ if(MPI_C_FOUND)
 else()
     message(FATAL_ERROR "Can't find MPI")
 endif()
-
-# Google Test
-set(GTEST_ROOT lib/googletest/googletest)
-enable_testing()
-find_package(GTest REQUIRED)
-if(GTEST_FOUND)
-    message(STATUS "Found GoogleTest")
-    add_executable(tests src/Tests.cpp)
-    include_directories(${GTEST_INCLUDE_DIRS})
-    target_link_libraries(tests ${GTEST_BOTH_LIBRARIES})
-else()
-    message(FATAL_ERROR "Can't find GoogleTest")
-endif()
-
-add_test(AllTests tests)
