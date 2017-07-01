@@ -1,11 +1,2 @@
 .idea/
 *.pyc
-
-framework/CMakeCache.txt
-framework/CMakeFiles/
-framework/cmake_install.cmake
-framework/target
-framework/framework
-framework/framework.cbp
-framework/Makefile
-framework/lib/

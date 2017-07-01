@@ -1,0 +1,13 @@
+# dummy
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+target
+framework
+framework.cbp
+Makefile
+lib/
+Testing/
+CTestTestfile.cmake
+
