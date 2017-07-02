@@ -9,6 +9,8 @@
 
 class ArrayBackedChunkedPartition : public GraphPartition {
 public:
+	static ArrayBackedChunkedPartition fromFile(std::string path, int P, int partitionId);
+
 	ArrayBackedChunkedPartition(int E, int V, int P, int partitionId, int *adjacencyList, int *offsets);
 
 	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) override;
