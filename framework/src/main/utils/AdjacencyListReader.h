@@ -10,8 +10,14 @@
 #include <set>
 
 struct VertexSpec {
+	VertexSpec(int _vertexId, std::set<int> _neighbours) : vertexId(_vertexId), neighbours(_neighbours) {}
+
 	int vertexId;
 	std::set<int> neighbours;
+
+	bool operator ==(const VertexSpec &o) const {
+		return (this->vertexId == o.vertexId) && (this->neighbours == o.neighbours);
+	};
 };
 
 class AdjacencyListReader {
