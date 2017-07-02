@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 #include <boost/optional.hpp>
 
 class CsvReader {
@@ -15,6 +16,9 @@ public:
 	~CsvReader();
 
 	boost::optional<std::vector<int>> getNextLine();
+private:
+	std::ifstream ifs;
+	std::string line;
 };
 
 
