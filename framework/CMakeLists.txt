@@ -5,13 +5,13 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0")
 
 # for absolute includes
-include_directories(src/framework)
+include_directories(src/main)
 
 # executable configuration
-file(GLOB_RECURSE FRAMEWORK_SRC src/framework/*.cpp src/framework/*.h)
+file(GLOB_RECURSE FRAMEWORK_SRC src/main/*.cpp src/main/*.h)
 add_library(framework_lib ${FRAMEWORK_SRC})
 
-set(FRAMEWORK_MAIN src/framework_main/main.cpp)
+set(FRAMEWORK_MAIN src/entry_point/main.cpp)
 add_executable(framework ${FRAMEWORK_MAIN})
 target_link_libraries(framework framework_lib)
 
@@ -21,7 +21,7 @@ enable_testing()
 find_package(GTest REQUIRED)
 if(GTEST_FOUND)
     message(STATUS "Found GoogleTest")
-    file(GLOB_RECURSE TEST_SRC src/framework_tests/*.cpp src/framework_tests/*.h)
+    file(GLOB_RECURSE TEST_SRC src/test/*.cpp src/test/*.h)
     add_executable(tests ${TEST_SRC})
     include_directories(${GTEST_INCLUDE_DIRS})
     target_link_libraries(tests ${GTEST_BOTH_LIBRARIES} framework_lib)
