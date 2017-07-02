@@ -106,3 +106,38 @@ TEST(TEST_NAME, GetNeighbours) {
 
 	ASSERT_EQ(expectedNeighbours, actualNeighbours);
 }
+
+TEST(TEST_NAME, LoadFromFile) {
+	auto path = std::string("resources/test/SimpleTestGraph.adjl");
+	auto gp1 = ArrayBackedChunkedPartition::fromFile(path, 2, 1);
+
+
+	GlobalVertexId gid0;
+	gid0.nodeId = 0;
+	gid0.localId = 0;
+
+	GlobalVertexId gid1;
+	gid1.nodeId = 0;
+	gid1.localId = 1;
+
+	GlobalVertexId gid2;
+	gid2.nodeId = 1;
+	gid2.localId = 0;
+
+	GlobalVertexId gid3;
+	gid3.nodeId = 1;
+	gid3.localId = 1;
+
+	std::unordered_set<unsigned long long> expectedNeighbours = {
+			gp1.toNumerical(gid0),
+			gp1.toNumerical(gid1),
+			gp1.toNumerical(gid2)
+	};
+	std::unordered_set<unsigned long long> actualNeighbours;
+
+	gp1.forEachNeighbour(gid3.localId, [&actualNeighbours, &gp1](GlobalVertexId nid) {
+		actualNeighbours.insert(gp1.toNumerical(nid));
+	});
+
+	ASSERT_EQ(expectedNeighbours, actualNeighbours);
+}
