@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <fstream>
 #include <boost/optional.hpp>
+#include <utils/CsvReader.h>
 
 struct VertexSpec {
 	VertexSpec(int _vertexId, std::set<int> _neighbours) : vertexId(_vertexId), neighbours(_neighbours) {}
@@ -33,13 +33,9 @@ public:
 	boost::optional<VertexSpec> getNextVertex();
 
 private:
-	std::ifstream ifs;
+	CsvReader csvReader;
 	int vertexCount;
 	int edgeCount;
-	std::string line;
-	std::vector<int> parsedLine;
-
-	void loadNextLine();
 };
 
 
