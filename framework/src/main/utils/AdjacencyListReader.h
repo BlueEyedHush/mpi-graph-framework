@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <fstream>
+#include <boost/optional.hpp>
 
 struct VertexSpec {
 	VertexSpec(int _vertexId, std::set<int> _neighbours) : vertexId(_vertexId), neighbours(_neighbours) {}
@@ -23,12 +25,21 @@ struct VertexSpec {
 class AdjacencyListReader {
 public:
 	AdjacencyListReader(std::string path);
+	~AdjacencyListReader();
 
 	int getVertexCount();
 	int getEdgeCount();
 
-	bool hasNextVertex();
-	VertexSpec getNextVertex();
+	boost::optional<VertexSpec> getNextVertex();
+
+private:
+	std::ifstream ifs;
+	int vertexCount;
+	int edgeCount;
+	std::string line;
+	std::vector<int> parsedLine;
+
+	void loadNextLine();
 };
 
 

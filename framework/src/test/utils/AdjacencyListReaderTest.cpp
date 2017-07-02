@@ -8,14 +8,14 @@
 std::string path = "resources/test/SimpleTestGraph.adjl";
 
 TEST(AdjacencyListReader, VertexEdgeCount) {
-	AdjacencyListReader reader = AdjacencyListReader(path);
+	AdjacencyListReader reader(path);
 
 	ASSERT_EQ(reader.getEdgeCount(), 12);
 	ASSERT_EQ(reader.getVertexCount(), 4);
 }
 
 TEST(AdjacencyListReader, Structure) {
-	AdjacencyListReader reader = AdjacencyListReader(path);
+	AdjacencyListReader reader(path);
 
 	std::vector<VertexSpec> expected = {
 		VertexSpec(0, {1, 2, 3}),
@@ -25,8 +25,8 @@ TEST(AdjacencyListReader, Structure) {
 	};
 
 	std::vector<VertexSpec> actual;
-	while(reader.hasNextVertex()) {
-		actual.push_back(reader.getNextVertex());
+	while(boost::optional<VertexSpec> oVertexSpec = reader.getNextVertex()) {
+		actual.push_back(*oVertexSpec);
 	}
 
 	ASSERT_EQ(actual, expected);
