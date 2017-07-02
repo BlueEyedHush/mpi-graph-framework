@@ -2,8 +2,15 @@
 // Created by blueeyedhush on 02.07.17.
 //
 
-#define E_N 12
-#define V_N 4
+#include <representations/ArrayBackedChunkedPartition.h>
+#include <unordered_set>
+#include <gtest/gtest.h>
+
+
+#define TEST_NAME ArrayBackedChunkedPartition
+
+const int E_N = 12;
+const int V_N = 4;
 
 int E[E_N] = {
 		1, 2, 3,
@@ -18,3 +25,84 @@ int V_OFFSETS[V_N] = {
 		6,
 		9
 };
+
+TEST(TEST_NAME, LocalVertexCorrectness) {
+	const int P_N = 2;
+	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
+	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+
+	std::unordered_set<LocalVertexId> actualVertexId0;
+	gp0.forEachLocalVertex([&actualVertexId0](LocalVertexId id) {
+		actualVertexId0.insert(id);
+	});
+
+	std::unordered_set<LocalVertexId> actualVertexId1;
+	gp1.forEachLocalVertex([&actualVertexId1](LocalVertexId id) {
+		actualVertexId1.insert(id);
+	});
+
+
+	std::unordered_set<LocalVertexId> expectedLocalVertices = {0,1};
+	ASSERT_EQ(expectedLocalVertices, actualVertexId0);
+	ASSERT_EQ(expectedLocalVertices, actualVertexId1);
+}
+
+TEST(TEST_NAME, GetNodeId) {
+	const int P_N = 2;
+	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
+	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+
+	ASSERT_EQ(gp0.getNodeId(), 0);
+	ASSERT_EQ(gp1.getNodeId(), 1);
+}
+
+TEST(TEST_NAME, IsLocal) {
+	const int P_N = 2;
+	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
+
+	GlobalVertexId gid0;
+	gid0.nodeId = 0;
+	gid0.localId = 0;
+
+	GlobalVertexId gid1;
+	gid1.nodeId = 1;
+	gid1.localId = 0;
+
+	ASSERT_TRUE(gp0.isLocalVertex(gid0));
+	ASSERT_FALSE(gp0.isLocalVertex(gid1));
+}
+
+TEST(TEST_NAME, GetNeighbours) {
+	const int P_N = 2;
+	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+
+
+	GlobalVertexId gid0;
+	gid0.nodeId = 0;
+	gid0.localId = 0;
+
+	GlobalVertexId gid1;
+	gid1.nodeId = 0;
+	gid1.localId = 1;
+
+	GlobalVertexId gid2;
+	gid2.nodeId = 1;
+	gid2.localId = 0;
+
+	GlobalVertexId gid3;
+	gid3.nodeId = 1;
+	gid3.localId = 1;
+
+	std::unordered_set<unsigned long long> expectedNeighbours = {
+			gp1.toNumerical(gid0),
+			gp1.toNumerical(gid1),
+			gp1.toNumerical(gid2)
+	};
+	std::unordered_set<unsigned long long> actualNeighbours;
+
+	gp1.forEachNeighbour(gid3.localId, [&actualNeighbours, &gp1](GlobalVertexId nid) {
+		actualNeighbours.insert(gp1.toNumerical(nid));
+	});
+
+	ASSERT_EQ(expectedNeighbours, actualNeighbours);
+}

@@ -343,7 +343,3 @@ ALHPGraphPartition::~ALHPGraphPartition() {
 int ALHPGraphPartition::getMaxLocalVertexCount() {
 	return data.adjListWinSize;
 }
-
-int ALHPGraphPartition::getNodeCount() {
-	return data.world_size;
-}

@@ -55,3 +55,8 @@ unsigned long long ArrayBackedChunkedPartition::toNumerical(GlobalVertexId id) {
 	numerical |= ((unsigned int) id.nodeId);
 	return numerical;
 }
+
+int ArrayBackedChunkedPartition::getMaxLocalVertexCount() {
+	int excess = (V % P == 0) ? 0 : 1;
+	return V/P + excess;
+}

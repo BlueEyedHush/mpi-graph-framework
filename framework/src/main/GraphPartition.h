@@ -23,19 +23,13 @@ struct GlobalVertexId {
 
 class GraphPartition {
 public:
-	virtual int getLocalVertexCount() = 0;
-
 	virtual void forEachNeighbour(LocalVertexId id, std::function<void(GlobalVertexId)> f) = 0;
 	virtual void forEachLocalVertex(std::function<void(LocalVertexId)> f) = 0;
 
 	virtual int getMaxLocalVertexCount() = 0;
+	virtual int getLocalVertexCount() = 0;
 	virtual bool isLocalVertex(GlobalVertexId id) = 0;
-	virtual int getNodeCount() = 0;
 	virtual NodeId getNodeId() = 0;
-	/**
-	 *
-	 * @return numerical value which is unique and comparable, but there might be gaps
-	 */
 	virtual unsigned long long toNumerical(GlobalVertexId id) = 0;
 
 	virtual ~GraphPartition() {};
