@@ -4,7 +4,7 @@
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include "GraphPartition.h"
-#include "representations/SimpleStaticGraph.h"
+#include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"

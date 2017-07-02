@@ -7,16 +7,9 @@
 
 #include <GraphPartition.h>
 
-/* complete graph with 4 vertices */
-#define E_N 12
-#define V_N 4
-
-extern int E[E_N];
-extern int V_OFFSETS[V_N];
-
-class SimpleStaticGraph : public GraphPartition {
+class ArrayBackedChunkedPartition : public GraphPartition {
 public:
-	SimpleStaticGraph();
+	ArrayBackedChunkedPartition(int E, int V, int P, int partitionId, int *adjacencyList, int *offsets);
 
 	virtual int getLocalVertexCount() override;
 
@@ -28,17 +21,16 @@ public:
 	virtual unsigned long long toNumerical(GlobalVertexId id) override;
 
 private:
-	int world_size;
-	int world_rank;
+	int E;
+	int V;
+	int P;
+	int partitionId;
 
-	int base_allocation;
-	int excess;
+	int *adjacencyList;
+	int *offsets;
 
 	int first;
 	int one_after_last;
-
-	int get_node_id_for(int V, int N, int current_rank, int id);
-	std::pair <int, int> get_process_range(int rank);
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H
