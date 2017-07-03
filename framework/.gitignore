@@ -6,6 +6,8 @@ framework
 !framework/
 tests
 !tests/
+itTests
+!itTests/
 framework.cbp
 Makefile
 lib/

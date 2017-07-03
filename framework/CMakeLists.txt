@@ -15,22 +15,6 @@ set(FRAMEWORK_MAIN src/entry_point/main.cpp)
 add_executable(framework ${FRAMEWORK_MAIN})
 target_link_libraries(framework framework_lib)
 
-# tests configuration
-set(GTEST_ROOT lib/googletest/googletest)
-enable_testing()
-find_package(GTest REQUIRED)
-if(GTEST_FOUND)
-    message(STATUS "Found GoogleTest")
-    file(GLOB_RECURSE TEST_SRC src/test/*.cpp src/test/*.h)
-    add_executable(tests ${TEST_SRC})
-    include_directories(${GTEST_INCLUDE_DIRS})
-    target_link_libraries(tests ${GTEST_BOTH_LIBRARIES} framework_lib)
-else()
-    message(FATAL_ERROR "Can't find GoogleTest")
-endif()
-
-add_test(AllTests tests)
-
 # dependencies
 # Boost
 set(BOOST_ROOT lib/boost_1_64_0)
@@ -56,4 +40,29 @@ if(MPI_C_FOUND)
     target_link_libraries(framework ${MPI_C_LIBRARIES})
 else()
     message(FATAL_ERROR "Can't find MPI")
+endif()
+
+# tests configuration
+set(GTEST_ROOT lib/googletest/googletest)
+enable_testing()
+find_package(GTest REQUIRED)
+if(GTEST_FOUND)
+    message(STATUS "Found GoogleTest")
+    include_directories(${GTEST_INCLUDE_DIRS})
+
+    file(GLOB_RECURSE TEST_SRC src/test/*.cpp src/test/*.h)
+    add_executable(tests ${TEST_SRC})
+    target_link_libraries(tests ${GTEST_BOTH_LIBRARIES} framework_lib)
+    add_test(UnitTests tests)
+
+        if(MPI_C_FOUND)
+            file(GLOB_RECURSE IT_TEST_SRC src/it/*.cpp src/it/*.h)
+            add_executable(itTests ${IT_TEST_SRC})
+            target_link_libraries(itTests ${GTEST_BOTH_LIBRARIES} ${MPI_C_LIBRARIES} framework_lib)
+            add_test(NAME ItTests COMMAND mpiexec -np 3 ./itTests)
+        else()
+            message(FATAL_ERROR "Can't find MPI, so cannot build integration tests")
+        endif()
+else()
+    message(FATAL_ERROR "Can't find GoogleTest")
 endif()
