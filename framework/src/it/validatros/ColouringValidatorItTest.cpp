@@ -22,3 +22,18 @@ TEST(ColouringValidator, AcceptsCorrectSolutionForSTG) {
 
 	ASSERT_TRUE(validationResult);
 }
+
+TEST(ColouringValidator, AcceptsCorrectSolutionForC50) {
+	int rank = -1;
+	int size = -1;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/complete50.adjl"), size, rank);
+	int *ps = loadPartialSolution(std::string("resources/test/C50.csol"), size, rank);
+
+	ColouringValidator v;
+	bool validationResult = v.validate(&gp, ps);
+
+	ASSERT_TRUE(validationResult);
+}
