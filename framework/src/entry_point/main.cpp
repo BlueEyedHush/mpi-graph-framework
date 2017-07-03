@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
+#include <glog/logging.h>
 #include "GraphPartition.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
@@ -46,6 +47,9 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 }
 
 int main(const int argc, const char** argv) {
+	google::InitGoogleLogging(argv[0]);
+	FLAGS_logtostderr = true;
+
 	MPI_Init(NULL, NULL);
 
 	#if WAIT_FOR_DEBUGGER == 1
@@ -75,17 +79,17 @@ int main(const int argc, const char** argv) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	if (!result) {
-		fprintf(stderr, "Error occured while executing algorithm\n");
+		LOG(ERROR) << "Error occured while executing algorithm";
 	} else {
-		fprintf(stderr, "Algorithm terminated successfully\n");
+		LOG(INFO) << "Algorithm terminated successfully";
 	}
 
 	Validator<int*> *validator = new ColouringValidator();
 	bool validationSuccessfull = validator->validate(g, algorithm->getResult());
 	if(!validationSuccessfull) {
-		fprintf(stderr, "Validation failure\n");
+		LOG(ERROR) << "Validation failure";
 	} else {
-		fprintf(stderr, "Validation success\n");
+		LOG(INFO) << "Validation success";
 	}
 
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */

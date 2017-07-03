@@ -11,11 +11,15 @@ include_directories(src/main)
 file(GLOB_RECURSE FRAMEWORK_SRC src/main/*.cpp src/main/*.h)
 add_library(framework_lib ${FRAMEWORK_SRC})
 
+# glog
+link_directories(lib/glog/.libs)
+include_directories(lib/glog/src)
+target_link_libraries(framework_lib glog)
+
 set(FRAMEWORK_MAIN src/entry_point/main.cpp)
 add_executable(framework ${FRAMEWORK_MAIN})
 target_link_libraries(framework framework_lib)
 
-# dependencies
 # Boost
 set(BOOST_ROOT lib/boost_1_64_0)
 set(Boost_USE_STATIC_LIBS ON)
@@ -58,7 +62,7 @@ if(GTEST_FOUND)
         if(MPI_C_FOUND)
             file(GLOB_RECURSE IT_TEST_SRC src/it/*.cpp src/it/*.h)
             add_executable(itTests ${IT_TEST_SRC})
-            target_link_libraries(itTests ${GTEST_BOTH_LIBRARIES} ${MPI_C_LIBRARIES} framework_lib)
+            target_link_libraries(itTests ${GTEST_LIBRARIES} ${MPI_C_LIBRARIES} framework_lib)
             add_test(NAME ItTests COMMAND mpiexec -np 3 ./itTests)
         else()
             message(FATAL_ERROR "Can't find MPI, so cannot build integration tests")
