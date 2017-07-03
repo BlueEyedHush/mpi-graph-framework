@@ -3,15 +3,21 @@
 //
 
 #include "TestUtils.h"
+#include <cstring>
 #include <utils/CsvReader.h>
 #include <utils/IndexPartitioner.h>
 
 int* loadPartialSolution(std::string solutionFilePath, int partitionCount, int partitionId) {
 	CsvReader reader(solutionFilePath);
-	std::vector<int>& solution = reader.getNextLine().get();
-	int* base = &solution[0];
+	std::vector<int> solution = reader.getNextLine().value();
 
-	int start = IndexPartitioner::get_range_for_partition(solution.size(), partitionCount, partitionId).first;
+	auto p = IndexPartitioner::get_range_for_partition(solution.size(), partitionCount, partitionId);
+	int start = p.first;
+	int end = p.second;
+	int count = end-start;
 
-	return base + start;
+	int* result = new int[count];
+	memcpy(result, solution.data() + start, count*sizeof(int));
+
+	return result;
 }

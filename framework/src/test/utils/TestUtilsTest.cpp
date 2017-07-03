@@ -7,4 +7,6 @@ TEST(TestUtils, LoadPartialSolution) {
 
 	ASSERT_EQ(ps[0], 1);
 	ASSERT_EQ(ps[1], 0);
+
+	delete[] ps;
 }
