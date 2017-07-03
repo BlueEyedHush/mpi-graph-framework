@@ -2,12 +2,10 @@
 // Created by blueeyedhush on 30.05.17.
 //
 
+#include "ColouringValidator.h"
 #include <cstdio>
 #include <mpi.h>
 #include <utils/MPIAsync.h>
-#include "ColouringValidator.h"
-
-// fprintf(stderr, "[%d]", nodeId);
 
 bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 	int nodeId = g->getNodeId();
@@ -73,5 +71,8 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 	MPI_Win_unlock_all(partialSolutionWin);
 	MPI_Win_free(&partialSolutionWin);
 
-	return solutionCorrect;
+	bool allProcessesHaveCorrect = false;
+	MPI_Allreduce(&solutionCorrect, &allProcessesHaveCorrect, 1, MPI_CXX_BOOL, MPI_LAND, MPI_COMM_WORLD);
+
+	return allProcessesHaveCorrect;
 }
