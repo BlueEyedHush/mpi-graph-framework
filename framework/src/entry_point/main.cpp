@@ -13,15 +13,6 @@
 
 namespace po = boost::program_options;
 
-/*
- * @ToDo:
- * - get neighbour count
- * - iterator over vertex ids
- * - vertex id string representation (+ use std::string isntead of char arrays)
- * - abstract away vertex id
- * - split vertices between processes
- */
-
 #define WAIT_FOR_DEBUGGER 0
 
 #if WAIT_FOR_DEBUGGER == 1

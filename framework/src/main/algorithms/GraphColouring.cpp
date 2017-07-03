@@ -15,26 +15,10 @@
 #include <utils/BufferPool.h>
 #include "shared.h"
 
-/*
- * @ToDo:
- * - dynamically adjust number of outstanding requests
- * - same functions for receive & send pools, same function for spawning new outstanding receive requests
- * - iterate over vertices - use foreach
- * - another list for 0ed vertices
- * - look at memory usage (valgrind, review types, use pointers for buffers and cleanup asap, free send buffers, free requests & receive buffers)
- * - unit tests
- * - correct error handling
- * - try to replace cleanup loops with waitsome or test_any/all
- * - is MPI_Wait needed with MPI_Test?
- * - pass std::functions by reference
- */
-
-
 struct BufferAndRequest {
 	MPI_Request request;
 	Message buffer;
 };
-
 
 
 bool GraphColouringMP::run(GraphPartition *g) {
