@@ -8,6 +8,7 @@
 #include <Validator.h>
 
 class ColouringValidator : public Validator<int*> {
+public:
 	virtual bool validate(GraphPartition *g, int *partialSolution) override;
 };
 
