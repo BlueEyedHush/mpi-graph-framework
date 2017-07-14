@@ -8,6 +8,7 @@ int main(int argc, char* argv[]) {
 	google::InitGoogleLogging(argv[0]);
 	MPI_Init(&argc, &argv);
 	FLAGS_logtostderr = true;
+	google::InstallFailureSignalHandler();
 	int result = RUN_ALL_TESTS();
 	MPI_Finalize();
 	return result;

@@ -69,8 +69,11 @@ void GrouppingMpiAsync::poll() {
 				cb();
 			}
 
-			groupsMap.erase(it);
+			it = groupsMap.erase(it);
+		} else {
+			++it;
 		}
+
 	}
 }
 

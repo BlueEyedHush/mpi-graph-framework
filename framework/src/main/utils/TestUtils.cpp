@@ -17,7 +17,9 @@ T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionI
 	int count = end-start;
 
 	T* result = new T[count];
-	memcpy(result, wholeSolution.data() + start, count*sizeof(int));
+	for(int i = 0; i < count; i++) {
+		result[i] = wholeSolution[i];
+	}
 
 	return result;
 }

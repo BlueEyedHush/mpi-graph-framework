@@ -29,7 +29,7 @@ namespace {
 		 * @return when no longer needed use delete (no delete[] !!!) on both buffer and MPI_Request
 		 */
 		std::pair<int*, MPI_Request*> getDistance(GlobalVertexId id) {
-			int* buffer = new int;
+			int* buffer = new int(0);
 			MPI_Request *rq = new MPI_Request;
 			MPI_Rget(buffer, 1, MPI_INT, id.nodeId, id.localId, 1, MPI_INT, solutionWin, rq);
 			return std::make_pair(buffer, rq);
@@ -70,8 +70,8 @@ namespace {
 					groupId = itPending->second;
 				} else {
 					auto p = comms.getDistance(id);
-					MPI_Request *rq = p.first;
-					int* buffer = p.second;
+					int* buffer = p.first;
+					MPI_Request *rq = p.second;
 					/* create group and schedule housekeepng callback */
 					groupId = mpiAsync.createWaitingGroup(rq, [buffer, numId, this]() {
 						this->distanceMap[numId] = *buffer;
