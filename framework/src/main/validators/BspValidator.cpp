@@ -5,15 +5,55 @@
 #include "BspValidator.h"
 #include <climits>
 #include <unordered_map>
-#include <functional>
+#include <functional> /* for std::function */
+#include <utility> /* for std::pair */
+#include <mpi.h>
+#include <utils/MPIAsync.h>
 #include <utils/GrouppingMpiAsync.h>
 
 namespace {
+	/**
+	 * Assumes that MPI has already been initialized (and shutdown is handled by caller)
+	 */
+	class Comms {
+	public:
+		Comms(GraphPartition *_g, std::pair<GlobalVertexId, int> *partialSolution) : g(_g) {
+			MPI_Win_create(partialSolution, g->getMaxLocalVertexCount()*sizeof(int), sizeof(int),
+			               MPI_INFO_NULL, MPI_COMM_WORLD, &solutionWin);
+			MPI_Win_lock_all(0, solutionWin);
+		}
+
+		/**
+		 *
+		 * @param id
+		 * @return when no longer needed use delete (no delete[] !!!) on both buffer and MPI_Request
+		 */
+		std::pair<int*, MPI_Request*> getDistance(GlobalVertexId id) {
+			int* buffer = new int;
+			MPI_Request *rq = new MPI_Request;
+			MPI_Rget(buffer, 1, MPI_INT, id.nodeId, id.localId, 1, MPI_INT, solutionWin, rq);
+			return std::make_pair(buffer, rq);
+		}
+
+		void flushAll() {
+			MPI_Win_flush_all(solutionWin);
+		}
+
+		~Comms() {
+			MPI_Win_unlock_all(solutionWin);
+			MPI_Win_free(&solutionWin);
+		}
+
+	private:
+		GraphPartition * const g;
+		MPI_Win solutionWin;
+	};
+
 	class DistanceChecker {
 		typedef unsigned long long ull;
 
 	public:
-		DistanceChecker(GrouppingMpiAsync& _asyncExecutor) : mpiAsync(_asyncExecutor) {}
+		DistanceChecker(GrouppingMpiAsync& _asyncExecutor, Comms& _comms) : mpiAsync(_asyncExecutor), comms(_comms) {}
 
 		void scheduleIsDistanceAsExpected(GlobalVertexId id, int expectedDistance, std::function<void(bool)> cb) {
 			ull numId = toNumerical(id);
@@ -29,15 +69,14 @@ namespace {
 				if(itPending != pending.end()) {
 					groupId = itPending->second;
 				} else {
-					MPI_Request *rq = new MPI_Request;
-					/* @Todo: get buffer */
-					int* buffer = nullptr;
-					/* @Todo: communication */
+					auto p = comms.getDistance(id);
+					MPI_Request *rq = p.first;
+					int* buffer = p.second;
 					/* create group and schedule housekeepng callback */
 					groupId = mpiAsync.createWaitingGroup(rq, [buffer, numId, this]() {
 						this->distanceMap[numId] = *buffer;
 						this->pending.erase(numId);
-						/* @ToDo: clean up buffer */
+						delete buffer;
 					});
 					this->pending.insert(std::make_pair(numId, groupId));
 				}
@@ -55,6 +94,7 @@ namespace {
 		std::unordered_map<ull, int> distanceMap;
 		std::unordered_map<ull, UniqueIdGenerator::Id> pending;
 		GrouppingMpiAsync& mpiAsync;
+		Comms &comms;
 	private:
 		ull toNumerical(GlobalVertexId id) {
 			unsigned int halfBitsInUll = (sizeof(ull)*CHAR_BIT)/2;
@@ -68,7 +108,8 @@ namespace {
 
 bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *partialSolution) {
 	GrouppingMpiAsync executor;
-	DistanceChecker dc(executor);
+	Comms comms(g, partialSolution);
+	DistanceChecker dc(executor, comms);
 
 	int checkedCount = 0;
 	bool valid = true;
@@ -81,6 +122,7 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 		});
 	});
 
+	comms.flushAll();
 	while(checkedCount < g->getLocalVertexCount()) {
 		executor.poll();
 	}
