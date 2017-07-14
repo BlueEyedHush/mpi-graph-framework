@@ -19,6 +19,14 @@ struct GlobalVertexId {
 
 	NodeId nodeId;
 	LocalVertexId localId;
+
+	bool operator==(const GlobalVertexId& other) const {
+		return (nodeId == other.nodeId) && (localId == other.localId);
+	}
+
+	bool operator!=(const GlobalVertexId& other) const {
+		return !(*this == other);
+	}
 };
 
 class GraphPartition {
