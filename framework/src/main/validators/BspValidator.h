@@ -6,11 +6,13 @@
 #define FRAMEWORK_BSPVALIDATOR_H
 
 
+#include <utility>
 #include <Validator.h>
 
-class BspValidator : public Validator<GlobalVertexId*> {
+class BspValidator : public Validator<std::pair<GlobalVertexId, int>*> {
 public:
-	virtual bool validate(GraphPartition *g, GlobalVertexId *partialSolution) override;
+	// @ToDo - (types) path length should be parametrizable + registering type with MPI
+	virtual bool validate(GraphPartition *g, std::pair<GlobalVertexId, int> *partialSolution) override;
 };
 
 

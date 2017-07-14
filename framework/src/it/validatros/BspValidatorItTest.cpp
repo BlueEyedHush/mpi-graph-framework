@@ -15,7 +15,7 @@ TEST(BspValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	auto gp = ArrayBackedChunkedPartition::fromFile("resources/test/SimpleTestGraph.adjl", size, rank);
-	GlobalVertexId *ps = loadPartialGidSolution("resources/test/STG.bspsol", size, rank);
+	std::pair<GlobalVertexId, int> *ps = loadBspSolutionFromFile("resources/test/STG.bspsol", size, rank);
 
 	BspValidator v;
 	bool validationResult = v.validate(&gp, ps);

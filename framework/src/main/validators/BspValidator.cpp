@@ -13,6 +13,8 @@ namespace {
 		typedef unsigned long long ull;
 
 	public:
+		DistanceChecker(GrouppingMpiAsync& _asyncExecutor) : mpiAsync(_asyncExecutor) {}
+
 		void scheduleIsDistanceAsExpected(GlobalVertexId id, int expectedDistance, std::function<void(bool)> cb) {
 			ull numId = toNumerical(id);
 			auto it = distanceMap.find(numId);
@@ -32,17 +34,17 @@ namespace {
 					int* buffer = nullptr;
 					/* @Todo: communication */
 					/* create group and schedule housekeepng callback */
-					groupId = mpiAsync.createWaitingGroup(rq, [buffer, numId, &distanceMap, &pending]() {
-						distanceMap[numId] = *buffer;
-						pending.erase(numId);
+					groupId = mpiAsync.createWaitingGroup(rq, [buffer, numId, this]() {
+						this->distanceMap[numId] = *buffer;
+						this->pending.erase(numId);
 						/* @ToDo: clean up buffer */
 					});
-					pending.insert(std::make_pair(numId, groupId));
+					this->pending.insert(std::make_pair(numId, groupId));
 				}
 
 				/* add actual verification callback */
-				auto verificationCb = [expectedDistance, numId, cb](){
-					int actualDist = distanceMap.at(numId);
+				auto verificationCb = [expectedDistance, numId, cb, this](){
+					int actualDist = this->distanceMap.at(numId);
 					cb(actualDist == expectedDistance);
 				};
 				mpiAsync.addToGroup(groupId, verificationCb);
@@ -52,7 +54,7 @@ namespace {
 	private:
 		std::unordered_map<ull, int> distanceMap;
 		std::unordered_map<ull, UniqueIdGenerator::Id> pending;
-		GrouppingMpiAsync mpiAsync;
+		GrouppingMpiAsync& mpiAsync;
 	private:
 		ull toNumerical(GlobalVertexId id) {
 			unsigned int halfBitsInUll = (sizeof(ull)*CHAR_BIT)/2;
@@ -64,6 +66,24 @@ namespace {
 	};
 }
 
-bool BspValidator::validate(GraphPartition *g, GlobalVertexId *partialSolution) {
-	return false;
+bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *partialSolution) {
+	GrouppingMpiAsync executor;
+	DistanceChecker dc(executor);
+
+	int checkedCount = 0;
+	bool valid = true;
+	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution](LocalVertexId id) {
+		GlobalVertexId& predecessor = partialSolution[id].first;
+		int distanceFromAlgorithm = partialSolution[id].second;
+		dc.scheduleIsDistanceAsExpected(predecessor, distanceFromAlgorithm-1, [&valid, &checkedCount](bool distAsExpected) {
+			valid = distAsExpected;
+			checkedCount += 1;
+		});
+	});
+
+	while(checkedCount < g->getLocalVertexCount()) {
+		executor.poll();
+	}
+
+	return valid;
 }

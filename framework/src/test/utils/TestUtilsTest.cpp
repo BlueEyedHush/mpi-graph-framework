@@ -12,7 +12,7 @@ TEST(TestUtils, LoadPartialSolution) {
 }
 
 TEST(TestUtils, LoadGidsFromFile) {
-	auto gids = loadGidsFromFile("resources/test/gids");
+	auto gids = bspSolutionFromFile("resources/test/gids");
 
 	GlobalVertexId gid0;
 	gid0.nodeId = 0;
@@ -31,8 +31,8 @@ TEST(TestUtils, LoadGidsFromFile) {
 	gid3.localId = 1;
 
 	ASSERT_EQ(gids.size(), 4);
-	ASSERT_EQ(gids[0], gid0);
-	ASSERT_EQ(gids[1], gid1);
-	ASSERT_EQ(gids[2], gid2);
-	ASSERT_EQ(gids[3], gid3);
+	ASSERT_EQ(gids[0], std::make_pair(gid0, 0));
+	ASSERT_EQ(gids[1], std::make_pair(gid1, 1));
+	ASSERT_EQ(gids[2], std::make_pair(gid2, 1));
+	ASSERT_EQ(gids[3], std::make_pair(gid3, 1));
 }

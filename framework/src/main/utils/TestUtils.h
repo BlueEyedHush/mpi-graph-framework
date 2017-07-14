@@ -9,9 +9,9 @@
 #include <vector>
 #include <GraphPartition.h>
 
-std::vector<GlobalVertexId> loadGidsFromFile(std::string path);
+std::vector<std::pair<GlobalVertexId, int>> bspSolutionFromFile(std::string path);
 
 int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId);
-GlobalVertexId* loadPartialGidSolution(std::string path, int partitionCount, int partitionId);
+std::pair<GlobalVertexId, int>* loadBspSolutionFromFile(std::string path, int partitionCount, int partitionId);
 
 #endif //FRAMEWORK_TESTUTILS_H

@@ -4,6 +4,7 @@
 
 #include "TestUtils.h"
 #include <cstring>
+#include <glog/logging.h>
 #include <utils/CsvReader.h>
 #include <utils/IndexPartitioner.h>
 
@@ -27,20 +28,31 @@ int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, in
 	return getPartition(solution, partitionCount, partitionId);
 }
 
-std::vector<GlobalVertexId> loadGidsFromFile(std::string path) {
+std::vector<std::pair<GlobalVertexId, int>> bspSolutionFromFile(std::string path) {
 	CsvReader reader(path);
 
-	std::vector<GlobalVertexId> result;
+	std::vector<int> distances = reader.getNextLine().value();
+
+	std::vector<GlobalVertexId> predecessors;
 	while(boost::optional<std::vector<int>> line = reader.getNextLine()) {
 		GlobalVertexId id;
 		id.nodeId = line.value().at(0);
 		id.localId = line.value().at(1);
-		result.push_back(id);
+		predecessors.push_back(id);
 	}
 
-	return result;
+	LOG_IF(FATAL, (predecessors.size() != distances.size()))
+		<< "predecessors and distances have different sizes"
+        << "(" << predecessors.size() << " vs. " << distances.size() << ")";
+
+	std::vector<std::pair<GlobalVertexId, int>> zipped;
+	for(size_t i = 0; i < predecessors.size(); i++) {
+		zipped.push_back(std::make_pair(predecessors.at(i), distances.at(i)));
+	}
+
+	return zipped;
 }
 
-GlobalVertexId *loadPartialGidSolution(std::string path, int partitionCount, int partitionId) {
-	return getPartition(loadGidsFromFile(path), partitionCount, partitionId);
+std::pair<GlobalVertexId, int> *loadBspSolutionFromFile(std::string path, int partitionCount, int partitionId) {
+	return getPartition(bspSolutionFromFile(path), partitionCount, partitionId);
 }
