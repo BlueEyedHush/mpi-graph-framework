@@ -15,7 +15,7 @@ TEST(ColouringValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/SimpleTestGraph.adjl"), size, rank);
-	int *ps = loadPartialSolution(std::string("resources/test/STG.csol"), size, rank);
+	int *ps = loadPartialIntSolution(std::string("resources/test/STG.csol"), size, rank);
 
 	ColouringValidator v;
 	bool validationResult = v.validate(&gp, ps);
@@ -30,7 +30,7 @@ TEST(ColouringValidator, AcceptsCorrectSolutionForC50) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/complete50.adjl"), size, rank);
-	int *ps = loadPartialSolution(std::string("resources/test/C50.csol"), size, rank);
+	int *ps = loadPartialIntSolution(std::string("resources/test/C50.csol"), size, rank);
 
 	ColouringValidator v;
 	bool validationResult = v.validate(&gp, ps);

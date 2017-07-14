@@ -11,6 +11,6 @@
 
 std::vector<GlobalVertexId> loadGidsFromFile(std::string path);
 
-int* loadPartialSolution(std::string solutionFilePath, int partitionCount, int partitionId);
+int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId);
 
 #endif //FRAMEWORK_TESTUTILS_H

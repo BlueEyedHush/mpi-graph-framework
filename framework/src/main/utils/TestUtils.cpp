@@ -7,7 +7,7 @@
 #include <utils/CsvReader.h>
 #include <utils/IndexPartitioner.h>
 
-int* loadPartialSolution(std::string solutionFilePath, int partitionCount, int partitionId) {
+int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId) {
 	CsvReader reader(solutionFilePath);
 	std::vector<int> solution = reader.getNextLine().value();
 
