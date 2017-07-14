@@ -15,7 +15,7 @@ T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionI
 	int end = p.second;
 	int count = end-start;
 
-	int* result = new int[count];
+	T* result = new T[count];
 	memcpy(result, wholeSolution.data() + start, count*sizeof(int));
 
 	return result;
@@ -39,4 +39,8 @@ std::vector<GlobalVertexId> loadGidsFromFile(std::string path) {
 	}
 
 	return result;
+}
+
+GlobalVertexId *loadPartialGidSolution(std::string path, int partitionCount, int partitionId) {
+	return getPartition(loadGidsFromFile(path), partitionCount, partitionId);
 }
