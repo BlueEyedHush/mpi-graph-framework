@@ -21,3 +21,17 @@ int* loadPartialSolution(std::string solutionFilePath, int partitionCount, int p
 
 	return result;
 }
+
+std::vector<GlobalVertexId> loadGidsFromFile(std::string path) {
+	CsvReader reader(path);
+
+	std::vector<GlobalVertexId> result;
+	while(boost::optional<std::vector<int>> line = reader.getNextLine()) {
+		GlobalVertexId id;
+		id.nodeId = line.value().at(0);
+		id.localId = line.value().at(1);
+		result.push_back(id);
+	}
+
+	return result;
+}

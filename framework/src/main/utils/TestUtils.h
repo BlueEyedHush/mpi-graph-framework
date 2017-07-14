@@ -6,6 +6,10 @@
 #define FRAMEWORK_TESTUTILS_H
 
 #include <string>
+#include <vector>
+#include <GraphPartition.h>
+
+std::vector<GlobalVertexId> loadGidsFromFile(std::string path);
 
 int* loadPartialSolution(std::string solutionFilePath, int partitionCount, int partitionId);
 
