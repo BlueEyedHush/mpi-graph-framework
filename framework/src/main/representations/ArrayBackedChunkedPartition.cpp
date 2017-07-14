@@ -51,10 +51,9 @@ NodeId ArrayBackedChunkedPartition::getNodeId() {
 }
 
 unsigned long long ArrayBackedChunkedPartition::toNumerical(GlobalVertexId id) {
-	unsigned int halfBitsInUll = (sizeof(unsigned long long)*CHAR_BIT)/2;
-	unsigned long long numerical = ((unsigned long long) id.localId) << halfBitsInUll;
-	numerical |= ((unsigned int) id.nodeId);
-	return numerical;
+	int partitionOffset = IndexPartitioner::get_range_for_partition(V, P, id.nodeId).first;
+	// @ToDo: type collision
+	return partitionOffset + id.localId;
 }
 
 int ArrayBackedChunkedPartition::getMaxLocalVertexCount() {

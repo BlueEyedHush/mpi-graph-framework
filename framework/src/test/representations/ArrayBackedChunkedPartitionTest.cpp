@@ -141,3 +141,31 @@ TEST(TEST_NAME, LoadFromFile) {
 
 	ASSERT_EQ(expectedNeighbours, actualNeighbours);
 }
+
+TEST(TEST_NAME, ToNumericalReturnsIndicesFromFile) {
+	auto path = std::string("resources/test/SimpleTestGraph.adjl");
+	auto gp0 = ArrayBackedChunkedPartition::fromFile(path, 2, 0);
+	auto gp1 = ArrayBackedChunkedPartition::fromFile(path, 2, 1);
+
+
+	GlobalVertexId gid0;
+	gid0.nodeId = 0;
+	gid0.localId = 0;
+
+	GlobalVertexId gid1;
+	gid1.nodeId = 0;
+	gid1.localId = 1;
+
+	GlobalVertexId gid2;
+	gid2.nodeId = 1;
+	gid2.localId = 0;
+
+	GlobalVertexId gid3;
+	gid3.nodeId = 1;
+	gid3.localId = 1;
+
+	ASSERT_EQ(gp0.toNumerical(gid0), 0);
+	ASSERT_EQ(gp0.toNumerical(gid1), 1);
+	ASSERT_EQ(gp1.toNumerical(gid2), 2);
+	ASSERT_EQ(gp1.toNumerical(gid3), 3);
+}
