@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <functional> /* for std::function */
 #include <utility> /* for std::pair */
+#include <glog/logging.h>
 #include <mpi.h>
 #include <utils/MPIAsync.h>
 #include <utils/GrouppingMpiAsync.h>
@@ -113,12 +114,18 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 
 	int checkedCount = 0;
 	bool valid = true;
-	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution](LocalVertexId id) {
+	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution, g](LocalVertexId id) {
+		GlobalVertexId v(g->getNodeId(), id);
 		GlobalVertexId& predecessor = partialSolution[id].first;
 		int distanceFromAlgorithm = partialSolution[id].second;
-		dc.scheduleIsDistanceAsExpected(predecessor, distanceFromAlgorithm-1, [&valid, &checkedCount](bool distAsExpected) {
+		dc.scheduleIsDistanceAsExpected(predecessor, distanceFromAlgorithm-1, [&valid, &checkedCount, v, &predecessor](bool distAsExpected) {
 			valid = distAsExpected;
 			checkedCount += 1;
+
+			if(!distAsExpected) {
+				LOG(INFO) << "Failure for " << v.toString() << "."
+				          << "Distance to predecessor " << predecessor.toString() << " was " << 1 << " instead of 1";
+			}
 		});
 	});
 
