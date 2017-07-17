@@ -21,13 +21,15 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 
 	fprintf(stderr, "[VALIDATOR] Starting local vertex scan\n");
 	bool solutionCorrect = true;
-	g->forEachLocalVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution](LocalVertexId v_id) {
+	int processed = 0;
+	g->forEachLocalVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed](LocalVertexId v_id) {
 		g->forEachNeighbour(v_id, [g,
 				partialSolution,
 				v_id,
 				&partialSolutionWin,
 				&solutionCorrect,
-				&scheduler](GlobalVertexId neigh_id) {
+				&scheduler,
+				&processed](GlobalVertexId neigh_id) {
 			int nodeId = g->getNodeId();
 			if( g->isLocalVertex(neigh_id) ) {
 				/* colours for both vertices on this node */
@@ -40,6 +42,8 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 					fprintf(stderr, "[VALIDATOR]: (%d,%d,%llu) colour %d, (%d,%d,%llu) colour %d\n", nodeId,
 					        v_id, g->toNumerical(start), partialSolution[v_id], neigh_id.nodeId, neigh_id.localId,
 					        g->toNumerical(neigh_id), partialSolution[neigh_id.localId]);
+
+					processed += 1;
 				}
 			} else {
 				/* need to query other node */
@@ -47,10 +51,13 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 				MPI_Request	*rq = new MPI_Request;
 				int v_colour = partialSolution[v_id];
 				MPI_Rget(colour, 1, MPI_INT, neigh_id.nodeId, neigh_id.localId, 1, MPI_INT, partialSolutionWin, rq);
-				scheduler.submitWaitingTask(rq, [v_colour, colour, nodeId, &solutionCorrect]() {
+				scheduler.submitWaitingTask(rq, [v_colour, colour, nodeId, &solutionCorrect, &processed]() {
 					if(v_colour == *colour) {
 						fprintf(stderr, "[VALIDATOR]: Illegal colouring between local and remote node\n");
+						solutionCorrect = false;
 					}
+
+					processed += 1;
 				});
 			}
 		});
@@ -58,18 +65,27 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 
 	fprintf(stderr, "[VALIDATOR] Local vertices scanned, flushing window\n");
 	MPI_Win_flush_all(partialSolutionWin);
-	/* as soon as we find any problem with colouring, we can stop and report failure */
+
 	fprintf(stderr, "[VALIDATOR] Entering polling loop\n");
-	bool anythingLeft = true;
-	while(solutionCorrect && anythingLeft) {
-		anythingLeft = scheduler.pollAll();
+	while(processed < g->getLocalVertexCount()) {
+		scheduler.pollAll();
 	}
 	fprintf(stderr, "[VALIDATOR] Polling done, shutting down\n");
 
+	/*
+	@todo with shutdown uncommented following error appears:
+	  [0] Fatal error in PMPI_Cancel: Other MPI error, error stack:
+	  [0] PMPI_Cancel(201).........: MPI_Cancel(request=0x1775120) failed
+	  [0] MPIR_Cancel_impl(101)....:
+	  [0] MPIR_Grequest_cancel(396): user request cancel function returned error code 738400015
+
 	scheduler.shutdown();
+	*/
+
 	MPI_Win_unlock_all(partialSolutionWin);
 	MPI_Win_free(&partialSolutionWin);
 
+	fprintf(stderr, "ISVALID: %d\n", solutionCorrect);
 	bool allProcessesHaveCorrect = false;
 	MPI_Allreduce(&solutionCorrect, &allProcessesHaveCorrect, 1, MPI_CXX_BOOL, MPI_LAND, MPI_COMM_WORLD);
 
