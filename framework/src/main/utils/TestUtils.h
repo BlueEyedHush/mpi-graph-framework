@@ -9,6 +9,7 @@
 #include <vector>
 #include <GraphPartition.h>
 
+template<typename T> T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionId);
 std::vector<std::pair<GlobalVertexId, int>> bspSolutionFromFile(std::string path);
 
 int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId);

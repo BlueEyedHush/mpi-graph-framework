@@ -2,6 +2,19 @@
 #include <gtest/gtest.h>
 #include <utils/TestUtils.h>
 
+TEST(TestUtils, GetPartition) {
+	std::vector<int> solution = {5,6,7,8};
+
+	auto p0 = getPartition(solution, 3, 0);
+	auto p1 = getPartition(solution, 3, 1);
+	auto p2 = getPartition(solution, 3, 2);
+
+	ASSERT_EQ(p0[0], 5);
+	ASSERT_EQ(p0[1], 6);
+	ASSERT_EQ(p1[0], 7);
+	ASSERT_EQ(p2[0], 8);
+}
+
 TEST(TestUtils, LoadPartialSolution) {
 	int *ps = loadPartialIntSolution(std::string("resources/test/STG.csol"), 2, 1);
 
