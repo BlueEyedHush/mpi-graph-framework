@@ -36,3 +36,30 @@ TEST(TestUtils, LoadGidsFromFile) {
 	ASSERT_EQ(gids[2], std::make_pair(gid2, 1));
 	ASSERT_EQ(gids[3], std::make_pair(gid3, 1));
 }
+
+TEST(TestUtils, LoadBspSolutionFromFile) {
+	auto solutionP0 = loadBspSolutionFromFile("resources/test/STG.bspsol", 3, 0);
+	auto solutionP1 = loadBspSolutionFromFile("resources/test/STG.bspsol", 3, 1);
+	auto solutionP2 = loadBspSolutionFromFile("resources/test/STG.bspsol", 3, 2);
+
+	GlobalVertexId gid0;
+	gid0.nodeId = 0;
+	gid0.localId = 0;
+
+	GlobalVertexId gid1;
+	gid1.nodeId = 0;
+	gid1.localId = 1;
+
+	GlobalVertexId gid2;
+	gid2.nodeId = 1;
+	gid2.localId = 0;
+
+	GlobalVertexId gid3;
+	gid3.nodeId = 2;
+	gid3.localId = 0;
+
+	ASSERT_EQ(solutionP0[0], std::make_pair(gid0, 0));
+	ASSERT_EQ(solutionP0[1], std::make_pair(gid1, 1));
+	ASSERT_EQ(solutionP1[0], std::make_pair(gid2, 1));
+	ASSERT_EQ(solutionP2[0], std::make_pair(gid3, 1));
+}
