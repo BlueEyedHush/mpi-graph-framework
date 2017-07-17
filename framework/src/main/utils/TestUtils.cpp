@@ -18,7 +18,7 @@ T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionI
 
 	T* result = new T[count];
 	for(int i = 0; i < count; i++) {
-		result[i] = wholeSolution[i];
+		result[i] = wholeSolution[start+i];
 	}
 
 	return result;
