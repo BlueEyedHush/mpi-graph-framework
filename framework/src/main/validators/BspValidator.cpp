@@ -56,11 +56,11 @@ namespace {
 	public:
 		DistanceChecker(GrouppingMpiAsync& _asyncExecutor, Comms& _comms) : mpiAsync(_asyncExecutor), comms(_comms) {}
 
-		void scheduleIsDistanceAsExpected(GlobalVertexId id, int expectedDistance, std::function<void(bool)> cb) {
+		void scheduleGetDistance(GlobalVertexId id, std::function<void(int)> cb) {
 			ull numId = toNumerical(id);
 			auto it = distanceMap.find(numId);
 			if (it != distanceMap.end()) {
-				cb(it->second == expectedDistance);
+				cb(it->second);
 			} else {
 				/* if pending, we need only to append; otherwise new waiting group needs to be created */
 
@@ -83,9 +83,9 @@ namespace {
 				}
 
 				/* add actual verification callback */
-				auto verificationCb = [expectedDistance, numId, cb, this](){
+				auto verificationCb = [numId, cb, this](){
 					int actualDist = this->distanceMap.at(numId);
-					cb(actualDist == expectedDistance);
+					cb(actualDist);
 				};
 				mpiAsync.addToGroup(groupId, verificationCb);
 			}
@@ -117,16 +117,23 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution, g](LocalVertexId id) {
 		GlobalVertexId v(g->getNodeId(), id);
 		GlobalVertexId& predecessor = partialSolution[id].first;
-		int distanceFromAlgorithm = partialSolution[id].second;
-		dc.scheduleIsDistanceAsExpected(predecessor, distanceFromAlgorithm-1, [&valid, &checkedCount, v, &predecessor](bool distAsExpected) {
-			valid = distAsExpected;
+		int currentsDistance = partialSolution[id].second;
+
+		auto checkDistCb = [&valid, &checkedCount, v, &predecessor, currentsDistance](int predecessorDistance) {
+			int expectedPrecedessorDist = currentsDistance-1;
+			valid = (expectedPrecedessorDist == predecessorDistance);
 			checkedCount += 1;
 
-			if(!distAsExpected) {
-				LOG(INFO) << "Failure for " << v.toString() << "."
-				          << "Distance to predecessor " << predecessor.toString() << " was " << 1 << " instead of 1";
+			if(!valid) {
+				LOG(INFO) << "Failure for " << v.toString() << ". "
+				          << "Precedessor: " << predecessor.toString()
+				          << ", currentDistance: " << currentsDistance
+				          << ", precedessorDistance: " << predecessorDistance
+				          << ", expectedPredecessorDistance: " << expectedPrecedessorDist;
 			}
-		});
+		};
+
+		dc.scheduleGetDistance(predecessor, checkDistCb);
 	});
 
 	comms.flushAll();
