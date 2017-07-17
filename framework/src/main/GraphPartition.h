@@ -7,6 +7,7 @@
 
 #include <cinttypes>
 #include <functional>
+#include <sstream>
 
 typedef int NodeId;
 typedef int LocalVertexId;
@@ -26,6 +27,12 @@ struct GlobalVertexId {
 
 	bool operator!=(const GlobalVertexId& other) const {
 		return !(*this == other);
+	}
+
+	std::string toString() const {
+		std::ostringstream ss;
+		ss << "(" << nodeId << "," << localId << ")";
+		return ss.str();
 	}
 };
 
