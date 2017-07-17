@@ -36,6 +36,12 @@ namespace {
 			return std::make_pair(buffer, rq);
 		}
 
+		bool checkAllResults(bool &currentNodeValid)  {
+			bool collectiveResult = false;
+			MPI_Allreduce(&currentNodeValid, &collectiveResult, 1, MPI_CXX_BOOL, MPI_LAND, MPI_COMM_WORLD);
+			return collectiveResult;
+		}
+
 		void flushAll() {
 			MPI_Win_flush_all(solutionWin);
 		}
@@ -141,5 +147,5 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 		executor.poll();
 	}
 
-	return valid;
+	return comms.checkAllResults(valid);
 }
