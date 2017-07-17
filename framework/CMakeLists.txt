@@ -3,6 +3,7 @@ project(framework)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0")
+set(IT_TEST_PROCESS_COUNT 3)
 
 # for absolute includes
 include_directories(src/main)
@@ -63,7 +64,7 @@ if(GTEST_FOUND)
             file(GLOB_RECURSE IT_TEST_SRC src/it/*.cpp src/it/*.h)
             add_executable(itTests ${IT_TEST_SRC})
             target_link_libraries(itTests ${GTEST_LIBRARIES} ${MPI_C_LIBRARIES} framework_lib)
-            add_test(NAME ItTests COMMAND mpiexec -np 3 ./itTests)
+            add_test(NAME ItTests COMMAND mpiexec -np ${IT_TEST_PROCESS_COUNT} -l ./itTests)
         else()
             message(FATAL_ERROR "Can't find MPI, so cannot build integration tests")
         endif()
