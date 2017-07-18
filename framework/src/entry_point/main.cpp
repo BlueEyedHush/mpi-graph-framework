@@ -87,7 +87,13 @@ int main(const int argc, const char** argv) {
 	}
 
 	auto validator = new BspValidator();
-	bool validationSuccessfull = validator->validate(g, algorithm->getResult());
+	auto* calculatedSolution = algorithm->getResult();
+
+	bool validationSuccessfull = false;
+	if(calculatedSolution != nullptr) {
+		validationSuccessfull = validator->validate(g, calculatedSolution);
+	}
+
 	if(!validationSuccessfull) {
 		LOG(ERROR) << "Validation failure";
 	} else {
