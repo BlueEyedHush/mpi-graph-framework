@@ -9,8 +9,10 @@
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"
+#include "algorithms/Bsp.h"
 #include "Validator.h"
 #include "validators/ColouringValidator.h"
+#include "validators/BspValidator.h"
 
 namespace po = boost::program_options;
 
@@ -73,7 +75,7 @@ int main(const int argc, const char** argv) {
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
 	g = graphBuilder->buildGraph(config.graphFilePath, g);
 
-	Algorithm<int*> *algorithm = new GraphColouringMPAsync();
+	auto *algorithm = new Bsp_Mp_FixedMessageSize_1D_2CommRounds();
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -84,7 +86,7 @@ int main(const int argc, const char** argv) {
 		LOG(INFO) << "Algorithm terminated successfully";
 	}
 
-	Validator<int*> *validator = new ColouringValidator();
+	auto validator = new BspValidator();
 	bool validationSuccessfull = validator->validate(g, algorithm->getResult());
 	if(!validationSuccessfull) {
 		LOG(ERROR) << "Validation failure";
