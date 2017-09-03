@@ -15,11 +15,15 @@ typedef int LocalVertexId;
 #define LOCAL_VERTEX_ID_MPI_TYPE MPI_INT
 
 struct GlobalVertexId {
-	GlobalVertexId() {GlobalVertexId(-1, -1);}
+	GlobalVertexId() : GlobalVertexId(-1, -1) {}
 	GlobalVertexId(NodeId nId, LocalVertexId lvId) : nodeId(nId), localId(lvId) {}
 
 	NodeId nodeId;
 	LocalVertexId localId;
+
+	bool isValid() {
+		return nodeId != -1;
+	}
 
 	bool operator==(const GlobalVertexId& other) const {
 		return (nodeId == other.nodeId) && (localId == other.localId);

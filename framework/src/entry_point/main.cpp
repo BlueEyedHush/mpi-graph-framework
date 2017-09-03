@@ -63,13 +63,18 @@ int main(const int argc, const char** argv) {
 	//while(execute_loop == 1) {}
 	#endif
 
-
 	Configuration config;
 	if(auto optConfig = parse_cli_args(argc, argv)) {
 		config = optConfig.value();
 	} else {
 		return 1;
 	}
+
+	int currentNodeId;
+	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
+	int worldSize;
+	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
@@ -86,7 +91,7 @@ int main(const int argc, const char** argv) {
 		LOG(INFO) << "Algorithm terminated successfully";
 	}
 
-	auto validator = new BspValidator();
+	auto validator = new BspValidator(GlobalVertexId(0,0));
 	auto* calculatedSolution = algorithm->getResult();
 
 	bool validationSuccessfull = false;

@@ -13,6 +13,17 @@ public:
 	virtual bool run(GraphPartition *g) override;
 	virtual std::pair<GlobalVertexId, int> *getResult() override;
 	virtual ~Bsp_Mp_FixedMessageSize_1D_2CommRounds() override;
+
+private:
+	std::pair<GlobalVertexId, int> *result = nullptr;
+
+	GlobalVertexId& getPredecessor(int vid) {
+		return result[vid].first;
+	}
+
+	int& getDistance(int vid) {
+		return result[vid].second;
+	}
 };
 
 

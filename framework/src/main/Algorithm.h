@@ -11,7 +11,14 @@ template <class T> class Algorithm {
 public:
 	virtual bool run(GraphPartition *g) = 0;
 	/**
+	 *  This method should only return part of the result that is local to the node
+	 *  If the result is represented by array with 1:1 vertex-result mapping, it should allocate
+	 *   g->getMaxLocalVertexCount(), even if number of vertices assigned to current partition is smaller
+	 *
 	 *  Returned result should be cleaned on object destruction
+	 *
+	 *  Don't use types for which you cannot create matching MPI Derived Type - it'll make creation of validator harder
+	 *
 	 */
 	virtual T getResult() = 0;
 	virtual ~Algorithm() {};

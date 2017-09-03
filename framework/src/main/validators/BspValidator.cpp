@@ -120,26 +120,37 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 
 	int checkedCount = 0;
 	bool valid = true;
-	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution, g](LocalVertexId id) {
+	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution, g, this](LocalVertexId id) {
 		GlobalVertexId v(g->getNodeId(), id);
 		GlobalVertexId& predecessor = partialSolution[id].first;
-		int currentsDistance = partialSolution[id].second;
+		int actualDistance = partialSolution[id].second;
 
-		auto checkDistCb = [&valid, &checkedCount, v, &predecessor, currentsDistance](int predecessorDistance) {
-			int expectedPrecedessorDist = currentsDistance-1;
-			valid = (expectedPrecedessorDist == predecessorDistance);
-			checkedCount += 1;
+		if(predecessor.isValid()) {
+			auto checkDistCb = [&valid, &checkedCount, v, &predecessor, actualDistance](int predecessorDistance) {
+				int expectedPrecedessorDist = actualDistance-1;
+				valid = (expectedPrecedessorDist == predecessorDistance);
+				checkedCount += 1;
 
-			if(!valid) {
-				LOG(INFO) << "Failure for " << v.toString() << ". "
-				          << "Precedessor: " << predecessor.toString()
-				          << ", currentDistance: " << currentsDistance
-				          << ", precedessorDistance: " << predecessorDistance
-				          << ", expectedPredecessorDistance: " << expectedPrecedessorDist;
+				if(!valid) {
+					LOG(INFO) << "Failure for " << v.toString() << ". "
+					          << "Precedessor: " << predecessor.toString()
+					          << ", actualDistance: " << actualDistance
+					          << ", predecessorDistance: " << predecessorDistance
+					          << ", expectedPredecessorDistance: " << expectedPrecedessorDist;
+				}
+			};
+
+			dc.scheduleGetDistance(predecessor, checkDistCb);
+		} else {
+			/* only root node can have invalid node as precedessor */
+			if(predecessor != root) {
+				LOG(INFO) << predecessor.toString() << " reported as root (correct root: " << root.toString() << " )"
+			              << std::endl;
+
+				valid = false;
 			}
-		};
+		}
 
-		dc.scheduleGetDistance(predecessor, checkDistCb);
 	});
 
 	comms.flushAll();
