@@ -95,9 +95,7 @@ int main(const int argc, const char** argv) {
 	auto* calculatedSolution = algorithm->getResult();
 
 	bool validationSuccessfull = false;
-	if(calculatedSolution != nullptr) {
-		validationSuccessfull = validator->validate(g, calculatedSolution);
-	}
+	validationSuccessfull = validator->validate(g, calculatedSolution);
 
 	if(!validationSuccessfull) {
 		LOG(ERROR) << "Validation failure";

@@ -18,8 +18,8 @@ namespace {
 	 */
 	class Comms {
 	public:
-		Comms(GraphPartition *_g, std::pair<GlobalVertexId, int> *partialSolution) : g(_g) {
-			MPI_Win_create(partialSolution, g->getMaxLocalVertexCount()*sizeof(int), sizeof(int),
+		Comms(GraphPartition *_g, std::pair<GlobalVertexId*, int*> partialSolution) : g(_g) {
+			MPI_Win_create(partialSolution.second, g->getMaxLocalVertexCount()*sizeof(int), sizeof(int),
 			               MPI_INFO_NULL, MPI_COMM_WORLD, &solutionWin);
 			MPI_Win_lock_all(0, solutionWin);
 		}
@@ -113,7 +113,9 @@ namespace {
 	};
 }
 
-bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *partialSolution) {
+bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> *ps) {
+	auto partialSolution = *ps;
+
 	GrouppingMpiAsync executor;
 	Comms comms(g, partialSolution);
 	DistanceChecker dc(executor, comms);
@@ -122,8 +124,8 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId, int> *p
 	bool valid = true;
 	g->forEachLocalVertex([&dc, &valid, &checkedCount, partialSolution, g, this](LocalVertexId id) {
 		GlobalVertexId v(g->getNodeId(), id);
-		GlobalVertexId& predecessor = partialSolution[id].first;
-		int actualDistance = partialSolution[id].second;
+		GlobalVertexId& predecessor = partialSolution.first[id];
+		int actualDistance = partialSolution.second[id];
 
 		if(predecessor.isValid()) {
 			auto checkDistCb = [&valid, &checkedCount, v, &predecessor, actualDistance](int predecessorDistance) {

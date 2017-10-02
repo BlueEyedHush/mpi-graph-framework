@@ -48,7 +48,8 @@ bool Bsp_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	MPI_Datatype vertexMessage;
 	createVertexMessageDatatype(&vertexMessage);
 
-	result = new std::pair<GlobalVertexId, int>[g->getMaxLocalVertexCount()];
+	result.first = new GlobalVertexId[g->getMaxLocalVertexCount()];
+	result.second = new int[g->getMaxLocalVertexCount()];
 
 	bool shouldContinue = true;
 	std::vector<LocalVertexId> frontier;
@@ -166,10 +167,16 @@ bool Bsp_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	return true;
 }
 
-std::pair<GlobalVertexId, int> *Bsp_Mp_FixedMessageSize_1D_2CommRounds::getResult() {
-	return result;
+std::pair<GlobalVertexId*, int*> *Bsp_Mp_FixedMessageSize_1D_2CommRounds::getResult() {
+	return &result;
+}
+
+Bsp_Mp_FixedMessageSize_1D_2CommRounds::Bsp_Mp_FixedMessageSize_1D_2CommRounds() : result(nullptr, nullptr) {
+
 }
 
 Bsp_Mp_FixedMessageSize_1D_2CommRounds::~Bsp_Mp_FixedMessageSize_1D_2CommRounds() {
-	if(result != nullptr) delete[] result;
+	if(result.first != nullptr) delete[] result.first;
+	if(result.second != nullptr) delete[] result.second;
 }
+

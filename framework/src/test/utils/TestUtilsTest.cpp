@@ -25,29 +25,23 @@ TEST(TestUtils, LoadPartialSolution) {
 }
 
 TEST(TestUtils, LoadGidsFromFile) {
-	auto gids = bspSolutionFromFile("resources/test/gids");
-
-	GlobalVertexId gid0;
-	gid0.nodeId = 0;
-	gid0.localId = 0;
-
-	GlobalVertexId gid1;
-	gid1.nodeId = 0;
-	gid1.localId = 1;
-
-	GlobalVertexId gid2;
-	gid2.nodeId = 1;
-	gid2.localId = 0;
-
-	GlobalVertexId gid3;
-	gid3.nodeId = 1;
-	gid3.localId = 1;
+	auto gids = bspSolutionFromFile("resources/test/gids").first;
 
 	ASSERT_EQ(gids.size(), 4);
-	ASSERT_EQ(gids[0], std::make_pair(gid0, 0));
-	ASSERT_EQ(gids[1], std::make_pair(gid1, 1));
-	ASSERT_EQ(gids[2], std::make_pair(gid2, 1));
-	ASSERT_EQ(gids[3], std::make_pair(gid3, 1));
+	ASSERT_EQ(gids[0], GlobalVertexId(0, 0));
+	ASSERT_EQ(gids[1], GlobalVertexId(0, 1));
+	ASSERT_EQ(gids[2], GlobalVertexId(1, 0));
+	ASSERT_EQ(gids[3], GlobalVertexId(1, 1));
+}
+
+TEST(TestUtils, LoadDistancesFromFile) {
+	auto dists = bspSolutionFromFile("resources/test/gids").second;
+
+	ASSERT_EQ(dists.size(), 4);
+	ASSERT_EQ(dists[0], 0);
+	ASSERT_EQ(dists[1], 1);
+	ASSERT_EQ(dists[2], 1);
+	ASSERT_EQ(dists[3], 1);
 }
 
 TEST(TestUtils, LoadBspSolutionFromFile) {
@@ -55,8 +49,13 @@ TEST(TestUtils, LoadBspSolutionFromFile) {
 	auto solutionP1 = loadBspSolutionFromFile("resources/test/test.bspsol", 3, 1);
 	auto solutionP2 = loadBspSolutionFromFile("resources/test/test.bspsol", 3, 2);
 
-	ASSERT_EQ(solutionP0[0], std::make_pair(GlobalVertexId(0,0), 0));
-	ASSERT_EQ(solutionP0[1], std::make_pair(GlobalVertexId(0,1), 1));
-	ASSERT_EQ(solutionP1[0], std::make_pair(GlobalVertexId(1,0), 1));
-	ASSERT_EQ(solutionP2[0], std::make_pair(GlobalVertexId(2,0), 1));
+	ASSERT_EQ(solutionP0.first[0], GlobalVertexId(0,0));
+	ASSERT_EQ(solutionP0.first[1], GlobalVertexId(0,1));
+	ASSERT_EQ(solutionP1.first[0], GlobalVertexId(1,0));
+	ASSERT_EQ(solutionP2.first[0], GlobalVertexId(2,0));
+
+	ASSERT_EQ(solutionP0.second[0], 0);
+	ASSERT_EQ(solutionP0.second[1], 1);
+	ASSERT_EQ(solutionP1.second[0], 1);
+	ASSERT_EQ(solutionP2.second[0], 1);
 }

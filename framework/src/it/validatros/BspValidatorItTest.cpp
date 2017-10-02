@@ -18,11 +18,11 @@ TEST(BspValidator, AcceptsCorrectSolutionForSTG) {
 
 	auto gp = ArrayBackedChunkedPartition::fromFile("resources/test/SimpleTestGraph.adjl", size, rank);
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<GlobalVertexId, int> *ps = loadBspSolutionFromFile("resources/test/STG.bspsol", size, rank);
+	std::pair<GlobalVertexId*, int*> ps = loadBspSolutionFromFile("resources/test/STG.bspsol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BspValidator v;
-	bool validationResult = v.validate(&gp, ps);
+	BspValidator v(GlobalVertexId(0,0));
+	bool validationResult = v.validate(&gp, &ps);
 	LOG(INFO) << "Executed validator";
 
 	ASSERT_TRUE(validationResult);
@@ -37,11 +37,11 @@ TEST(BspValidator, RejectsIncorrectSolutionForSTG) {
 
 	auto gp = ArrayBackedChunkedPartition::fromFile("resources/test/SimpleTestGraph.adjl", size, rank);
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<GlobalVertexId, int> *ps = loadBspSolutionFromFile("resources/test/STG_incorrect.bspsol", size, rank);
+	std::pair<GlobalVertexId*, int*> ps = loadBspSolutionFromFile("resources/test/STG_incorrect.bspsol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BspValidator v;
-	bool validationResult = v.validate(&gp, ps);
+	BspValidator v(GlobalVertexId(0,0));
+	bool validationResult = v.validate(&gp, &ps);
 	LOG(INFO) << "Executed validator";
 
 	ASSERT_FALSE(validationResult);
