@@ -10,7 +10,7 @@ static std::vector<int> parseLine(const std::string &line) {
 	std::string num_str("");
 	bool charInProgress = false;
 	for(auto ch: line) {
-		if(isdigit(ch)) {
+		if(isdigit(ch) || ch == '-') {
 			if (!charInProgress) {
 				charInProgress = true;
 			}

@@ -86,3 +86,35 @@ TEST(CsvReader, LoadingFromFileC50) {
 
 	ASSERT_EQ(actual, expected);
 }
+
+TEST(CsvReader, ReadNegativeIntegers) {
+	CsvReader reader(std::string("resources/test/ReaderTestNegatives.csv"));
+
+	std::vector<std::vector<int>> expected = {
+			{-1, -2, -3},
+			{-6, -5, -4}
+	};
+
+	std::vector<std::vector<int>> actual;
+	while(boost::optional<std::vector<int>> parsedLine = reader.getNextLine()) {
+		actual.push_back(*parsedLine);
+	}
+
+	ASSERT_EQ(actual, expected);
+}
+
+TEST(CsvReader, FailToReadNegativeIntegers) {
+	CsvReader reader(std::string("resources/test/ReaderTestNegatives.csv"));
+
+	std::vector<std::vector<int>> expected = {
+			{-1, -2, -3},
+			{-6, -5, -100}
+	};
+
+	std::vector<std::vector<int>> actual;
+	while(boost::optional<std::vector<int>> parsedLine = reader.getNextLine()) {
+		actual.push_back(*parsedLine);
+	}
+
+	ASSERT_NE(actual, expected);
+}
