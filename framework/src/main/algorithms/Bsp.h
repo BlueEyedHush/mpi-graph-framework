@@ -17,7 +17,7 @@ public:
 	const static int MAX_VERTICES_IN_MESSAGE = 100;
 	const static int SEND_TAG = 1;
 
-	Bsp_Mp_FixedMessageSize_1D_2CommRounds();
+	Bsp_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bspRoot);
 	virtual bool run(GraphPartition *g) override;
 	virtual std::pair<GlobalVertexId*, int*> *getResult() override;
 	virtual ~Bsp_Mp_FixedMessageSize_1D_2CommRounds() override;
@@ -39,6 +39,8 @@ private:
 	int& getDistance(int vid) {
 		return result.second[vid];
 	}
+
+	const GlobalVertexId bspRoot;
 };
 
 

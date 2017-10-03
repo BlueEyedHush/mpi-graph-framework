@@ -80,7 +80,9 @@ int main(const int argc, const char** argv) {
 	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
 	g = graphBuilder->buildGraph(config.graphFilePath, g);
 
-	auto *algorithm = new Bsp_Mp_FixedMessageSize_1D_2CommRounds();
+	GlobalVertexId bspRoot(0, 0);
+
+	auto *algorithm = new Bsp_Mp_FixedMessageSize_1D_2CommRounds(bspRoot);
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -91,7 +93,7 @@ int main(const int argc, const char** argv) {
 		LOG(INFO) << "Algorithm terminated successfully";
 	}
 
-	auto validator = new BspValidator(GlobalVertexId(0,0));
+	auto validator = new BspValidator(bspRoot);
 	auto* calculatedSolution = algorithm->getResult();
 
 	bool validationSuccessfull = false;

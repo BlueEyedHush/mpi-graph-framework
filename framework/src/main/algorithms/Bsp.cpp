@@ -8,8 +8,6 @@
 #include <mpi.h>
 #include <glog/logging.h>
 
-static const GlobalVertexId bspRoot(0, 0);
-
 void Bsp_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
 	const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 	const MPI_Aint disparray[] = {
@@ -159,7 +157,8 @@ std::pair<GlobalVertexId*, int*> *Bsp_Mp_FixedMessageSize_1D_2CommRounds::getRes
 	return &result;
 }
 
-Bsp_Mp_FixedMessageSize_1D_2CommRounds::Bsp_Mp_FixedMessageSize_1D_2CommRounds() : result(nullptr, nullptr) {
+Bsp_Mp_FixedMessageSize_1D_2CommRounds::Bsp_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bspRoot)
+		: result(nullptr, nullptr), bspRoot(_bspRoot) {
 
 }
 
