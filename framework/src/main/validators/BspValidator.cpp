@@ -130,7 +130,7 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> 
 		if(predecessor.isValid()) {
 			auto checkDistCb = [&valid, &checkedCount, v, &predecessor, actualDistance](int predecessorDistance) {
 				int expectedPrecedessorDist = actualDistance-1;
-				valid = (expectedPrecedessorDist == predecessorDistance);
+				valid = valid && (expectedPrecedessorDist == predecessorDistance);
 				checkedCount += 1;
 
 				if(!valid) {
