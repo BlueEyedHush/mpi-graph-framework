@@ -10,9 +10,9 @@
 #include <GraphPartition.h>
 
 template<typename T> T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionId);
-std::pair<std::vector<GlobalVertexId>, std::vector<int>> bspSolutionFromFile(std::string path);
+std::pair<std::vector<GlobalVertexId>, std::vector<int>> bfsSolutionFromFile(std::string path);
 
 int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId);
-std::pair<GlobalVertexId*, int*> loadBspSolutionFromFile(std::string path, int partitionCount, int partitionId);
+std::pair<GlobalVertexId*, int*> loadBfsSolutionFromFile(std::string path, int partitionCount, int partitionId);
 
 #endif //FRAMEWORK_TESTUTILS_H

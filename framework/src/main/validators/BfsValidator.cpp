@@ -2,7 +2,7 @@
 // Created by blueeyedhush on 14.07.17.
 //
 
-#include "BspValidator.h"
+#include "BfsValidator.h"
 #include <climits>
 #include <unordered_map>
 #include <functional> /* for std::function */
@@ -113,7 +113,7 @@ namespace {
 	};
 }
 
-bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> *ps) {
+bool BfsValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> *ps) {
 	auto partialSolution = *ps;
 
 	GrouppingMpiAsync executor;

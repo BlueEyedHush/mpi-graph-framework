@@ -30,7 +30,7 @@ int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, in
 	return getPartition(solution, partitionCount, partitionId);
 }
 
-std::pair<std::vector<GlobalVertexId>, std::vector<int>> bspSolutionFromFile(std::string path) {
+std::pair<std::vector<GlobalVertexId>, std::vector<int>> bfsSolutionFromFile(std::string path) {
 	CsvReader reader(path);
 
 	std::vector<int> distances = reader.getNextLine().value();
@@ -50,8 +50,8 @@ std::pair<std::vector<GlobalVertexId>, std::vector<int>> bspSolutionFromFile(std
 	return std::make_pair(predecessors, distances);
 }
 
-std::pair<GlobalVertexId*, int*> loadBspSolutionFromFile(std::string path, int partitionCount, int partitionId) {
-	auto solution = bspSolutionFromFile(path);
+std::pair<GlobalVertexId*, int*> loadBfsSolutionFromFile(std::string path, int partitionCount, int partitionId) {
+	auto solution = bfsSolutionFromFile(path);
 	auto P = getPartition(solution.first, partitionCount, partitionId);
 	auto D = getPartition(solution.second, partitionCount, partitionId);
 	return std::make_pair(P, D);

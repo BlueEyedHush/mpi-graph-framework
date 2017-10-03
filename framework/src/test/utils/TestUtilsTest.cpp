@@ -25,7 +25,7 @@ TEST(TestUtils, LoadPartialSolution) {
 }
 
 TEST(TestUtils, LoadGidsFromFile) {
-	auto gids = bspSolutionFromFile("resources/test/gids").first;
+	auto gids = bfsSolutionFromFile("resources/test/gids").first;
 
 	ASSERT_EQ(gids.size(), 4);
 	ASSERT_EQ(gids[0], GlobalVertexId(0, 0));
@@ -35,7 +35,7 @@ TEST(TestUtils, LoadGidsFromFile) {
 }
 
 TEST(TestUtils, LoadDistancesFromFile) {
-	auto dists = bspSolutionFromFile("resources/test/gids").second;
+	auto dists = bfsSolutionFromFile("resources/test/gids").second;
 
 	ASSERT_EQ(dists.size(), 4);
 	ASSERT_EQ(dists[0], 0);
@@ -44,10 +44,10 @@ TEST(TestUtils, LoadDistancesFromFile) {
 	ASSERT_EQ(dists[3], 1);
 }
 
-TEST(TestUtils, LoadBspSolutionFromFile) {
-	auto solutionP0 = loadBspSolutionFromFile("resources/test/test.bspsol", 3, 0);
-	auto solutionP1 = loadBspSolutionFromFile("resources/test/test.bspsol", 3, 1);
-	auto solutionP2 = loadBspSolutionFromFile("resources/test/test.bspsol", 3, 2);
+TEST(TestUtils, LoadBfsSolutionFromFile) {
+	auto solutionP0 = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 0);
+	auto solutionP1 = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 1);
+	auto solutionP2 = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 2);
 
 	ASSERT_EQ(solutionP0.first[0], GlobalVertexId(0,0));
 	ASSERT_EQ(solutionP0.first[1], GlobalVertexId(0,1));

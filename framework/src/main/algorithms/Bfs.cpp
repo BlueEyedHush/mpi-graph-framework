@@ -2,13 +2,13 @@
 // Created by blueeyedhush on 18.07.17.
 //
 
-#include "Bsp.h"
+#include "Bfs.h"
 #include <vector>
 #include <stddef.h>
 #include <mpi.h>
 #include <glog/logging.h>
 
-void Bsp_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
+void Bfs_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
 	const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 	const MPI_Aint disparray[] = {
 			0,
@@ -25,7 +25,7 @@ void Bsp_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Dat
 	MPI_Type_commit(memory);
 }
 
-bool Bsp_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
+bool Bfs_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	int currentNodeId;
 	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 	int worldSize;
@@ -41,8 +41,8 @@ bool Bsp_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	std::vector<LocalVertexId> frontier;
 
 	/* append root to frontier if node matches */
-	if(bspRoot.nodeId == currentNodeId) {
-		frontier.push_back(bspRoot.localId);
+	if(bfsRoot.nodeId == currentNodeId) {
+		frontier.push_back(bfsRoot.localId);
 	}
 
 	auto sendBuffers = new VertexMessage[worldSize];
@@ -153,16 +153,16 @@ bool Bsp_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	return true;
 }
 
-std::pair<GlobalVertexId*, int*> *Bsp_Mp_FixedMessageSize_1D_2CommRounds::getResult() {
+std::pair<GlobalVertexId*, int*> *Bfs_Mp_FixedMessageSize_1D_2CommRounds::getResult() {
 	return &result;
 }
 
-Bsp_Mp_FixedMessageSize_1D_2CommRounds::Bsp_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bspRoot)
-		: result(nullptr, nullptr), bspRoot(_bspRoot) {
+Bfs_Mp_FixedMessageSize_1D_2CommRounds::Bfs_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bfsRoot)
+		: result(nullptr, nullptr), bfsRoot(_bfsRoot) {
 
 }
 
-Bsp_Mp_FixedMessageSize_1D_2CommRounds::~Bsp_Mp_FixedMessageSize_1D_2CommRounds() {
+Bfs_Mp_FixedMessageSize_1D_2CommRounds::~Bfs_Mp_FixedMessageSize_1D_2CommRounds() {
 	if(result.first != nullptr) delete[] result.first;
 	if(result.second != nullptr) delete[] result.second;
 }

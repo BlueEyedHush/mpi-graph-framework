@@ -2,8 +2,8 @@
 // Created by blueeyedhush on 18.07.17.
 //
 
-#ifndef FRAMEWORK_BSP_H
-#define FRAMEWORK_BSP_H
+#ifndef FRAMEWORK_BFS_H
+#define FRAMEWORK_BFS_H
 
 #include <mpi.h>
 #include <utility>
@@ -12,15 +12,15 @@
 typedef int GraphDist;
 #define GRAPH_DIST_MPI_TYPE MPI_INT
 
-class Bsp_Mp_FixedMessageSize_1D_2CommRounds : public Algorithm<std::pair<GlobalVertexId*, int*>*> {
+class Bfs_Mp_FixedMessageSize_1D_2CommRounds : public Algorithm<std::pair<GlobalVertexId*, int*>*> {
 public:
 	const static int MAX_VERTICES_IN_MESSAGE = 100;
 	const static int SEND_TAG = 1;
 
-	Bsp_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bspRoot);
+	Bfs_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bfsRoot);
 	virtual bool run(GraphPartition *g) override;
 	virtual std::pair<GlobalVertexId*, int*> *getResult() override;
-	virtual ~Bsp_Mp_FixedMessageSize_1D_2CommRounds() override;
+	virtual ~Bfs_Mp_FixedMessageSize_1D_2CommRounds() override;
 
 private:
 	struct VertexMessage {
@@ -40,8 +40,8 @@ private:
 		return result.second[vid];
 	}
 
-	const GlobalVertexId bspRoot;
+	const GlobalVertexId bfsRoot;
 };
 
 
-#endif //FRAMEWORK_BSP_H
+#endif //FRAMEWORK_BFS_H
