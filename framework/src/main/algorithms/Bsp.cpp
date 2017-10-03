@@ -10,19 +10,7 @@
 
 static const GlobalVertexId bspRoot(0, 0);
 
-#define SEND_TAG 1
-#define MAX_VERTICES_IN_MESSAGE 100
-typedef int GraphDist;
-#define GRAPH_DIST_MPI_TYPE MPI_INT
-
-struct VertexMessage {
-	int vidCount = 0;
-	LocalVertexId vertexIds[MAX_VERTICES_IN_MESSAGE];
-	LocalVertexId predecessors[MAX_VERTICES_IN_MESSAGE];
-	GraphDist distances[MAX_VERTICES_IN_MESSAGE];
-};
-
-void createVertexMessageDatatype(MPI_Datatype *memory) {
+void Bsp_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
 	const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 	const MPI_Aint disparray[] = {
 			0,
