@@ -11,7 +11,7 @@
 static const GlobalVertexId bspRoot(0, 0);
 
 #define SEND_TAG 1
-#define MAX_VERTICES_IN_MESSAGE 10
+#define MAX_VERTICES_IN_MESSAGE 100
 typedef int GraphDist;
 #define GRAPH_DIST_MPI_TYPE MPI_INT
 
