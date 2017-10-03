@@ -3,23 +3,23 @@
 //
 
 #include "ColouringValidator.h"
-#include <cstdio>
 #include <mpi.h>
+#include <glog/logging.h>
 #include <utils/MPIAsync.h>
 
 bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 	int nodeId = g->getNodeId();
-	fprintf(stderr, "[VALIDATOR] Entering validator\n");
+	LOG(INFO) << "Entering validator";
 
 	MPI_Win partialSolutionWin;
 	MPI_Win_create(partialSolution, g->getMaxLocalVertexCount()*sizeof(int), sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD,
 	               &partialSolutionWin);
 	MPI_Win_lock_all(0, partialSolutionWin);
-	fprintf(stderr, "[VALIDATOR] Created and locked window\n");
+	LOG(INFO) << "Created and locked window";
 
 	MPIAsync scheduler;
 
-	fprintf(stderr, "[VALIDATOR] Starting local vertex scan\n");
+	LOG(INFO) << "Starting local vertex scan";
 	bool solutionCorrect = true;
 	int processed = 0;
 	g->forEachLocalVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed](LocalVertexId v_id) {
@@ -39,10 +39,12 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 					GlobalVertexId start;
 					start.nodeId = g->getNodeId();
 					start.localId = v_id;
-					fprintf(stderr, "[VALIDATOR]: (%d,%d,%llu) colour %d, (%d,%d,%llu) colour %d\n", nodeId,
-					        v_id, g->toNumerical(start), partialSolution[v_id], neigh_id.nodeId, neigh_id.localId,
-					        g->toNumerical(neigh_id), partialSolution[neigh_id.localId]);
-
+					
+					LOG(INFO) << "(" << nodeId << "," << v_id << "," << g->toNumerical(start) << ") " << 
+                              "colour " << partialSolution[v_id] << ", " << 
+                              "(" << neigh_id.nodeId << "," << neigh_id.localId << "," <<  g->toNumerical(neigh_id) << ") " 
+					          << "colour " << partialSolution[neigh_id.localId];
+					
 					processed += 1;
 				}
 			} else {
@@ -53,7 +55,7 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 				MPI_Rget(colour, 1, MPI_INT, neigh_id.nodeId, neigh_id.localId, 1, MPI_INT, partialSolutionWin, rq);
 				scheduler.submitWaitingTask(rq, [v_colour, colour, nodeId, &solutionCorrect, &processed]() {
 					if(v_colour == *colour) {
-						fprintf(stderr, "[VALIDATOR]: Illegal colouring between local and remote node\n");
+						LOG(ERROR) << "Illegal colouring between local and remote node";
 						solutionCorrect = false;
 					}
 
@@ -63,14 +65,14 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 		});
 	});
 
-	fprintf(stderr, "[VALIDATOR] Local vertices scanned, flushing window\n");
+	LOG(INFO) << "Local vertices scanned, flushing window";
 	MPI_Win_flush_all(partialSolutionWin);
 
-	fprintf(stderr, "[VALIDATOR] Entering polling loop\n");
+	LOG(INFO) << "Entering polling loop";
 	while(processed < g->getLocalVertexCount()) {
 		scheduler.pollAll();
 	}
-	fprintf(stderr, "[VALIDATOR] Polling done, shutting down\n");
+	LOG(INFO) << "Polling done, shutting down";
 
 	/*
 	@todo with shutdown uncommented following error appears:
@@ -85,7 +87,6 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 	MPI_Win_unlock_all(partialSolutionWin);
 	MPI_Win_free(&partialSolutionWin);
 
-	fprintf(stderr, "ISVALID: %d\n", solutionCorrect);
 	bool allProcessesHaveCorrect = false;
 	MPI_Allreduce(&solutionCorrect, &allProcessesHaveCorrect, 1, MPI_CXX_BOOL, MPI_LAND, MPI_COMM_WORLD);
 
