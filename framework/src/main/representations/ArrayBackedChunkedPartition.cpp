@@ -38,7 +38,7 @@ void ArrayBackedChunkedPartition::forEachNeighbour(LocalVertexId id, std::functi
 
 bool ArrayBackedChunkedPartition::isLocalVertex(GlobalVertexId id) {
 	return id.nodeId == partitionId;
-};
+}
 
 void ArrayBackedChunkedPartition::forEachLocalVertex(std::function<void(LocalVertexId)> f) {
 	for(int i = 0; i < one_after_last - first; i++) {

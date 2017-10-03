@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8.1)
 project(framework)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "-ggdb3 -O0")
+set(CMAKE_CXX_FLAGS "-ggdb3 -O0 -pedantic")
 set(IT_TEST_PROCESS_COUNT 3)
 
 # for absolute includes
