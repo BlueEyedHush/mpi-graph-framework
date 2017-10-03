@@ -145,12 +145,14 @@ bool BspValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> 
 			dc.scheduleGetDistance(predecessor, checkDistCb);
 		} else {
 			/* only root node can have invalid node as precedessor */
-			if(predecessor != root) {
+			if(v != root) {
 				LOG(INFO) << predecessor.toString() << " reported as root (correct root: " << root.toString() << " )"
 			              << std::endl;
 
 				valid = false;
 			}
+
+			checkedCount += 1;
 		}
 
 	});

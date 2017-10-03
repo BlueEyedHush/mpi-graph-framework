@@ -37,8 +37,10 @@ UniqueIdGenerator::Id GrouppingMpiAsync::createWaitingGroup(MPI_Request *rq, std
 	UniqueIdGenerator::Id id = idGenerator.next();
 	El el(rq);
 	el.callbacks.push_back(callback);
-	groupsMap.insert(std::make_pair(id, el));
 
+	groupsMap[id] = el;
+
+	// tu problem, w mapie pojawia się coś innego niż wstawiliśmy...
 	return id;
 }
 

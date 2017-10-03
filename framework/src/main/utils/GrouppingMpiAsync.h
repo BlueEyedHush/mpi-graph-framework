@@ -23,7 +23,14 @@ public:
 
 private:
 	struct El {
+		El() : rq(nullptr) {}
 		El(MPI_Request *_rq) : rq(_rq) {}
+		El(const El& o) : rq(o.rq), callbacks(o.callbacks) {}
+		El& operator=(const El& o) {
+			rq = o.rq;
+			callbacks = o.callbacks;
+			return *this;
+		}
 
 		MPI_Request *rq;
 		std::vector<std::function<void(void)>> callbacks;
