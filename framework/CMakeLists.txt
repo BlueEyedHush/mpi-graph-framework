@@ -8,6 +8,10 @@ set(IT_TEST_PROCESS_COUNT 3)
 # for absolute includes
 include_directories(src/main)
 
+# sandbox
+file(GLOB_RECURSE SANDBOX_SRC src/sandbox/*.cpp src/sandbox/*.h)
+add_executable(sandbox ${SANDBOX_SRC})
+
 # executable configuration
 file(GLOB_RECURSE FRAMEWORK_SRC src/main/*.cpp src/main/*.h)
 add_library(framework_lib ${FRAMEWORK_SRC})
