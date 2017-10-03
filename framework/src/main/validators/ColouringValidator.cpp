@@ -39,14 +39,15 @@ bool ColouringValidator::validate(GraphPartition *g, int *partialSolution) {
 					GlobalVertexId start;
 					start.nodeId = g->getNodeId();
 					start.localId = v_id;
-					
-					LOG(INFO) << "(" << nodeId << "," << v_id << "," << g->toNumerical(start) << ") " << 
-                              "colour " << partialSolution[v_id] << ", " << 
-                              "(" << neigh_id.nodeId << "," << neigh_id.localId << "," <<  g->toNumerical(neigh_id) << ") " 
+
+					LOG(INFO) << "(" << nodeId << "," << v_id << "," << g->toNumerical(start) << ") " <<
+                              "colour " << partialSolution[v_id] << ", " <<
+                              "(" << neigh_id.nodeId << "," << neigh_id.localId << "," <<  g->toNumerical(neigh_id) << ") "
 					          << "colour " << partialSolution[neigh_id.localId];
-					
-					processed += 1;
+
 				}
+
+				processed += 1;
 			} else {
 				/* need to query other node */
 				int *colour = new int;

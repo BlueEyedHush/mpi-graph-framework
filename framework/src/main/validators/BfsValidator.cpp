@@ -130,16 +130,18 @@ bool BfsValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> 
 		if(predecessor.isValid()) {
 			auto checkDistCb = [&valid, &checkedCount, v, &predecessor, actualDistance](int predecessorDistance) {
 				int expectedPrecedessorDist = actualDistance-1;
-				valid = valid && (expectedPrecedessorDist == predecessorDistance);
-				checkedCount += 1;
+				bool thisValid = expectedPrecedessorDist == predecessorDistance;
 
-				if(!valid) {
+				if(!thisValid) {
 					LOG(INFO) << "Failure for " << v.toString() << ". "
 					          << "Precedessor: " << predecessor.toString()
-					          << ", actualDistance: " << actualDistance
+					          << ", ourDistance: " << actualDistance
 					          << ", predecessorDistance: " << predecessorDistance
 					          << ", expectedPredecessorDistance: " << expectedPrecedessorDist;
 				}
+
+				valid = valid && thisValid;
+				checkedCount += 1;
 			};
 
 			dc.scheduleGetDistance(predecessor, checkDistCb);
