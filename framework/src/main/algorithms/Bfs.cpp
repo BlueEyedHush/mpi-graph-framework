@@ -63,6 +63,7 @@ bool Bfs_Mp_FixedMsgLen_1D_2CommRounds::run(GraphPartition *g) {
 	/* append root to frontier if node matches */
 	if(bfsRoot.nodeId == currentNodeId) {
 		frontier.push_back(bfsRoot.localId);
+		result.second[bfsRoot.localId] = 0;
 	}
 
 	auto sendBuffers = new VertexMessage[worldSize];
@@ -229,6 +230,7 @@ bool Bfs_Mp_VarMsgLen_1D_2CommRounds::run(GraphPartition *g) {
 	/* append root to frontier if node matches */
 	if(bfsRoot.nodeId == currentNodeId) {
 		frontier.push_back(bfsRoot.localId);
+		result.second[bfsRoot.localId] = 0;
 	}
 
 	auto sendBuffers = new std::vector<NewFrontierVertexInfo>[worldSize];

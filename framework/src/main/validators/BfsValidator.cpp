@@ -127,6 +127,14 @@ bool BfsValidator::validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> 
 		GlobalVertexId& predecessor = partialSolution.first[id];
 		int actualDistance = partialSolution.second[id];
 
+		/* check if distance positive */
+		if(actualDistance < 0) {
+			LOG(INFO) << "Failure for " << v.toString() << "(precedessor: " << predecessor.toString() << "): "
+			          << ", distance (" << actualDistance << ") is negative";
+			valid = false;
+		}
+
+		/* check if difference in predecessor and successor distance equals 1 (or if correct node is root) */
 		if(predecessor.isValid()) {
 			auto checkDistCb = [&valid, &checkedCount, v, &predecessor, actualDistance](int predecessorDistance) {
 				int expectedPrecedessorDist = actualDistance-1;
