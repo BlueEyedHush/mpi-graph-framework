@@ -16,6 +16,11 @@ public:
 		if(buffer != nullptr) delete[] buffer;
 	}
 
+	/**
+	 *
+	 * @param expectedCapacity
+	 * @return pointer remains valid until next call to getBuffer
+	 */
 	T* getBuffer(size_t expectedCapacity) {
 		if(buffer != nullptr) delete[] buffer;
 		size = expectedCapacity;

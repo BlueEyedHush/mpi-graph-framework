@@ -59,7 +59,7 @@ public:
 	virtual bool run(GraphPartition *g) override;
 
 private:
-	struct VertexMessage {
+	struct NewFrontierVertexInfo {
 		LocalVertexId vertexId;
 		LocalVertexId predecessor;
 		GraphDist distance;
