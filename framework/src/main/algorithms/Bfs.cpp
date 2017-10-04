@@ -195,7 +195,19 @@ Bfs_Mp_VarMsgLen_1D_2CommRounds::~Bfs_Mp_VarMsgLen_1D_2CommRounds() {
 }
 
 void Bfs_Mp_VarMsgLen_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
+	const int blocklens[] = {0, 1, 1, 1, 0};
+	const MPI_Aint disparray[] = {
+			0,
+			offsetof(VertexMessage, vertexId),
+			offsetof(VertexMessage, predecessor),
+			offsetof(VertexMessage, distance),
+			sizeof(VertexMessage),
+	};
+	const MPI_Datatype types[] = {MPI_LB, LOCAL_VERTEX_ID_MPI_TYPE,
+	                              LOCAL_VERTEX_ID_MPI_TYPE, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
+	MPI_Type_create_struct(5, blocklens, disparray, types, memory);
+	MPI_Type_commit(memory);
 }
 
 bool Bfs_Mp_VarMsgLen_1D_2CommRounds::run(GraphPartition *g) {
