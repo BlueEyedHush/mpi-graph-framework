@@ -30,13 +30,13 @@ protected:
 	const GlobalVertexId bfsRoot;
 };
 
-class Bfs_Mp_FixedMessageSize_1D_2CommRounds : public Bfs {
+class Bfs_Mp_FixedMsgLen_1D_2CommRounds : public Bfs {
 public:
 	const static int MAX_VERTICES_IN_MESSAGE = 100;
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bfsRoot);
-	virtual ~Bfs_Mp_FixedMessageSize_1D_2CommRounds();
+	Bfs_Mp_FixedMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot);
+	virtual ~Bfs_Mp_FixedMsgLen_1D_2CommRounds();
 	virtual bool run(GraphPartition *g) override;
 
 private:

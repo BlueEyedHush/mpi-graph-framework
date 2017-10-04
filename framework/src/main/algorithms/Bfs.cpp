@@ -27,7 +27,7 @@ Bfs::~Bfs() {
  * ****************************************************
  */
 
-void Bfs_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
+void Bfs_Mp_FixedMsgLen_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
 	const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 	const MPI_Aint disparray[] = {
 			0,
@@ -44,7 +44,7 @@ void Bfs_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Dat
 	MPI_Type_commit(memory);
 }
 
-bool Bfs_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
+bool Bfs_Mp_FixedMsgLen_1D_2CommRounds::run(GraphPartition *g) {
 	int currentNodeId;
 	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 	int worldSize;
@@ -172,13 +172,13 @@ bool Bfs_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	return true;
 }
 
-Bfs_Mp_FixedMessageSize_1D_2CommRounds::Bfs_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bfsRoot)
+Bfs_Mp_FixedMsgLen_1D_2CommRounds::Bfs_Mp_FixedMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot)
 		: Bfs(_bfsRoot)
 {
 
 }
 
-Bfs_Mp_FixedMessageSize_1D_2CommRounds::~Bfs_Mp_FixedMessageSize_1D_2CommRounds() {
+Bfs_Mp_FixedMsgLen_1D_2CommRounds::~Bfs_Mp_FixedMsgLen_1D_2CommRounds() {
 
 }
 

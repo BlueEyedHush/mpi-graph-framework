@@ -82,7 +82,7 @@ int main(const int argc, const char** argv) {
 
 	GlobalVertexId bfsRoot(0, 0);
 
-	auto *algorithm = new Bfs_Mp_FixedMessageSize_1D_2CommRounds(bfsRoot);
+	auto *algorithm = new Bfs_Mp_FixedMsgLen_1D_2CommRounds(bfsRoot);
 	bool result = algorithm->run(g);
 
 	MPI_Barrier(MPI_COMM_WORLD);
