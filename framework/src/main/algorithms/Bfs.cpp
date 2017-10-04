@@ -171,6 +171,12 @@ bool Bfs_Mp_FixedMsgLen_1D_2CommRounds::run(GraphPartition *g) {
 		}
 	}
 
+	/* ToDo - check if new returned memory */
+	delete[] sendBuffers;
+	delete[] outstandingSendRequests;
+	delete[] completedIndices;
+	delete[] othersReceivedAnything;
+
 	return true;
 }
 
@@ -322,6 +328,12 @@ bool Bfs_Mp_VarMsgLen_1D_2CommRounds::run(GraphPartition *g) {
 			shouldContinue = othersReceivedAnything[i];
 		}
 	}
+
+	/* ToDo - check if new returned memory */
+	delete[] sendBuffers;
+	delete[] outstandingSendRequests;
+	delete[] completedIndices;
+	delete[] othersReceivedAnything;
 
 	return true;
 }
