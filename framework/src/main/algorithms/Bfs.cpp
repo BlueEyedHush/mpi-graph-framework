@@ -186,3 +186,18 @@ Bfs_Mp_FixedMsgLen_1D_2CommRounds::~Bfs_Mp_FixedMsgLen_1D_2CommRounds() {
  * ****************************************************
  */
 
+Bfs_Mp_VarMsgLen_1D_2CommRounds::Bfs_Mp_VarMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot) : Bfs(_bfsRoot) {
+
+}
+
+Bfs_Mp_VarMsgLen_1D_2CommRounds::~Bfs_Mp_VarMsgLen_1D_2CommRounds() {
+
+}
+
+void Bfs_Mp_VarMsgLen_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
+
+}
+
+bool Bfs_Mp_VarMsgLen_1D_2CommRounds::run(GraphPartition *g) {
+	return false;
+}
