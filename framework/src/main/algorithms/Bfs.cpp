@@ -8,6 +8,25 @@
 #include <mpi.h>
 #include <glog/logging.h>
 
+
+std::pair<GlobalVertexId*, int*> *Bfs::getResult() {
+	return &result;
+}
+
+Bfs::Bfs(GlobalVertexId _bfsRoot)
+: result(nullptr, nullptr), bfsRoot(_bfsRoot) {
+
+}
+
+Bfs::~Bfs() {
+	if(result.first != nullptr) delete[] result.first;
+	if(result.second != nullptr) delete[] result.second;
+}
+
+/*
+ * ****************************************************
+ */
+
 void Bfs_Mp_FixedMessageSize_1D_2CommRounds::createVertexMessageDatatype(MPI_Datatype *memory) {
 	const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 	const MPI_Aint disparray[] = {
@@ -153,17 +172,17 @@ bool Bfs_Mp_FixedMessageSize_1D_2CommRounds::run(GraphPartition *g) {
 	return true;
 }
 
-std::pair<GlobalVertexId*, int*> *Bfs_Mp_FixedMessageSize_1D_2CommRounds::getResult() {
-	return &result;
-}
-
 Bfs_Mp_FixedMessageSize_1D_2CommRounds::Bfs_Mp_FixedMessageSize_1D_2CommRounds(GlobalVertexId _bfsRoot)
-		: result(nullptr, nullptr), bfsRoot(_bfsRoot) {
+		: Bfs(_bfsRoot)
+{
 
 }
 
 Bfs_Mp_FixedMessageSize_1D_2CommRounds::~Bfs_Mp_FixedMessageSize_1D_2CommRounds() {
-	if(result.first != nullptr) delete[] result.first;
-	if(result.second != nullptr) delete[] result.second;
+
 }
+
+/*
+ * ****************************************************
+ */
 
