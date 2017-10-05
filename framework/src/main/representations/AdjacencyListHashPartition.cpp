@@ -71,7 +71,7 @@ static void register_global_vertex_id(MPI_Datatype *dt) {
 	MPI_Type_commit(dt);
 }
 
-GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *memory) {
+GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	int world_rank;
@@ -285,9 +285,8 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, GraphPartition *m
 	d.offsetTableWinMem = offsetTableWinMem;
 	d.world_rank = world_rank;
 	d.world_size = world_size;
-	new (memory) ALHPGraphPartition(d);
 
-	return memory;
+	return new ALHPGraphPartition(d);
 }
 
 

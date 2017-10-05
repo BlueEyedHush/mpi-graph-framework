@@ -10,7 +10,12 @@
 
 class ALHPGraphBuilder : public GraphBuilder {
 public:
-	virtual GraphPartition* buildGraph(std::string path, GraphPartition *memory);
+	/**
+	 *
+	 * @param path
+	 * @return Caller is responsible for freeing allocated memory
+	 */
+	virtual GraphPartition* buildGraph(std::string path);
 };
 
 struct GraphData {
@@ -28,6 +33,10 @@ struct GraphData {
 class ALHPGraphPartition : public GraphPartition {
 public:
 	ALHPGraphPartition(GraphData ds);
+	ALHPGraphPartition(const ALHPGraphPartition&) = delete;
+	ALHPGraphPartition& operator=(const ALHPGraphPartition&) = delete;
+	ALHPGraphPartition(ALHPGraphPartition&& g) = default;
+	ALHPGraphPartition& operator=(ALHPGraphPartition&& g) = default;
 
 	virtual int getLocalVertexCount() override;
 

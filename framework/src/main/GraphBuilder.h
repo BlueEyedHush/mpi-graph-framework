@@ -10,7 +10,7 @@
 
 class GraphBuilder {
 public:
-	virtual GraphPartition* buildGraph(std::string path, GraphPartition *memory) = 0;
+	virtual GraphPartition* buildGraph(std::string path) = 0;
 };
 
 #endif //FRAMEWORK_GRAPHBUILDER_H

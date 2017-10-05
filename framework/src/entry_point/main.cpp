@@ -77,8 +77,7 @@ int main(const int argc, const char** argv) {
 	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
-	GraphPartition *g = reinterpret_cast<GraphPartition*>(malloc(sizeof(ALHPGraphPartition)));
-	g = graphBuilder->buildGraph(config.graphFilePath, g);
+	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath);
 
 	GlobalVertexId bfsRoot(0, 0);
 
