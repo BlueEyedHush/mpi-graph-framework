@@ -4,13 +4,12 @@
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <glog/logging.h>
-#include "GraphPartition.h"
+#include "Runner.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"
 #include "algorithms/Bfs.h"
-#include "Validator.h"
 #include "validators/ColouringValidator.h"
 #include "validators/BfsValidator.h"
 
@@ -46,29 +45,6 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 	}
 
 	return config;
-}
-
-struct AlgorithmExecutionResult {
-	bool algorithmStatus = false;
-	bool validatorStatus = false;
-};
-
-template <typename T> AlgorithmExecutionResult runAndCheck(GraphPartition *graph,
-                                                           std::function<Algorithm<T>*(void)> algorithmProvider,
-                                                           std::function<Validator<T>*(void)> validatorProvider)
-{
-	Algorithm<T>* algorithm = algorithmProvider();
-	Validator<T>* validator = validatorProvider();
-	AlgorithmExecutionResult r;
-
-	r.algorithmStatus = algorithm->run(graph);
-
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	T solution = algorithm->getResult();
-	r.validatorStatus = validator->validate(graph, solution);
-
-	return r;
 }
 
 int main(const int argc, const char** argv) {
