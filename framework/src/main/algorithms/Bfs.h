@@ -57,15 +57,18 @@ public:
 	Bfs_Mp_VarMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot);
 	virtual ~Bfs_Mp_VarMsgLen_1D_2CommRounds();
 	virtual bool run(GraphPartition *g) override;
-
-private:
-	struct NewFrontierVertexInfo {
-		LocalVertexId vertexId;
-		LocalVertexId predecessor;
-		GraphDist distance;
-	};
-
-	void createVertexMessageDatatype(MPI_Datatype *memory);
 };
+
+class Bfs_Mp_VarMsgLen_1D_1CommsTag : public Bfs {
+public:
+	const static int NOTHING_SENT_TAG = 1;
+	const static int SOMETHING_SENT_TAG = 2;
+
+	Bfs_Mp_VarMsgLen_1D_1CommsTag(GlobalVertexId _bfsRoot);
+	virtual ~Bfs_Mp_VarMsgLen_1D_1CommsTag();
+	virtual bool run(GraphPartition *g) override;
+
+};
+
 
 #endif //FRAMEWORK_BFS_H

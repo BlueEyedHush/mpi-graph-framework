@@ -66,3 +66,25 @@ TEST(Bfs_Mp_VarMsgLen_1D_2CommRounds, FindsCorrectSolutionForComplete50) {
 	delete a;
 	delete v;
 }
+
+TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForSTG) {
+	GlobalVertexId bfsRoot(0, 0);
+	auto a = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
+	auto v = new BfsValidator(bfsRoot);
+
+	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
+
+	delete a;
+	delete v;
+}
+
+TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForComplete50) {
+	GlobalVertexId bfsRoot(0, 0);
+	auto a = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
+	auto v = new BfsValidator(bfsRoot);
+
+	executeColouringTest("resources/test/complete50.adjl", a, v);
+
+	delete a;
+	delete v;
+}
