@@ -48,6 +48,29 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 	return config;
 }
 
+struct AlgorithmExecutionResult {
+	bool algorithmStatus = false;
+	bool validatorStatus = false;
+};
+
+template <typename T> AlgorithmExecutionResult runAndCheck(GraphPartition *graph,
+                                                           std::function<Algorithm<T>*(void)> algorithmProvider,
+                                                           std::function<Validator<T>*(void)> validatorProvider)
+{
+	Algorithm<T>* algorithm = algorithmProvider();
+	Validator<T>* validator = validatorProvider();
+	AlgorithmExecutionResult r;
+
+	r.algorithmStatus = algorithm->run(graph);
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	T solution = algorithm->getResult();
+	r.validatorStatus = validator->validate(graph, solution);
+
+	return r;
+}
+
 int main(const int argc, const char** argv) {
 	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
@@ -78,27 +101,24 @@ int main(const int argc, const char** argv) {
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath);
+	delete graphBuilder;
 
 	GlobalVertexId bfsRoot(0, 0);
 
-	auto *algorithm = new Bfs_Mp_VarMsgLen_1D_2CommRounds(bfsRoot);
-	bool result = algorithm->run(g);
+	auto* algorithm = new Bfs_Mp_VarMsgLen_1D_2CommRounds(bfsRoot);
+	auto* validator = new BfsValidator(bfsRoot);
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId*, int*>*>(g,
+	                                                                            [algorithm](){return algorithm;},
+	                                                                            [validator](){return validator;});
 
-	if (!result) {
+	if (!r.algorithmStatus) {
 		LOG(ERROR) << "Error occured while executing algorithm";
 	} else {
 		LOG(INFO) << "Algorithm terminated successfully";
 	}
 
-	auto validator = new BfsValidator(bfsRoot);
-	auto* calculatedSolution = algorithm->getResult();
-
-	bool validationSuccessfull = false;
-	validationSuccessfull = validator->validate(g, calculatedSolution);
-
-	if(!validationSuccessfull) {
+	if(!r.validatorStatus) {
 		LOG(ERROR) << "Validation failure";
 	} else {
 		LOG(INFO) << "Validation success";
