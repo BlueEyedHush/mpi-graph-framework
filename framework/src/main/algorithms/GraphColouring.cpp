@@ -25,6 +25,7 @@ bool GraphColouringMP::run(GraphPartition *g) {
 	int nodeId = g->getNodeId();
 
 	std::unordered_map<int, VertexTempData*> vertexDataMap;
+	finalColouring = new int[g->getMaxLocalVertexCount()];
 
 	MPI_Datatype mpi_message_type;
 	register_mpi_message(&mpi_message_type);
@@ -84,6 +85,7 @@ bool GraphColouringMP::run(GraphPartition *g) {
 					iter_count += 1;
 				}
 				int chosen_colour = previous_used_colour + 1;
+				finalColouring[v_id] = chosen_colour;
 
 				fprintf(stderr, "!!! [%d] All neighbours of (%d, %d,%llu) chosen colours, we choose %d\n", nodeId, nodeId,
 				        v_id, v_id_num, chosen_colour);
@@ -170,11 +172,16 @@ bool GraphColouringMP::run(GraphPartition *g) {
 	return true;
 }
 
+GraphColouringMP::GraphColouringMP() : finalColouring(nullptr) {
+
+}
+
 int *GraphColouringMP::getResult() {
-	return nullptr;
+	return finalColouring;
 }
 
 GraphColouringMP::~GraphColouringMP() {
-
+	if(finalColouring != nullptr) delete[] finalColouring;
 }
+
 
