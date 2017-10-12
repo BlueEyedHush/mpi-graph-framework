@@ -17,12 +17,15 @@
 #define NODE_ID_MPI_TYPE MPI_INT;
 typedef int NodeId;
 
-/* if one wants to use GlobalVertexId without virtual overhead, he probably has to write it exacly the same way
- * concrete implementations are written - parametrize base
+/*
+ * This struct is meant to be used with polymorphism (parent for all custom implementations
+ * of GlobalVertexId), but it should also be standard-layout (to enable direct serialization
+ * for MPI). Therefore, it does not declare virtual destructor. This means that it should
+ * NEVER BE DELETED THROUGH PARENT'S POINTER/REFERENCE, SHOULD BE CASTED TO DERIVED!
  */
 struct GlobalVertexId {
-	virtual bool isValid() = 0;
-	virtual std::string toString() = 0;
+protected:
+	~GlobalVertexId() {};
 };
 
 /**
@@ -49,6 +52,7 @@ public:
 	virtual GlobalVertexId& toGlobalId(TLocalId) = 0;
 	virtual void freeGlobalId(const GlobalVertexId&) = 0;
 	virtual TNumericId toNumeric(const GlobalVertexId&) = 0;
+	virtual std::string idToString(const GlobalVertexId&) = 0;
 
 	/* aliased by default, but can be overridden */
 	TNumericId toNumeric(TLocalId lvid) {
