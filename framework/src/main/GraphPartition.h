@@ -5,41 +5,24 @@
 #ifndef FRAMEWORK_GRAPH_H
 #define FRAMEWORK_GRAPH_H
 
-#include <cinttypes>
+#include <iostream>
+#include <functional>
+#include <mpi.h>
 
-#define LOCAL_VERTEX_ID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
-typedef unsigned long long LocalVertexId;
-#define NUMID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
-typedef unsigned long long NumericIdRepr;
-/* for the lack of better place it goes here (but should be in some global header */
+
+/**
+ * Representation
+ */
+
 #define NODE_ID_MPI_TYPE MPI_INT;
 typedef int NodeId;
 
+/* if one wants to use GlobalVertexId without virtual overhead, he probably has to write it exacly the same way
+ * concrete implementations are written - parametrize base
+ */
 struct GlobalVertexId {
 	virtual bool isValid() = 0;
 	virtual std::string toString() = 0;
-};
-
-template <class T>
-class Iterator {
-	virtual T operator*() = 0;
-	virtual void operator++() = 0;
-	virtual bool operator!=(const Iterator&) = 0;
-};
-
-template <class T>
-class IteratorContainer {
-public:
-	virtual Iterator<T> begin() = 0;
-	virtual size_t size() = 0;
-	virtual Iterator<T> end() = 0;
-};
-
-class MasterVerticesList {
-	virtual Iterator<LocalVertexId> begin() = 0;
-	virtual Iterator<LocalVertexId> end() = 0;
-	virtual size_t size() = 0;
-	virtual size_t maxSize() = 0;
 };
 
 /**
@@ -48,39 +31,69 @@ class MasterVerticesList {
  * GraphPartition object retains ownership of all returned GlobalVertexId. Each no longer necessary GlobalVertexId
  * object should be explicitly released using free(GlobalVertexId&)
  */
+template <typename TLocalId, typename TNumericId>
 class GraphPartition {
+public:
+	typedef TLocalId LidType;
+	typedef TNumericId NumType;
+
 public:
 
 	/**
 	 * Datatypes should be registers with MPI upon construction and deregistered during destruction
 	 */
-	virtual MPI_Datatype getGlobalVertexIdDatatype() = 0;
+	virtual MPI_Datatype geGlobalVertexIdDatatype() = 0;
 
-	virtual LocalVertexId toLocalId(const GlobalVertexId&) = 0;
+	virtual TLocalId toLocalId(const GlobalVertexId&) = 0;
 	virtual NodeId toMasterNodeId(const GlobalVertexId&) = 0;
-	virtual GlobalVertexId& toGlobalId(LocalVertexId) = 0;
-	virtual void free(const GlobalVertexId&) = 0;
-	virtual NumericIdRepr toNumeric(const GlobalVertexId&) = 0;
+	virtual GlobalVertexId& toGlobalId(TLocalId) = 0;
+	virtual void freeGlobalId(const GlobalVertexId&) = 0;
+	virtual TNumericId toNumeric(const GlobalVertexId&) = 0;
 
 	/* aliased by default, but can be overridden */
-	NumericIdRepr toNumeric(LocalVertexId lvid) {
+	TNumericId toNumeric(TLocalId lvid) {
 		auto gvid = toGlobalId(lvid);
 		auto numeric = toNumeric(gvid);
-		free(gvid);
+		freeGlobalId(gvid);
 		return numeric;
 	}
 
-	virtual MasterVerticesList getMasterVertices() = 0;
+	virtual void foreachMasterVertex(std::function<bool(const TLocalId&)>) = 0;
+	virtual size_t masterVerticesCount() = 0;
+	virtual size_t masterVerticesMaxCount() = 0;
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	virtual IteratorContainer<NodeId> getCoOwners(LocalVertexId) = 0;
+	virtual void foreachCoOwner(TLocalId, std::function<bool(const NodeId&)>) = 0;
 	/**
 	 * Works with both masters and shadows
 	 */
-	virtual IteratorContainer<GlobalVertexId> getNeighbouringVertices(LocalVertexId) = 0;
+	virtual void foreachNeighbouringVertex(TLocalId, std::function<bool(const GlobalVertexId&)>) = 0;
 
 	virtual ~GraphPartition() {};
 };
+
+/*
+ * defines and typedefs that are used as template arguments when we intend to leverage polymorphism
+ */
+#define LOCAL_VERTEX_ID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
+typedef unsigned long long LocalVertexId;
+#define NUMID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
+typedef unsigned long long NumericIdRepr;
+
+typedef GraphPartition<LocalVertexId, NumericIdRepr> DGraphPartition;
+
+/*
+ * Usually, GraphPartition is the parent of concrete representation. If we want to avoid overhead of
+ * virtuals (at the ccost of lack of flexibility), we can use this class as base.
+ */
+template <typename TLocalId, typename TNumericId>
+class DummyGraphPartition {
+public:
+	typedef TLocalId LidType;
+	typedef TNumericId NumType;
+};
+
+
 
 #endif //FRAMEWORK_GRAPH_H

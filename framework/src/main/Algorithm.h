@@ -7,9 +7,10 @@
 
 #include "GraphPartition.h"
 
-template <class T> class Algorithm {
+template <class TResult, class TGraphPartition>
+class Algorithm {
 public:
-	virtual bool run(GraphPartition *g) = 0;
+	virtual bool run(TGraphPartition *g) = 0;
 	/**
 	 *  This method should only return part of the result that is local to the node
 	 *  If the result is represented by array with 1:1 vertex-result mapping, it should allocate
@@ -20,8 +21,10 @@ public:
 	 *  Don't use types for which you cannot create matching MPI Derived Type - it'll make creation of validator harder
 	 *
 	 */
-	virtual T getResult() = 0;
+	virtual TResult getResult() = 0;
 	virtual ~Algorithm() {};
 };
+
+template <class TResult> using DAlgorithm = Algorithm<TResult, DGraphPartition>;
 
 #endif //FRAMEWORK_ALGORITHM_H
