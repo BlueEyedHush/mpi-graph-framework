@@ -175,3 +175,39 @@ TEST(TEST_NAME, ToNumericalReturnsIndicesFromFile) {
 	builder0.destroyGraph(gp0);
 	builder1.destroyGraph(gp1);
 }
+
+TEST(ABCPGraphBuilder, GraphBuilding) {
+	auto path = std::string("resources/test/SimpleTestGraph.adjl");
+	ABCPGraphBuilder builder0(2, 0);
+
+	auto gp = builder0.buildGraph(path, {0, 3});
+	auto cv = builder0.getConvertedVertices();
+
+	ASSERT_TRUE(cv.size() == 2);
+
+	ABCPGlobalVertexId *cv0 = reinterpret_cast<ABCPGlobalVertexId *>(cv[0]);
+	ABCPGlobalVertexId *cv1 = reinterpret_cast<ABCPGlobalVertexId *>(cv[1]);
+
+	ASSERT_EQ(*cv0, ABCPGlobalVertexId(0,0));
+	ASSERT_EQ(*cv1, ABCPGlobalVertexId(1,1));
+
+	builder0.destroyGraph(gp);
+}
+
+TEST(ABCPGraphBuilder, VertexConversion) {
+	auto path = std::string("resources/test/SimpleTestGraph.adjl");
+	ABCPGraphBuilder builder0(2, 0);
+
+	auto gp = builder0.buildGraph(path, {0, 3});
+	auto cv = builder0.getConvertedVertices();
+
+	ASSERT_TRUE(cv.size() == 2);
+
+	ABCPGlobalVertexId *cv0 = reinterpret_cast<ABCPGlobalVertexId *>(cv[0]);
+	ABCPGlobalVertexId *cv1 = reinterpret_cast<ABCPGlobalVertexId *>(cv[1]);
+
+	ASSERT_EQ(*cv0, ABCPGlobalVertexId(0,0));
+	ASSERT_EQ(*cv1, ABCPGlobalVertexId(1,1));
+
+	builder0.destroyGraph(gp);
+}

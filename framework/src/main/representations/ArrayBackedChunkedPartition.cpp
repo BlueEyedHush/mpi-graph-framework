@@ -11,7 +11,10 @@
 ABCPGraphBuilder::ABCPGraphBuilder(int partitionCount, int partitionId)
 		: P(partitionCount), partitionId(partitionId) {}
 
-GraphPartition* ABCPGraphBuilder::buildGraph(std::string path) {
+GraphPartition* ABCPGraphBuilder::buildGraph(std::string path,
+                                             std::vector<OriginalVertexId> verticesToConvert)
+{
+	/* load data */
 	AdjacencyListReader reader(path);
 	int *adjacencyList = new int[reader.getEdgeCount()];
 	int *offsets = new int[reader.getVertexCount()];
@@ -27,6 +30,14 @@ GraphPartition* ABCPGraphBuilder::buildGraph(std::string path) {
 		}
 	}
 
+	/* convert vertices */
+	destroyConvertedVertices();
+	for(auto oId: verticesToConvert) {
+		int partitionId = IndexPartitioner::get_partition_from_index(reader.getVertexCount(), P, oId);
+		int rangeStart = IndexPartitioner::get_range_for_partition(reader.getVertexCount(), P, partitionId).first;
+		convertedVertices.push_back(new ABCPGlobalVertexId(partitionId, oId - rangeStart));
+	}
+
 	return new ArrayBackedChunkedPartition(
 			reader.getEdgeCount(),
 			reader.getVertexCount(),
@@ -36,9 +47,28 @@ GraphPartition* ABCPGraphBuilder::buildGraph(std::string path) {
 			offsets);
 }
 
+std::vector<GlobalVertexId *> ABCPGraphBuilder::getConvertedVertices() {
+	return convertedVertices;
+}
+
 void ABCPGraphBuilder::destroyGraph(const GraphPartition *p) {
 	delete p;
 }
+
+void ABCPGraphBuilder::destroyConvertedVertices() {
+	if(convertedVertices.size() > 0) {
+		for(auto vp: convertedVertices) {
+			ABCPGlobalVertexId* vpp = dynamic_cast<ABCPGlobalVertexId*>(vp);
+			delete vpp;
+		}
+		convertedVertices.clear();
+	}
+}
+
+ABCPGraphBuilder::~ABCPGraphBuilder() {
+	destroyConvertedVertices();
+}
+
 
 
 ArrayBackedChunkedPartition::ArrayBackedChunkedPartition(int _E, int _V, int _P, int _partitionId, int *_adjacencyList, int *_offsets) :

@@ -8,14 +8,26 @@
 #include <GraphPartition.h>
 #include <GraphBuilder.h>
 
+struct ABCPGlobalVertexId : public GlobalVertexId {
+	ABCPGlobalVertexId(int nodeId, int localId) : nodeId(nodeId), localId(localId) {}
+
+	int nodeId;
+	int localId;
+};
+
 class ABCPGraphBuilder : public GraphBuilder {
 public:
 	ABCPGraphBuilder(int partitionCount, int partitionId);
-	virtual GraphPartition* buildGraph(std::string path) override;
+	virtual GraphPartition* buildGraph(std::string path,
+	                                   std::vector<OriginalVertexId> verticesToConvert) override;
+	virtual std::vector<GlobalVertexId*> getConvertedVertices() override;
+	virtual void destroyConvertedVertices() override;
 	virtual void destroyGraph(const GraphPartition*) override;
+	virtual ~ABCPGraphBuilder() override;
 private:
 	int P;
 	int partitionId;
+	std::vector<GlobalVertexId*> convertedVertices;
 };
 
 class ArrayBackedChunkedPartition : public GraphPartition {
