@@ -103,7 +103,7 @@ int main(const int argc, const char** argv) {
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
 	delete algorithm;
 	delete validator;
-	delete g;
+	graphBuilder->destroyGraph(g);
 	MPI_Finalize();
 
 	return 0;

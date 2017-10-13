@@ -11,6 +11,7 @@
 class GraphBuilder {
 public:
 	virtual GraphPartition* buildGraph(std::string path) = 0;
+	virtual void destroyGraph(const GraphPartition*) = 0;
 };
 
 #endif //FRAMEWORK_GRAPHBUILDER_H

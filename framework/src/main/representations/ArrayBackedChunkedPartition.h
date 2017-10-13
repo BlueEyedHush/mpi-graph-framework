@@ -11,8 +11,8 @@
 class ABCPGraphBuilder : public GraphBuilder {
 public:
 	ABCPGraphBuilder(int partitionCount, int partitionId);
-	virtual GraphPartition* buildGraph(std::string path);
-	virtual void destroyGraph(const GraphPartition*);
+	virtual GraphPartition* buildGraph(std::string path) override;
+	virtual void destroyGraph(const GraphPartition*) override;
 private:
 	int P;
 	int partitionId;

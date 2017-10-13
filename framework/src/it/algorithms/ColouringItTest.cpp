@@ -19,6 +19,7 @@ void executeColouringTest(std::string graphPath,
 	                                                [algorithm]() { return algorithm; },
 	                                                [validator]() { return validator; });
 
+	graphBuilder->destroyGraph(g);
 	ASSERT_TRUE(r.algorithmStatus);
 	ASSERT_TRUE(r.validatorStatus);
 }

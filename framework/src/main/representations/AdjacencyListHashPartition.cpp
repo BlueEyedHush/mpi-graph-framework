@@ -289,7 +289,9 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 	return new ALHPGraphPartition(d);
 }
 
-
+void ALHPGraphBuilder::destroyGraph(const GraphPartition *g) {
+	delete g;
+}
 
 
 ALHPGraphPartition::ALHPGraphPartition(GraphData ds) : data(ds) {

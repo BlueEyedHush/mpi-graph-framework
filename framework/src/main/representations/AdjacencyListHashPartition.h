@@ -16,6 +16,7 @@ public:
 	 * @return Caller is responsible for freeing allocated memory
 	 */
 	virtual GraphPartition* buildGraph(std::string path);
+	virtual void destroyGraph(const GraphPartition*);
 };
 
 struct GraphData {
