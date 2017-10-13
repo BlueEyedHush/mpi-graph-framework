@@ -14,11 +14,13 @@ TEST(ColouringValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/SimpleTestGraph.adjl"), size, rank);
+	ABCPGraphBuilder builder(size, rank);
+	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
 	int *ps = loadPartialIntSolution(std::string("resources/test/STG.csol"), size, rank);
 
 	ColouringValidator v;
-	bool validationResult = v.validate(&gp, ps);
+	bool validationResult = v.validate(gp, ps);
+	builder.destroyGraph(gp);
 
 	ASSERT_TRUE(validationResult);
 }
@@ -29,11 +31,13 @@ TEST(ColouringValidator, RejectsIncorrectSolutionForSTG) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/SimpleTestGraph.adjl"), size, rank);
+	ABCPGraphBuilder builder(size, rank);
+	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
 	int *ps = loadPartialIntSolution(std::string("resources/test/STG_incorrect.csol"), size, rank);
 
 	ColouringValidator v;
-	bool validationResult = v.validate(&gp, ps);
+	bool validationResult = v.validate(gp, ps);
+	builder.destroyGraph(gp);
 
 	ASSERT_FALSE(validationResult);
 }
@@ -44,11 +48,13 @@ TEST(ColouringValidator, AcceptsCorrectSolutionForC50) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	auto gp = ArrayBackedChunkedPartition::fromFile(std::string("resources/test/complete50.adjl"), size, rank);
+	ABCPGraphBuilder builder(size, rank);
+	auto gp = builder.buildGraph("resources/test/complete50.adjl");
 	int *ps = loadPartialIntSolution(std::string("resources/test/C50.csol"), size, rank);
 
 	ColouringValidator v;
-	bool validationResult = v.validate(&gp, ps);
+	bool validationResult = v.validate(gp, ps);
+	builder.destroyGraph(gp);
 
 	ASSERT_TRUE(validationResult);
 }

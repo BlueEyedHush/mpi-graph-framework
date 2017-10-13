@@ -109,8 +109,8 @@ TEST(TEST_NAME, GetNeighbours) {
 
 TEST(TEST_NAME, LoadFromFile) {
 	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	auto gp1 = ArrayBackedChunkedPartition::fromFile(path, 2, 1);
-
+	ABCPGraphBuilder builder(2,1);
+	auto gp1 = builder.buildGraph(path);
 
 	GlobalVertexId gid0;
 	gid0.nodeId = 0;
@@ -129,24 +129,27 @@ TEST(TEST_NAME, LoadFromFile) {
 	gid3.localId = 1;
 
 	std::unordered_set<unsigned long long> expectedNeighbours = {
-			gp1.toNumerical(gid0),
-			gp1.toNumerical(gid1),
-			gp1.toNumerical(gid2)
+			gp1->toNumerical(gid0),
+			gp1->toNumerical(gid1),
+			gp1->toNumerical(gid2)
 	};
 	std::unordered_set<unsigned long long> actualNeighbours;
 
-	gp1.forEachNeighbour(gid3.localId, [&actualNeighbours, &gp1](GlobalVertexId nid) {
-		actualNeighbours.insert(gp1.toNumerical(nid));
+	gp1->forEachNeighbour(gid3.localId, [&actualNeighbours, gp1](GlobalVertexId nid) {
+		actualNeighbours.insert(gp1->toNumerical(nid));
 	});
 
+	builder.destroyGraph(gp1);
 	ASSERT_EQ(expectedNeighbours, actualNeighbours);
 }
 
 TEST(TEST_NAME, ToNumericalReturnsIndicesFromFile) {
 	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	auto gp0 = ArrayBackedChunkedPartition::fromFile(path, 2, 0);
-	auto gp1 = ArrayBackedChunkedPartition::fromFile(path, 2, 1);
+	ABCPGraphBuilder builder0(2, 0);
+	ABCPGraphBuilder builder1(2, 1);
 
+	auto gp0 = builder0.buildGraph(path);
+	auto gp1 = builder1.buildGraph(path);
 
 	GlobalVertexId gid0;
 	gid0.nodeId = 0;
@@ -168,4 +171,7 @@ TEST(TEST_NAME, ToNumericalReturnsIndicesFromFile) {
 	ASSERT_EQ(gp0.toNumerical(gid1), 1);
 	ASSERT_EQ(gp1.toNumerical(gid2), 2);
 	ASSERT_EQ(gp1.toNumerical(gid3), 3);
+
+	builder0.destroyGraph(gp0);
+	builder1.destroyGraph(gp1);
 }

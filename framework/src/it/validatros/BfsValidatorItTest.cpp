@@ -16,14 +16,16 @@ TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	auto gp = ArrayBackedChunkedPartition::fromFile("resources/test/SimpleTestGraph.adjl", size, rank);
+	ABCPGraphBuilder builder(size, rank);
+	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
 	LOG(INFO) << "Loaded graph from file";
 	std::pair<GlobalVertexId*, int*> ps = loadBfsSolutionFromFile("resources/test/STG.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
 	BfsValidator v(GlobalVertexId(0,0));
-	bool validationResult = v.validate(&gp, &ps);
+	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
+	builder.destroyGraph(gp);
 
 	ASSERT_TRUE(validationResult);
 }
@@ -35,14 +37,16 @@ TEST(BfsValidator, RejectsIncorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	auto gp = ArrayBackedChunkedPartition::fromFile("resources/test/SimpleTestGraph.adjl", size, rank);
+	ABCPGraphBuilder builder(size, rank);
+	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
 	LOG(INFO) << "Loaded graph from file";
 	std::pair<GlobalVertexId*, int*> ps = loadBfsSolutionFromFile("resources/test/STG_incorrect.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
 	BfsValidator v(GlobalVertexId(0,0));
-	bool validationResult = v.validate(&gp, &ps);
+	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
+	builder.destroyGraph(gp);
 
 	ASSERT_FALSE(validationResult);
 }

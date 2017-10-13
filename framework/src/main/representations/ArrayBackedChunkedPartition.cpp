@@ -8,6 +8,37 @@
 #include <utils/IndexPartitioner.h>
 #include <utils/AdjacencyListReader.h>
 
+ABCPGraphBuilder::ABCPGraphBuilder(int partitionCount, int partitionId)
+		: P(partitionCount), partitionId(partitionId) {}
+
+GraphPartition* ABCPGraphBuilder::buildGraph(std::string path) {
+	AdjacencyListReader reader(path);
+	int *adjacencyList = new int[reader.getEdgeCount()];
+	int *offsets = new int[reader.getVertexCount()];
+
+	int nextOffset = 0;
+	while(boost::optional<VertexSpec> oVertexSpec = reader.getNextVertex()) {
+		auto spec = *oVertexSpec;
+		offsets[spec.vertexId] = nextOffset;
+
+		for(auto neighId: spec.neighbours) {
+			adjacencyList[nextOffset] = neighId;
+			nextOffset += 1;
+		}
+	}
+
+	return new ArrayBackedChunkedPartition(
+			reader.getEdgeCount(),
+			reader.getVertexCount(),
+			P,
+			partitionId,
+			adjacencyList,
+			offsets);
+}
+
+void ABCPGraphBuilder::destroyGraph(const GraphPartition *p) {
+	delete p;
+}
 
 
 ArrayBackedChunkedPartition::ArrayBackedChunkedPartition(int _E, int _V, int _P, int _partitionId, int *_adjacencyList, int *_offsets) :
@@ -59,23 +90,4 @@ unsigned long long ArrayBackedChunkedPartition::toNumerical(GlobalVertexId id) {
 int ArrayBackedChunkedPartition::getMaxLocalVertexCount() {
 	int excess = (V % P == 0) ? 0 : 1;
 	return V/P + excess;
-}
-
-ArrayBackedChunkedPartition ArrayBackedChunkedPartition::fromFile(std::string path, int P, int partitionId) {
-	AdjacencyListReader reader(path);
-	int *adjacencyList = new int[reader.getEdgeCount()];
-	int *offsets = new int[reader.getVertexCount()];
-
-	int nextOffset = 0;
-	while(boost::optional<VertexSpec> oVertexSpec = reader.getNextVertex()) {
-		auto spec = *oVertexSpec;
-		offsets[spec.vertexId] = nextOffset;
-
-		for(auto neighId: spec.neighbours) {
-			adjacencyList[nextOffset] = neighId;
-			nextOffset += 1;
-		}
-	}
-
-	return ArrayBackedChunkedPartition(reader.getEdgeCount(), reader.getVertexCount(), P, partitionId, adjacencyList, offsets);
 }
