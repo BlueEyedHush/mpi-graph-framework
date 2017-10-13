@@ -44,6 +44,7 @@ public:
 
 	/**
 	 * Datatypes should be registers with MPI upon construction and deregistered during destruction
+	 * In particular, this helper shouldn't register the datatype -> it can be called more than once
 	 */
 	virtual MPI_Datatype geGlobalVertexIdDatatype() = 0;
 
