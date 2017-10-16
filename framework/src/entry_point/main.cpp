@@ -76,10 +76,10 @@ int main(const int argc, const char** argv) {
 	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
 
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
-	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath);
+	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath, {0L});
 	delete graphBuilder;
 
-	GlobalVertexId bfsRoot(0, 0);
+	GlobalVertexId* bfsRoot = graphBuilder->getConvertedVertices()[0];
 
 	auto* algorithm = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
 	auto* validator = new BfsValidator(bfsRoot);

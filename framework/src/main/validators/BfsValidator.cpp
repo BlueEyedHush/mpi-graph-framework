@@ -29,7 +29,7 @@ namespace {
 		 * @param id
 		 * @return when no longer needed use delete (no delete[] !!!) on both buffer and MPI_Request
 		 */
-		std::pair<int*, MPI_Request*> getDistance(GlobalVertexId id) {
+		std::pair<int*, MPI_Request*> getDistance(GlobalVertexId& id) {
 			int* buffer = new int(0);
 			MPI_Request *rq = new MPI_Request;
 			MPI_Rget(buffer, 1, MPI_INT, id.nodeId, id.localId, 1, MPI_INT, solutionWin, rq);
@@ -62,7 +62,7 @@ namespace {
 	public:
 		DistanceChecker(GrouppingMpiAsync& _asyncExecutor, Comms& _comms) : mpiAsync(_asyncExecutor), comms(_comms) {}
 
-		void scheduleGetDistance(GlobalVertexId id, std::function<void(int)> cb) {
+		void scheduleGetDistance(GlobalVertexId& id, std::function<void(int)> cb) {
 			ull numId = toNumerical(id);
 			auto it = distanceMap.find(numId);
 			if (it != distanceMap.end()) {
@@ -103,7 +103,7 @@ namespace {
 		GrouppingMpiAsync& mpiAsync;
 		Comms &comms;
 	private:
-		ull toNumerical(GlobalVertexId id) {
+		ull toNumerical(GlobalVertexId& id) {
 			unsigned int halfBitsInUll = (sizeof(ull)*CHAR_BIT)/2;
 			ull numerical = ((ull) id.localId) << halfBitsInUll;
 			numerical |= ((unsigned int) id.nodeId);

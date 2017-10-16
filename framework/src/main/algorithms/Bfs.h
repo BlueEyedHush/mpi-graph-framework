@@ -20,7 +20,7 @@ typedef int GraphDist;
 template <class TGraphPartition>
 class Bfs : public Algorithm<std::pair<GlobalVertexId*, int*>*, TGraphPartition> {
 public:
-	Bfs(GlobalVertexId _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
+	Bfs(const GlobalVertexId& _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
 
 	virtual std::pair<GlobalVertexId*, int*> *getResult() override {
 		return &result;
@@ -40,7 +40,7 @@ protected:
 		return result.second[vid];
 	}
 
-	const GlobalVertexId bfsRoot;
+	const GlobalVertexId& bfsRoot;
 };
 
 template <class TGraphPartition>
@@ -49,7 +49,7 @@ public:
 	const static int MAX_VERTICES_IN_MESSAGE = 100;
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_FixedMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
 
 	virtual ~Bfs_Mp_FixedMsgLen_1D_2CommRounds() {};
 
@@ -243,7 +243,7 @@ class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs {
 public:
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_VarMsgLen_1D_2CommRounds(GlobalVertexId _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_VarMsgLen_1D_2CommRounds(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
 
 	virtual ~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
 
@@ -373,7 +373,7 @@ public:
 	const static int NOTHING_SENT_TAG = 1;
 	const static int SOMETHING_SENT_TAG = 2;
 
-	Bfs_Mp_VarMsgLen_1D_1CommsTag(GlobalVertexId _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_VarMsgLen_1D_1CommsTag(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
 	virtual ~Bfs_Mp_VarMsgLen_1D_1CommsTag() {};
 	virtual bool run(GraphPartition *g) override {
 		int currentNodeId;

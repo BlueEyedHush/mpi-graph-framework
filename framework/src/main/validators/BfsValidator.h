@@ -11,11 +11,11 @@
 
 class BfsValidator : public Validator<std::pair<GlobalVertexId*, int*>*> {
 public:
-	BfsValidator(GlobalVertexId _root) : root(_root) {};
+	BfsValidator(const GlobalVertexId& _root) : root(_root) {};
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
 	virtual bool validate(GraphPartition *g, std::pair<GlobalVertexId*, int*> *partialSolution) override;
 private:
-	GlobalVertexId root;
+	const GlobalVertexId& root;
 };
 
 
