@@ -6,14 +6,14 @@
 #include <gtest/gtest.h>
 
 TEST(AdjacencyListReader, VertexEdgeCount) {
-	AdjacencyListReader reader("resources/test/SimpleTestGraph.adjl");
+	AdjacencyListReader<int> reader("resources/test/SimpleTestGraph.adjl");
 
 	ASSERT_EQ(reader.getEdgeCount(), 12);
 	ASSERT_EQ(reader.getVertexCount(), 4);
 }
 
 TEST(AdjacencyListReader, Structure) {
-	AdjacencyListReader reader("resources/test/SimpleTestGraph.adjl");
+	AdjacencyListReader<int> reader("resources/test/SimpleTestGraph.adjl");
 
 	std::vector<VertexSpec> expected = {
 		VertexSpec(0, {1, 2, 3}),
@@ -31,7 +31,7 @@ TEST(AdjacencyListReader, Structure) {
 }
 
 TEST(AdjacencyListReader, StructureC50) {
-	AdjacencyListReader reader("resources/test/complete50.adjl");
+	AdjacencyListReader<int> reader("resources/test/complete50.adjl");
 
 	std::vector<VertexSpec> expected = {
 		VertexSpec(0, {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49}),

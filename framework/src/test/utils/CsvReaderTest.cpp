@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 TEST(CsvReader, LoadingFromFile) {
-	CsvReader reader(std::string("resources/test/ReaderTest.csv"));
+	CsvReader<int> reader(std::string("resources/test/ReaderTest.csv"));
 
 	std::vector<std::vector<int>> expected = {
 		{5, 4, 3, 2, 1},
@@ -22,7 +22,7 @@ TEST(CsvReader, LoadingFromFile) {
 }
 
 TEST(CsvReader, LoadingFromFileC50) {
-	CsvReader reader(std::string("resources/test/ReaderTest50.adjl"));
+	CsvReader<int> reader(std::string("resources/test/ReaderTest50.adjl"));
 
 	std::vector<std::vector<int>> expected = {
 		{50},
@@ -88,7 +88,7 @@ TEST(CsvReader, LoadingFromFileC50) {
 }
 
 TEST(CsvReader, ReadNegativeIntegers) {
-	CsvReader reader(std::string("resources/test/ReaderTestNegatives.csv"));
+	CsvReader<int> reader(std::string("resources/test/ReaderTestNegatives.csv"));
 
 	std::vector<std::vector<int>> expected = {
 			{-1, -2, -3},
@@ -104,7 +104,7 @@ TEST(CsvReader, ReadNegativeIntegers) {
 }
 
 TEST(CsvReader, FailToReadNegativeIntegers) {
-	CsvReader reader(std::string("resources/test/ReaderTestNegatives.csv"));
+	CsvReader<int> reader(std::string("resources/test/ReaderTestNegatives.csv"));
 
 	std::vector<std::vector<int>> expected = {
 			{-1, -2, -3},
