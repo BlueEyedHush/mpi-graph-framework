@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cctype>
 #include <cstddef>
+#include <assert.h>
 #include <mpi.h>
 #include <vector>
 #include <unordered_map>
@@ -71,13 +72,17 @@ static void register_global_vertex_id(MPI_Datatype *dt) {
 	MPI_Type_commit(dt);
 }
 
-GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
+ALHPGraphBuilder::ALHPGraphBuilder() : convertedVertices(nullptr), convertedVerticesCount(0) {
+
+}
+
+GraphPartition* ALHPGraphBuilder::buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
 	int world_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-	MPI_Win vertexEdgeWin, adjListWin, offsetTableWin;
+	MPI_Win vertexEdgeWin, adjListWin, offsetTableWin, convertedVerticesW;
 	LocalVertexId *vertexEdgeWinMem = nullptr;
 	LocalVertexId *offsetTableWinMem = nullptr;
 	GlobalVertexId *adjListWinMem = nullptr;
@@ -120,6 +125,17 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 		MPI_Win_lock_all(0, adjListWin);
 		MPI_Win_lock_all(0, offsetTableWin);
 
+		auto vertToConvCount = verticesToConvert.size();
+		if(vertToConvCount > 0) {
+			convertedVertices = new ALHPGlobalVertexId[vertToConvCount];
+			MPI_Win_create(convertedVertices,
+			               vertToConvCount*sizeof(ALHPGlobalVertexId),
+			               sizeof(ALHPGlobalVertexId),
+			               MPI_INFO_NULL, MPI_COMM_WORLD,
+			               &convertedVerticesW);
+			MPI_Win_lock_all(0, convertedVerticesW);
+		}
+
 		/* read actual adjacency list and partition vertices across all machines */
 		std::unordered_map<ull, std::vector<AdjListPos>> toRemap;
 		std::unordered_map<ull, GlobalVertexId> remappingTable;
@@ -144,7 +160,7 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 					ull neighCount = convertedLine.size() - 1;
 					LocalVertexId adjListOffset = -1;
 
-					GlobalVertexId vertexGid;
+					ALHPGlobalVertexId vertexGid;
 					/* can't be remapped already, we need to remap */
 					vertexGid.nodeId = nextNodeId;
 
@@ -234,6 +250,23 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
+		/* save remapping info requested by user */
+		for(size_t i = 0; i < verticesToConvert.size(); i++) {
+			auto originalId = verticesToConvert[i];
+			auto mappedId = remappingTable.at(originalId);
+
+			for(int nodeId = 0; nodeId < world_size; nodeId++) {
+				MPI_Put(&mappedId, 1, globalVertexDatatype, nodeId, i, 1, globalVertexDatatype, convertedVerticesW);
+			}
+		}
+
+		if(vertToConvCount > 0) {
+			MPI_Win_sync(convertedVerticesW);
+			MPI_Win_unlock_all(convertedVerticesW);
+			// window has been filled with data, no remote communication'll be required
+			MPI_Win_free(&convertedVerticesW);
+		}
+
 		MPI_Win_sync(adjListWin);
 		MPI_Win_sync(offsetTableWin);
 
@@ -260,8 +293,27 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 		MPI_Win_lock_all(0, adjListWin);
 		MPI_Win_lock_all(0, offsetTableWin);
 
+		auto vertToConvCount = verticesToConvert.size();
+		if(vertToConvCount > 0) {
+			convertedVertices = new ALHPGlobalVertexId[vertToConvCount];
+			MPI_Win_create(convertedVertices,
+			               vertToConvCount*sizeof(ALHPGlobalVertexId),
+			               sizeof(ALHPGlobalVertexId),
+			               MPI_INFO_NULL, MPI_COMM_WORLD,
+			               &convertedVerticesW);
+			MPI_Win_lock_all(0, convertedVerticesW);
+		}
+
+
 		/* wait for master to load all data */
 		MPI_Barrier(MPI_COMM_WORLD);
+
+		if(vertToConvCount > 0) {
+			MPI_Win_sync(convertedVerticesW);
+			MPI_Win_unlock_all(convertedVerticesW);
+			// window has been filled with data, no remote communication'll be required
+			MPI_Win_free(&convertedVerticesW);
+		}
 
 		MPI_Win_sync(vertexEdgeWin);
 		MPI_Win_sync(adjListWin);
@@ -271,7 +323,6 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 		MPI_Win_unlock_all(adjListWin);
 		MPI_Win_unlock_all(offsetTableWin);
 		/* adjacency list and offset list should be available */
-
 	}
 
 	GraphData d;
@@ -289,10 +340,34 @@ GraphPartition* ALHPGraphBuilder::buildGraph(std::string path) {
 	return new ALHPGraphPartition(d);
 }
 
+std::vector<GlobalVertexId *> ALHPGraphBuilder::getConvertedVertices() {
+	auto vec = std::vector<GlobalVertexId *>();
+
+	for(size_t i = 0; i < convertedVerticesCount; i++) {
+		vec.push_back(static_cast<GlobalVertexId*>(convertedVertices + i));
+	}
+
+	return vec;
+}
+
 void ALHPGraphBuilder::destroyGraph(const GraphPartition *g) {
 	delete g;
 }
 
+void ALHPGraphBuilder::destroyConvertedVertices() {
+	if(convertedVertices != nullptr) {
+		for(size_t i = 0; i < convertedVerticesCount; i++) {
+			delete convertedVertices[i];
+		}
+
+		delete[] convertedVertices;
+		convertedVertices = nullptr;
+	}
+}
+
+ALHPGraphBuilder::~GraphBuilder() {
+	destroyConvertedVertices();
+}
 
 ALHPGraphPartition::ALHPGraphPartition(GraphData ds) : data(ds) {
 

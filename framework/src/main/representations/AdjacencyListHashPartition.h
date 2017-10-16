@@ -8,15 +8,27 @@
 #include <GraphBuilder.h>
 #include <GraphPartition.h>
 
+struct ALHPGlobalVertexId : GlobalVertexId {
+ // must be copyable
+};
+
 class ALHPGraphBuilder : public GraphBuilder {
 public:
+	ALHPGraphBuilder();
 	/**
 	 *
 	 * @param path
 	 * @return Caller is responsible for freeing allocated memory
 	 */
-	virtual GraphPartition* buildGraph(std::string path);
+	virtual GraphPartition* buildGraph(std::string path,
+	                                   std::vector<OriginalVertexId> verticesToConvert);
+	virtual std::vector<GlobalVertexId*> getConvertedVertices();
+	virtual void destroyConvertedVertices();
 	virtual void destroyGraph(const GraphPartition*);
+	virtual ~GraphBuilder();
+private:
+	ALHPGlobalVertexId* convertedVertices;
+	size_t convertedVerticesCount;
 };
 
 struct GraphData {
