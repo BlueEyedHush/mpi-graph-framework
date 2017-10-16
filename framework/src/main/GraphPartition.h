@@ -54,22 +54,30 @@ public:
 	virtual void freeGlobalId(const GlobalVertexId&) = 0;
 	virtual TNumericId toNumeric(const GlobalVertexId&) = 0;
 	virtual std::string idToString(const GlobalVertexId&) = 0;
+	virtual bool isSame(const GlobalVertexId&, const GlobalVertexId&) = 0;
+
+	virtual std::string idToString(const TLocalId lId) {
+		auto gid = toGlobalId(lId);
+		auto str = idToString(gid);
+		freeGlobalId(gid);
+		return str;
+	}
 
 	/* aliased by default, but can be overridden */
-	TNumericId toNumeric(TLocalId lvid) {
+	virtual TNumericId toNumeric(TLocalId lvid) {
 		auto gvid = toGlobalId(lvid);
 		auto numeric = toNumeric(gvid);
 		freeGlobalId(gvid);
 		return numeric;
 	}
 
-	virtual void foreachMasterVertex(std::function<bool(const TLocalId&)>) = 0;
+	virtual void foreachMasterVertex(std::function<bool(const TLocalId)>) = 0;
 	virtual size_t masterVerticesCount() = 0;
 	virtual size_t masterVerticesMaxCount() = 0;
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	virtual void foreachCoOwner(TLocalId, std::function<bool(const NodeId&)>) = 0;
+	virtual void foreachCoOwner(TLocalId, std::function<bool(const NodeId)>) = 0;
 	/**
 	 * Works with both masters and shadows
 	 */
@@ -77,6 +85,11 @@ public:
 
 	virtual ~GraphPartition() {};
 };
+
+/* macros that can be used in classes parametrized by GraphPartition */
+#define GP_TYPEDEFS \
+	typedef typename TGraphPartition::LidType LocalId; \
+	typedef typename TGraphPartition::NumType NumericId;
 
 /*
  * defines and typedefs that are used as template arguments when we intend to leverage polymorphism

@@ -7,9 +7,10 @@
 
 #include "GraphPartition.h"
 
-template <class T> class Validator {
+template <class TGraphPartition, class TResult>
+class Validator {
 public:
-	virtual bool validate(GraphPartition *g, T partialSolution) = 0;
+	virtual bool validate(TGraphPartition *g, TResult partialSolution) = 0;
 };
 
 #endif //FRAMEWORK_VALIDATOR_H
