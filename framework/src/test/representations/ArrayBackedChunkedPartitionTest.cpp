@@ -9,6 +9,9 @@
 
 #define TEST_NAME ArrayBackedChunkedPartition
 
+typedef int TestLocalId;
+typedef int TestNumId;
+
 const int E_N = 12;
 const int V_N = 4;
 
@@ -27,153 +30,94 @@ int V_OFFSETS[V_N] = {
 };
 
 TEST(TEST_NAME, LocalVertexCorrectness) {
-	const int P_N = 2;
-	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
-	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b0(2, 0);
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b1(2, 1);
+
+	auto gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
+	auto gp1 = b1.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 
 	std::unordered_set<LocalVertexId> actualVertexId0;
-	gp0.forEachLocalVertex([&actualVertexId0](LocalVertexId id) {
+	gp0->foreachMasterVertex([&actualVertexId0](const TestLocalId id) {
 		actualVertexId0.insert(id);
+		return true;
 	});
 
 	std::unordered_set<LocalVertexId> actualVertexId1;
-	gp1.forEachLocalVertex([&actualVertexId1](LocalVertexId id) {
+	gp1->foreachMasterVertex([&actualVertexId1](const TestLocalId id) {
 		actualVertexId1.insert(id);
+		return true;
 	});
-
 
 	std::unordered_set<LocalVertexId> expectedLocalVertices = {0,1};
 	ASSERT_EQ(expectedLocalVertices, actualVertexId0);
 	ASSERT_EQ(expectedLocalVertices, actualVertexId1);
+
+	b0.destroyGraph(gp0);
+	b1.destroyGraph(gp1);
 }
 
-TEST(TEST_NAME, GetNodeId) {
-	const int P_N = 2;
-	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
-	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+TEST(TEST_NAME, ToMasterNodeId) {
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b0(2, 0);
 
-	ASSERT_EQ(gp0.getNodeId(), 0);
-	ASSERT_EQ(gp1.getNodeId(), 1);
+	auto gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
+
+	ASSERT_EQ(gp0->toMasterNodeId(ABCPGlobalVertexId(0, 0)), 0);
+	ASSERT_EQ(gp0->toMasterNodeId(ABCPGlobalVertexId(1, 0)), 1);
+
+	b0.destroyGraph(gp0);
 }
 
-TEST(TEST_NAME, IsLocal) {
-	const int P_N = 2;
-	auto gp0 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 0, E, V_OFFSETS);
+TEST(TEST_NAME, ToNumeric) {
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b0(2, 0);
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b1(2, 1);
 
-	GlobalVertexId gid0;
-	gid0.nodeId = 0;
-	gid0.localId = 0;
+	auto* gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
+	auto* gp1 = b1.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 
-	GlobalVertexId gid1;
-	gid1.nodeId = 1;
-	gid1.localId = 0;
+	const GlobalVertexId& gid0 = gp0->toGlobalId(0);
+	const GlobalVertexId& gid1 = gp0->toGlobalId(1);
+	const GlobalVertexId& gid2 = gp1->toGlobalId(0);
+	const GlobalVertexId& gid3 = gp1->toGlobalId(1);
 
-	ASSERT_TRUE(gp0.isLocalVertex(gid0));
-	ASSERT_FALSE(gp0.isLocalVertex(gid1));
+	ASSERT_EQ(gp0->toNumeric(gid0), 0);
+	ASSERT_EQ(gp0->toNumeric(gid1), 1);
+	ASSERT_EQ(gp1->toNumeric(gid2), 2);
+	ASSERT_EQ(gp1->toNumeric(gid3), 3);
+
+	gp0->freeGlobalId(gid0);
+	gp0->freeGlobalId(gid1);
+	gp1->freeGlobalId(gid2);
+	gp1->freeGlobalId(gid3);
+
+	b0.destroyGraph(gp0);
+	b1.destroyGraph(gp1);
 }
 
-TEST(TEST_NAME, GetNeighbours) {
-	const int P_N = 2;
-	auto gp1 = ArrayBackedChunkedPartition(E_N, V_N, P_N, 1, E, V_OFFSETS);
+TEST(TEST_NAME, ForEachNeighbouringVertex) {
+	ABCPGraphBuilder<TestLocalId,TestNumId,true> b(2, 1);
 
+	auto gp = b.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 
-	GlobalVertexId gid0;
-	gid0.nodeId = 0;
-	gid0.localId = 0;
+	ABCPGlobalVertexId gid0(0,0);
+	ABCPGlobalVertexId gid1(0,1);
+	ABCPGlobalVertexId gid2(1,0);
+	ABCPGlobalVertexId gid3(1,1);
 
-	GlobalVertexId gid1;
-	gid1.nodeId = 0;
-	gid1.localId = 1;
-
-	GlobalVertexId gid2;
-	gid2.nodeId = 1;
-	gid2.localId = 0;
-
-	GlobalVertexId gid3;
-	gid3.nodeId = 1;
-	gid3.localId = 1;
-
-	std::unordered_set<unsigned long long> expectedNeighbours = {
-			gp1.toNumerical(gid0),
-			gp1.toNumerical(gid1),
-			gp1.toNumerical(gid2)
+	std::unordered_set<TestNumId> expectedNeighbours = {
+			gp->toNumeric(gid0),
+			gp->toNumeric(gid1),
+			gp->toNumeric(gid2)
 	};
 	std::unordered_set<unsigned long long> actualNeighbours;
 
-	gp1.forEachNeighbour(gid3.localId, [&actualNeighbours, &gp1](GlobalVertexId nid) {
-		actualNeighbours.insert(gp1.toNumerical(nid));
+	gp->foreachNeighbouringVertex(gid3.localId, [&actualNeighbours, &gp](const GlobalVertexId& nid) {
+		actualNeighbours.insert(gp->toNumeric(nid));
+		return true;
 	});
 
 	ASSERT_EQ(expectedNeighbours, actualNeighbours);
-}
 
-TEST(TEST_NAME, LoadFromFile) {
-	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	ABCPGraphBuilder builder(2,1);
-	auto gp1 = builder.buildGraph(path);
-
-	GlobalVertexId gid0;
-	gid0.nodeId = 0;
-	gid0.localId = 0;
-
-	GlobalVertexId gid1;
-	gid1.nodeId = 0;
-	gid1.localId = 1;
-
-	GlobalVertexId gid2;
-	gid2.nodeId = 1;
-	gid2.localId = 0;
-
-	GlobalVertexId gid3;
-	gid3.nodeId = 1;
-	gid3.localId = 1;
-
-	std::unordered_set<unsigned long long> expectedNeighbours = {
-			gp1->toNumerical(gid0),
-			gp1->toNumerical(gid1),
-			gp1->toNumerical(gid2)
-	};
-	std::unordered_set<unsigned long long> actualNeighbours;
-
-	gp1->forEachNeighbour(gid3.localId, [&actualNeighbours, gp1](GlobalVertexId nid) {
-		actualNeighbours.insert(gp1->toNumerical(nid));
-	});
-
-	builder.destroyGraph(gp1);
-	ASSERT_EQ(expectedNeighbours, actualNeighbours);
-}
-
-TEST(TEST_NAME, ToNumericalReturnsIndicesFromFile) {
-	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	ABCPGraphBuilder builder0(2, 0);
-	ABCPGraphBuilder builder1(2, 1);
-
-	auto gp0 = builder0.buildGraph(path);
-	auto gp1 = builder1.buildGraph(path);
-
-	GlobalVertexId gid0;
-	gid0.nodeId = 0;
-	gid0.localId = 0;
-
-	GlobalVertexId gid1;
-	gid1.nodeId = 0;
-	gid1.localId = 1;
-
-	GlobalVertexId gid2;
-	gid2.nodeId = 1;
-	gid2.localId = 0;
-
-	GlobalVertexId gid3;
-	gid3.nodeId = 1;
-	gid3.localId = 1;
-
-	ASSERT_EQ(gp0.toNumerical(gid0), 0);
-	ASSERT_EQ(gp0.toNumerical(gid1), 1);
-	ASSERT_EQ(gp1.toNumerical(gid2), 2);
-	ASSERT_EQ(gp1.toNumerical(gid3), 3);
-
-	builder0.destroyGraph(gp0);
-	builder1.destroyGraph(gp1);
+	b.destroyGraph(gp);
 }
 
 TEST(ABCPGraphBuilder, GraphBuilding) {
