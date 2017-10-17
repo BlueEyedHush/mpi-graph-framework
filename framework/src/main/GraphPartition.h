@@ -77,7 +77,7 @@ public:
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	virtual void foreachCoOwner(TLocalId, std::function<bool(const NodeId)>) = 0;
+	virtual void foreachCoOwner(TLocalId, bool returnSelf, std::function<bool(const NodeId)>) = 0;
 	/**
 	 * Works with both masters and shadows
 	 */
