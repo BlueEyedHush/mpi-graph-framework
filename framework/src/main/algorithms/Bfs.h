@@ -14,13 +14,22 @@
 #include <Prerequisites.h>
 #include <Algorithm.h>
 #include <utils/VariableLengthBufferManager.h>
+#include <utils/MpiTypemap.h>
+
+/**
+ * even though 1D algorithms are compatibile with common interface,
+ * they might not work correctly with 2D representation
+ */
 
 template <class TGraphPartition>
-class Bfs : public Algorithm<std::pair<GlobalVertexId*, int*>*, TGraphPartition> {
+class Bfs : public Algorithm<std::pair<GlobalVertexId**, GraphDist*>*, TGraphPartition> {
+protected:
+	GP_TYPEDEFS
+
 public:
 	Bfs(const GlobalVertexId& _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
 
-	virtual std::pair<GlobalVertexId*, int*> *getResult() override {
+	virtual std::pair<GlobalVertexId**, GraphDist*> *getResult() override {
 		return &result;
 	};
 
@@ -30,11 +39,11 @@ public:
 	};
 
 protected:
-	std::pair<GlobalVertexId*, int*> result;
-	GlobalVertexId& getPredecessor(int vid) {
+	std::pair<GlobalVertexId**, GraphDist*> result;
+	GlobalVertexId* getPredecessor(LocalId vid) {
 		return result.first[vid];
 	}
-	int& getDistance(int vid) {
+	GraphDist& getDistance(LocalId vid) {
 		return result.second[vid];
 	}
 
@@ -51,7 +60,7 @@ public:
 
 	virtual ~Bfs_Mp_FixedMsgLen_1D_2CommRounds() {};
 
-	virtual bool run(TGraphPartition *g) override {
+	virtual bool run(GraphPartition *g) override {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
@@ -60,16 +69,22 @@ public:
 		MPI_Datatype vertexMessage;
 		createVertexMessageDatatype(&vertexMessage);
 
-		result.first = new GlobalVertexId[g->getMaxLocalVertexCount()];
-		result.second = new int[g->getMaxLocalVertexCount()];
+		result.first = new GlobalVertexId*[g->masterVerticesMaxCount()];
+		result.second = new GraphDist[g->masterVerticesMaxCount()];
 
 		bool shouldContinue = true;
 		std::vector<LocalVertexId> frontier;
 
 		/* append root to frontier if node matches */
-		if(bfsRoot.nodeId == currentNodeId) {
-			frontier.push_back(bfsRoot.localId);
-			result.second[bfsRoot.localId] = 0;
+		VERTEX_TYPE rootVt;
+		auto rootLocal = g->toLocalId(bfsRoot, &rootVt);
+		if(rootVt == L_SHADOW && rootVt == L_MASTER) {
+			frontier.push_back(rootLocal);
+
+			if(rootVt == L_MASTER) {
+				result.first[rootLocal] = &bfsRoot;
+				result.second[rootLocal] = 0;
+			}
 		}
 
 		auto sendBuffers = new VertexMessage[worldSize];
@@ -86,12 +101,12 @@ public:
 		auto othersReceivedAnything = new bool[worldSize];
 
 		while(shouldContinue) {
-			for(LocalVertexId vid: frontier) {
-				if(!getPredecessor(vid).isValid()) {
+			for(LocalId vid: frontier) {
+				if(getPredecessor(vid) == nullptr) {
 					/* node has not yet been visited */
 
-					g->forEachNeighbour(vid, [&sendBuffers, vid, this](GlobalVertexId nid) {
-						auto targetNode = nid.nodeId;
+					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalVertexId& nid) {
+						auto targetNode = g->toMasterNodeId(nid);
 						VertexMessage *currBuffer = sendBuffers + targetNode;
 						int currentId = currBuffer->vidCount;
 
@@ -102,11 +117,13 @@ public:
 							           << ") larger than allowed (" << MAX_VERTICES_IN_MESSAGE << ")";
 						} else {
 							/* fill the data */
-							currBuffer->vertexIds[currentId] = nid.localId;
+							currBuffer->vertexIds[currentId] = g->toLocalId(nid);
 							currBuffer->predecessors[currentId] = vid;
 							currBuffer->distances[currentId] = this->getDistance(vid) + 1;
 							currBuffer->vidCount += 1;
 						}
+
+						return true;
 					});
 				}
 			}
@@ -189,8 +206,8 @@ public:
 private:
 	struct VertexMessage {
 		int vidCount = 0;
-		LocalVertexId vertexIds[MAX_VERTICES_IN_MESSAGE];
-		LocalVertexId predecessors[MAX_VERTICES_IN_MESSAGE];
+		LocalId vertexIds[MAX_VERTICES_IN_MESSAGE];
+		LocalId predecessors[MAX_VERTICES_IN_MESSAGE];
 		GraphDist distances[MAX_VERTICES_IN_MESSAGE];
 	};
 
@@ -204,8 +221,9 @@ private:
 				offsetof(VertexMessage, distances),
 				sizeof(VertexMessage),
 		};
-		const MPI_Datatype types[] = {MPI_LB, MPI_INT, LOCAL_VERTEX_ID_MPI_TYPE,
-		LOCAL_VERTEX_ID_MPI_TYPE, GRAPH_DIST_MPI_TYPE, MPI_UB};
+		// LocalId is allias for typename TGraphPartition::LidType, but for some reason cannot use it with typeid
+		auto localIdMpiType = datatypeMap.at(typeid(LocalId));
+		const MPI_Datatype types[] = {MPI_LB, MPI_INT, localIdMpiType, localIdMpiType, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 		MPI_Type_create_struct(6, blocklens, disparray, types, memory);
 		MPI_Type_commit(memory);

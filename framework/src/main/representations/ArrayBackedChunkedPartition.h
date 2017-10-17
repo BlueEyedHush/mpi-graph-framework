@@ -141,7 +141,11 @@ public:
 		return gIdDatatype;
 	};
 
-	virtual TLocalId toLocalId(const GlobalVertexId& gid) { return c(gid).localId; };
+	virtual TLocalId toLocalId(const GlobalVertexId& gid, VERTEX_TYPE* isLocal = nullptr) {
+		auto g = c(gid);
+		if(isLocal != nullptr) *isLocal = (g.nodeId == nodeId) ? L_MASTER : NON_LOCAL;
+		return g.localId;
+	};
 	virtual NodeId toMasterNodeId(const GlobalVertexId& gid) { return c(gid).nodeId; };
 	virtual GlobalVertexId& toGlobalId(TLocalId lid) {
 		auto gid = gidPool.malloc();

@@ -25,6 +25,12 @@ protected:
 	~GlobalVertexId() {};
 };
 
+enum VERTEX_TYPE {
+	L_MASTER,
+	L_SHADOW,
+	NON_LOCAL
+};
+
 /**
  * Any method of this class (including special members) is guaranteed to be executed while MPI is up-and-working
  *
@@ -50,7 +56,13 @@ public:
 	 */
 	virtual MPI_Datatype geGlobalVertexIdDatatype() = 0;
 
-	virtual TLocalId toLocalId(const GlobalVertexId&) = 0;
+	/**
+	 * Works only for locally stored vertices: masters and shadows (slaves)
+	 * If non-local vertex is passed, rubbish'll be returned and isLocal output parameter
+	 * will be set to true (if caller is not interested in isLocal value, he/she can simply pass nullptr)
+	 *
+	 */
+	virtual TLocalId toLocalId(const GlobalVertexId&, VERTEX_TYPE* vtype = nullptr) = 0;
 	virtual NodeId toMasterNodeId(const GlobalVertexId&) = 0;
 	virtual GlobalVertexId& toGlobalId(TLocalId) = 0;
 	virtual void freeGlobalId(const GlobalVertexId&) = 0;
