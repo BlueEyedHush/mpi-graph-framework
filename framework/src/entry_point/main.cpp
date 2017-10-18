@@ -81,10 +81,10 @@ int main(const int argc, const char** argv) {
 
 	GlobalVertexId* bfsRoot = graphBuilder->getConvertedVertices()[0];
 
-	auto* algorithm = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
-	auto* validator = new BfsValidator(bfsRoot);
+	auto* algorithm = new Bfs_Mp_VarMsgLen_1D_1CommsTag(*bfsRoot);
+	auto* validator = new BfsValidator(*bfsRoot);
 
-	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId*, int*>*>(g,
+	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId**, int*>*>(g,
 	                                                                            [algorithm](){return algorithm;},
 	                                                                            [validator](){return validator;});
 

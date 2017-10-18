@@ -8,14 +8,11 @@
 #include <iostream>
 #include <functional>
 #include <mpi.h>
-
+#include <Prerequisites.h>
 
 /**
  * Representation
  */
-
-#define NODE_ID_MPI_TYPE MPI_INT;
-typedef int NodeId;
 
 /*
  * This struct is meant to be used with polymorphism (parent for all custom implementations
@@ -33,6 +30,11 @@ protected:
  *
  * GraphPartition object retains ownership of all returned GlobalVertexId. Each no longer necessary GlobalVertexId
  * object should be explicitly released using free(GlobalVertexId&)
+ *
+ * Each vertex stored on local machine must have LocalId assigned (masters and shadows from other nodes). However,
+ * all shadows should have ids larger than any master (first masters, then shadows).
+ *
+ * Neither localId/nodeId pair nor numeric representation are required to be identical during different executions.
  */
 template <typename TLocalId, typename TNumericId>
 class GraphPartition {

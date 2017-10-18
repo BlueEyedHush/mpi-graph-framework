@@ -23,7 +23,7 @@ namespace details {
 	template <typename TGraphPartition>
 	class Comms {
 	public:
-		Comms(TGraphPartition *_g, std::pair<GlobalVertexId*, int*> partialSolution) : g(_g) {
+		Comms(TGraphPartition *_g, std::pair<GlobalVertexId**, int*> partialSolution) : g(_g) {
 			MPI_Win_create(partialSolution.second, g->masterVerticesMaxCount()*sizeof(int), sizeof(int),
 			               MPI_INFO_NULL, MPI_COMM_WORLD, &solutionWin);
 			MPI_Win_lock_all(0, solutionWin);
@@ -114,14 +114,14 @@ namespace details {
 }
 
 template <class TGraphPartition>
-class BfsValidator : public Validator<TGraphPartition, std::pair<GlobalVertexId*, int*>*> {
+class BfsValidator : public Validator<TGraphPartition, std::pair<GlobalVertexId**, int*>*> {
 public:
 	GP_TYPEDEFS
 
 	BfsValidator(const GlobalVertexId& _root) : root(_root) {};
 
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
-	virtual bool validate(TGraphPartition *g, std::pair<GlobalVertexId*, int*> *partialSolution) override {
+	virtual bool validate(TGraphPartition *g, std::pair<GlobalVertexId**, int*> *partialSolution) override {
 		GrouppingMpiAsync executor;
 		details::Comms<TGraphPartition> comms(g, *partialSolution);
 		details::DistanceChecker<TGraphPartition> dc(executor, comms, g);
@@ -130,7 +130,7 @@ public:
 		bool valid = true;
 		g->foreachMasterVertex([&dc, &valid, &checkedCount, partialSolution, g, this](const LocalId id) {
 			const GlobalVertexId& currGID = g->toGlobalId(id);
-			const GlobalVertexId& predecessor = partialSolution->first[id];
+			const GlobalVertexId& predecessor = *(partialSolution->first[id]);
 			int actualDistance = partialSolution->second[id];
 
 			/* check if distance positive */

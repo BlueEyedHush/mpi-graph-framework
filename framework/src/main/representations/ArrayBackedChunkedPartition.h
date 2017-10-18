@@ -112,6 +112,8 @@ private:
  * internal iteration - those should never be freed)
  * Lifetime of each GlobalId is tied to lifetime of ABCP class which returned it (storing it somewhere is not a
  * good idea)
+ *
+ * For this representation, toNumeric always returns original ID (as loaded from file).
  */
 template <typename TBase, typename TLocalId, typename TNumId>
 class ArrayBackedChunkedPartition : public TBase {

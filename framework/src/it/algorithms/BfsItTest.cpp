@@ -7,14 +7,15 @@
 #include <algorithms/Bfs.h>
 #include <validators/BfsValidator.h>
 
+template <typename TGraphPartition>
 void executeColouringTest(std::string graphPath,
-                          Algorithm<std::pair<GlobalVertexId*, int*>*> *algorithm,
-                          Validator<std::pair<GlobalVertexId*, int*>*> *validator) {
+                          Algorithm<std::pair<GlobalVertexId**, int*>*, TGraphPartition> *algorithm,
+                          Validator<std::pair<GlobalVertexId**, int*>*, TGraphPartition> *validator) {
 	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
-	GraphPartition *g = graphBuilder->buildGraph(graphPath);
+	TGraphPartition *g = graphBuilder->buildGraph(graphPath);
 	delete graphBuilder;
 
-	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId*, int*>*>(g, 
+	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId**, int*>*>(g,
 	                                                                            [algorithm]() { return algorithm; }, 
 	                                                                            [validator]() { return validator; });
 

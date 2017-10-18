@@ -7,12 +7,86 @@
 
 #include <string>
 #include <vector>
+#include <tuple>
+#include <algorithm>
+#include <glog/logging.h>
+#include <boost/numeric/conversion/cast.hpp>
+#include <Prerequisites.h>
 #include <GraphPartition.h>
+#include <utils/CsvReader.h>
+#include <utils/IndexPartitioner.h>
 
-template<typename T> T* getPartition(std::vector<T> wholeSolution, int partitionCount, int partitionId);
-std::pair<std::vector<GlobalVertexId>, std::vector<int>> bfsSolutionFromFile(std::string path);
+namespace details {
+	using namespace IndexPartitioner;
 
-int* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId);
-std::pair<GlobalVertexId*, int*> loadBfsSolutionFromFile(std::string path, int partitionCount, int partitionId);
+	template<typename T>
+	T* vecSubset(const std::vector<T> vec, const std::pair<int,int> range) {
+		assert(vec.size() <= range.second);
+		assert(range.first >= 0);
+		assert(range.first < range.second);
+
+		auto start = range.first;
+		auto count = range.second-start;
+		T* result = new T[count];
+		for(int i = 0; i < count; i++) {
+			result[i] = vec[start+i];
+		}
+
+		return result;
+	}
+};
+
+/*
+ * All pointers returned from helpers (those inside tuples) has to be deleted using delete[]
+ */
+
+template <typename TLocalId>
+std::tuple<std::vector<NodeId>, std::vector<TLocalId>, std::vector<GraphDist>> bfsSolutionFromFile(std::string path) {
+	CsvReader<OriginalVertexId> reader(path);
+
+	auto distsFromFile = reader.getNextLine().value();
+	std::vector<GraphDist> distances;
+	std::transform(distsFromFile.begin(), distsFromFile.end(), std::back_inserter(distances), [](OriginalVertexId id) {
+		return static_cast<GraphDist>(id);
+	});
+
+	std::vector<NodeId> nodeIds;
+	std::vector<TLocalId> localIds;
+	while(boost::optional<std::vector<OriginalVertexId>> line = reader.getNextLine()) {
+		auto nodeId = boost::numeric_cast<NodeId>(line.value().at(0));
+		auto localId = boost::numeric_cast<TLocalId>(line.value().at(1));
+		nodeIds.push_back(nodeId);
+		localIds.push_back(localId);
+	}
+
+	assert(nodeIds.size() == localIds.size());
+	assert(localIds.size() == distances.size());
+
+	return std::make_tuple(nodeIds, localIds, distances);
+}
+
+template <typename TSolutionType>
+TSolutionType* loadPartialIntSolution(std::string solutionFilePath, int partitionCount, int partitionId) {
+	CsvReader<TSolutionType> reader(solutionFilePath);
+	std::vector<TSolutionType> solution = reader.getNextLine().value();
+	auto range = details::get_range_for_partition(solution.size(), partitionCount, partitionId);
+	return details::vecSubset(solution, range);
+}
+
+template <typename TLocalId>
+std::tuple<NodeId*, TLocalId*, GraphDist*> loadBfsSolutionFromFile(std::string path,
+                                                                   int partitionCount,
+                                                                   int partitionId)
+{
+	std::vector<NodeId> fullN;
+	std::vector<TLocalId> fullL;
+	std::vector<GraphDist> fullD;
+	std::tie(fullN, fullL, fullD) = bfsSolutionFromFile(path);
+	auto range = details::get_range_for_partition(fullN.size(), partitionCount, partitionId);
+	auto N = details::vecSubset(fullN, range);
+	auto L = details::vecSubset(fullL, range);
+	auto D = details::vecSubset(fullD, range);
+	return std::make_tuple(N, L, D);
+}
 
 #endif //FRAMEWORK_TESTUTILS_H

@@ -8,9 +8,8 @@
 #include <string>
 #include <vector>
 #include <type_traits>
+#include <Prerequisites.h>
 #include "GraphPartition.h"
-
-typedef unsigned long long OriginalVertexId;
 
 template<typename TGraphPartition, bool polymorphic>
 class GraphBuilder {

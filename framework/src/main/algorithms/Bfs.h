@@ -11,11 +11,9 @@
 #include <stddef.h>
 #include <glog/logging.h>
 
+#include <Prerequisites.h>
 #include <Algorithm.h>
 #include <utils/VariableLengthBufferManager.h>
-
-typedef int GraphDist;
-#define GRAPH_DIST_MPI_TYPE MPI_INT
 
 template <class TGraphPartition>
 class Bfs : public Algorithm<std::pair<GlobalVertexId*, int*>*, TGraphPartition> {
