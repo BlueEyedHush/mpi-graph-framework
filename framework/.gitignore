@@ -8,6 +8,9 @@ tests
 !tests/
 itTests
 !itTests/
+single_cu
+!single_cu/
+single_cu.filelist
 framework.cbp
 Makefile
 lib/
