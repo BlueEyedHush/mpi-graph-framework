@@ -20,10 +20,10 @@ namespace details {
 	/**
 	 * Assumes that MPI has already been initialized (and shutdown is handled by caller)
 	 */
-	template <typename TGraphPartition>
+	template <typename TGraphPartition, typename TGlobalId>
 	class Comms {
 	public:
-		Comms(TGraphPartition *_g, std::pair<GlobalVertexId**, int*> partialSolution) : g(_g) {
+		Comms(TGraphPartition *_g, std::pair<TGlobalId*, int*> partialSolution) : g(_g) {
 			MPI_Win_create(partialSolution.second, g->masterVerticesMaxCount()*sizeof(int), sizeof(int),
 			               MPI_INFO_NULL, MPI_COMM_WORLD, &solutionWin);
 			MPI_Win_lock_all(0, solutionWin);
@@ -34,7 +34,7 @@ namespace details {
 		 * @param id
 		 * @return when no longer needed use delete (no delete[] !!!) on both buffer and MPI_Request
 		 */
-		std::pair<int*, MPI_Request*> getDistance(const GlobalVertexId& id) const {
+		std::pair<int*, MPI_Request*> getDistance(const TGlobalId id) const {
 			int* buffer = new int(0);
 			MPI_Request *rq = new MPI_Request;
 			MPI_Rget(buffer, 1, MPI_INT, g->toMasterNodeId(id), g->toLocalId(id), 1, MPI_INT, solutionWin, rq);
@@ -61,7 +61,7 @@ namespace details {
 		MPI_Win solutionWin;
 	};
 
-	template <typename TGraphPartition>
+	template <typename TGraphPartition, typename TGlobalId>
 	class DistanceChecker {
 		typedef unsigned long long ull;
 
@@ -69,7 +69,7 @@ namespace details {
 		DistanceChecker(GrouppingMpiAsync& _asyncExecutor, Comms& _comms, TGraphPartition& g) :
 				mpiAsync(_asyncExecutor), comms(_comms), g(g) {}
 
-		void scheduleGetDistance(const GlobalVertexId& id, std::function<void(int)> cb) {
+		void scheduleGetDistance(const TGlobalId id, std::function<void(int)> cb) {
 			ull numId = g->toNumerical(id);
 			auto it = distanceMap.find(numId);
 			if (it != distanceMap.end()) {
@@ -108,29 +108,29 @@ namespace details {
 		std::unordered_map<ull, int> distanceMap;
 		std::unordered_map<ull, UniqueIdGenerator::Id> pending;
 		GrouppingMpiAsync& mpiAsync;
-		Comms<TGraphPartition> &comms;
+		Comms<TGraphPartition, TGlobalId> &comms;
 		TGraphPartition& g;
 	};
 }
 
 template <class TGraphPartition>
-class BfsValidator : public Validator<TGraphPartition, std::pair<GlobalVertexId**, int*>*> {
+class BfsValidator : public Validator<TGraphPartition, std::pair<TGraphPartition::GidType*, int*>*> {
 public:
 	GP_TYPEDEFS
 
-	BfsValidator(const GlobalVertexId& _root) : root(_root) {};
+	BfsValidator(const GlobalId _root) : root(_root) {};
 
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
-	virtual bool validate(TGraphPartition *g, std::pair<GlobalVertexId**, int*> *partialSolution) override {
+	virtual bool validate(TGraphPartition *g, std::pair<GlobalId*, int*> *partialSolution) override {
 		GrouppingMpiAsync executor;
-		details::Comms<TGraphPartition> comms(g, *partialSolution);
-		details::DistanceChecker<TGraphPartition> dc(executor, comms, g);
+		details::Comms<TGraphPartition, GlobalId> comms(g, *partialSolution);
+		details::DistanceChecker<TGraphPartition, GlobalId> dc(executor, comms, g);
 
 		int checkedCount = 0;
 		bool valid = true;
 		g->foreachMasterVertex([&dc, &valid, &checkedCount, partialSolution, g, this](const LocalId id) {
-			const GlobalVertexId& currGID = g->toGlobalId(id);
-			const GlobalVertexId& predecessor = *(partialSolution->first[id]);
+			const GlobalId currGID = g->toGlobalId(id);
+			const GlobalId predecessor = *(partialSolution->first[id]);
 			int actualDistance = partialSolution->second[id];
 
 			/* check if distance positive */
@@ -186,7 +186,7 @@ public:
 	}
 
 private:
-	const GlobalVertexId& root;
+	const GlobalId root;
 };
 
 

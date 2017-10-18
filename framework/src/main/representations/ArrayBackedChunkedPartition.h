@@ -16,7 +16,7 @@
 #include <utils/MpiTypemap.h>
 
 template <typename T>
-struct ABCPGlobalVertexId : public GlobalVertexId {
+struct ABCPGlobalVertexId {
 	ABCPGlobalVertexId() {}
 	ABCPGlobalVertexId(NodeId nodeId, T localId) : nodeId(nodeId), localId(localId) {}
 
@@ -39,19 +39,22 @@ struct ABCPGlobalVertexId : public GlobalVertexId {
 template <typename TLocalId, typename TNumId>
 class ArrayBackedChunkedPartition;
 
-template <typename TLocalId, typename TNumId, bool polymorphic>
-class ABCPGraphBuilder : public GraphBuilder<ArrayBackedChunkedPartition<TLocalId, TNumId>, polymorphic> {
+template <typename TLocalId, typename TNumId>
+class ABCPGraphBuilder : public GraphBuilder<ArrayBackedChunkedPartition<TLocalId, TNumId>> {
+private:
+	typedef ArrayBackedChunkedPartition<TLocalId, TNumId> G;
+
 public:
 	ABCPGraphBuilder(size_t partitionCount, size_t partitionId) : P(partitionCount), partitionId(partitionId) {};
 
-	virtual G* buildGraph(std::string path,
-	                      std::vector<OriginalVertexId> verticesToConvert) override {
+	G* buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
 		/* read headers to learn how much vertices present */
 		AdjacencyListReader<OriginalVertexId> reader(path);
 		auto vCount = reader.getVertexCount();
 
 		/* get our range */
 		auto range = IndexPartitioner::get_range_for_partition(vCount, P, partitionId);
+		auto partitionStart = range.first;
 		size_t vertexCount = range.second - range.first;
 
 		// skip vertices that are not our responsibility
@@ -59,52 +62,41 @@ public:
 			reader.getVertexCount();
 		}
 
-		auto* allLocalVertices = new std::vector<OriginalVertexId>[vertexCount];
+		auto* allLocalVertices = new std::vector<ABCPGlobalVertexId>[vertexCount];
 		for(size_t i = 0; i < vertexCount; i++) {
-			VertexSpec vs = *reader.getNextVertex();
-			allLocalVertices[vs.vertexId] = std::vector<OriginalVertexId>(vs.neighbours.begin(), vs.neighbours.end());
+			VertexSpec<OriginalVertexId> vs = *reader.getNextVertex();
+			std::transform(vs.neighbours.begin(), vs.neighbours.end(), std::back_inserter(allLocalVertices[vs.vertexId]),
+			               [=](OriginalVertexId nid) {
+				               return ABCPGlobalVertexId(partitionId, static_cast<TLocalId>(nid) - partitionStart);
+			               });
 		}
 
 		/* convert vertices */
-		destroyConvertedVertices();
+		convertedVertices.clear();
 		for(auto oId: verticesToConvert) {
 			int partitionId = IndexPartitioner::get_partition_from_index(reader.getVertexCount(), P, oId);
 			int rangeStart = IndexPartitioner::get_range_for_partition(reader.getVertexCount(), P, partitionId).first;
-			convertedVertices.push_back(new ABCPGlobalVertexId(partitionId, oId - rangeStart));
+			convertedVertices.push_back(ABCPGlobalVertexId(partitionId, oId - rangeStart));
 		}
 
 		/* if anybody gets more than others, it'll be first partition */
 		auto longestRange = IndexPartitioner::get_range_for_partition(vCount, P, 0);
 		return new ArrayBackedChunkedPartition(allLocalVertices, vertexCount, longestRange.second - longestRange.first,
-		                                       partitionId, range.first);
+		                                       partitionId, partitionStart, vCount, P);
 	};
 
-	virtual std::vector<GlobalVertexId*> getConvertedVertices() override {
+	std::vector<ABCPGlobalVertexId> getConvertedVertices() {
 		return convertedVertices;
 	}
 
-	virtual void destroyConvertedVertices() override {
-		if(convertedVertices.size() > 0) {
-			for(auto vp: convertedVertices) {
-				ABCPGlobalVertexId* vpp = dynamic_cast<ABCPGlobalVertexId*>(vp);
-				delete vpp;
-			}
-			convertedVertices.clear();
-		}
-	}
-
-	virtual void destroyGraph(const G* g) override {
+	void destroyGraph(const G* g) {
 		delete g;
-	}
-
-	virtual ~ABCPGraphBuilder() override {
-		destroyConvertedVertices();
 	}
 
 private:
 	size_t P;
 	size_t partitionId;
-	std::vector<GlobalVertexId*> convertedVertices;
+	std::vector<ABCPGlobalVertexId> convertedVertices;
 };
 
 /*
@@ -115,21 +107,23 @@ private:
  *
  * For this representation, toNumeric always returns original ID (as loaded from file).
  */
-template <typename TBase, typename TLocalId, typename TNumId>
-class ArrayBackedChunkedPartition : public TBase {
+template <typename TLocalId, typename TNumId>
+class ArrayBackedChunkedPartition : public GraphPartition<ABCPGlobalVertexId, TLocalId, TNumId> {
 public:
 	ArrayBackedChunkedPartition(std::vector<ABCPGlobalVertexId> *adjList,
 	                            size_t vertexCount,
 	                            size_t vertexMaxCount,
 	                            NodeId nodeId,
-	                            size_t partitionOffset)
-			: adjacencyList(adjList), vertexCount(vertexCount), nodeId(nodeId), partitionOffset(partitionOffset),
-			  vertexMaxCount(vertexMaxCount)
+	                            size_t partitionOffset,
+	                            size_t allVerticesCount,
+	                            size_t partitionCount)
+			: adjacencyList(adjList), localVertexCount(vertexCount), nodeId(nodeId), partitionOffset(partitionOffset),
+			  localVertexMaxCount(vertexMaxCount)
 	{
 		gIdDatatype = MPI_DATATYPE_NULL;
 	};
 
-	virtual MPI_Datatype geGlobalVertexIdDatatype() {
+	MPI_Datatype geGlobalVertexIdDatatype() {
 		/* type is registered lazily so that this implementation of GraphPartition can be used without
 		 * MPI runtime being initialized (i.e. in tests)
 		 */
@@ -141,50 +135,46 @@ public:
 		return gIdDatatype;
 	};
 
-	virtual TLocalId toLocalId(const GlobalVertexId& gid, VERTEX_TYPE* isLocal = nullptr) {
-		auto g = c(gid);
-		if(isLocal != nullptr) *isLocal = (g.nodeId == nodeId) ? L_MASTER : NON_LOCAL;
-		return g.localId;
+	TLocalId toLocalId(const GidType gid, VERTEX_TYPE* isLocal = nullptr) {
+		if(isLocal != nullptr) *isLocal = (gid.nodeId == nodeId) ? L_MASTER : NON_LOCAL;
+		return gid.localId;
 	};
-	virtual NodeId toMasterNodeId(const GlobalVertexId& gid) { return c(gid).nodeId; };
-	virtual GlobalVertexId& toGlobalId(TLocalId lid) {
-		auto gid = gidPool.malloc();
-		gid->nodeId = lid;
-		gid->nodeId = nodeId;
-		return *gid;
+	NodeId toMasterNodeId(const GidType gid) { return gid.nodeId; };
+	GidType toGlobalId(TLocalId lid) {
+		return GidType(nodeId, lid);
 	};
-	virtual void freeGlobalId(const GlobalVertexId& gid) {
-		/* all ABCPGlobalVertexId's are issued by us, they are not const so stripping it should not invoke
-		 * undefined behaviour */
-		const ABCPGlobalVertexId& ourRef = c(gid);
-		auto ourNonConst = const_cast<ABCPGlobalVertexId&>(ourRef);
-		gidPool.free(&ourNonConst);
+	NumType toNumeric(const GidType gid) {
+		auto ownersPartitionOffset =
+				IndexPartitioner::get_range_for_partition(allVerticesCount, partitionCount, nodeId).first;
+		return ownersPartitionOffset + gid.localId;
 	};
-	virtual TNumericId toNumeric(const GlobalVertexId& gid) { return partitionOffset + c(gid).localId; };
-	virtual std::string idToString(const GlobalVertexId& gid) {
+	NumType toNumeric(const TLocalId lid) { return partitionOffset + lid; };
+	std::string idToString(const GidType gid) {
 		std::ostringstream os;
-		auto g = c(gid);
-		os << "(" << g.nodeId << "," << g.localId << ")";
+		os << "(" << gid.nodeId << "," << gid.localId << ")";
 		return os.str();
 	};
-	virtual bool isSame(const GlobalVertexId& id0, const GlobalVertexId& id1) {
-		auto a = c(id0);
-		auto b = c(id1);
+	std::string idToString(const TLocalId lid) {
+		std::ostringstream os;
+		os << "(" << nodeId << "," << lid << ")";
+		return os.str();
+	};
+	bool isSame(const GidType a, const GidType b) {
 		return a.nodeId == b.nodeId && a.localId == b.localId;
 	};
 
-	virtual void foreachMasterVertex(std::function<bool(const TLocalId)> f) {
+	void foreachMasterVertex(std::function<bool(const TLocalId)> f) {
 		bool shouldStop = false;
-		for(TLocalId vid = 0; vid < vertexCount && !shouldStop; vid++) {
+		for(TLocalId vid = 0; vid < localVertexCount && !shouldStop; vid++) {
 			shouldStop = f(vid);
 		}
 	};
-	virtual size_t masterVerticesCount() { return vertexCount; };
-	virtual size_t masterVerticesMaxCount() { return vertexMaxCount; };
+	size_t masterVerticesCount() { return localVertexCount; };
+	size_t masterVerticesMaxCount() { return localVertexMaxCount; };
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	virtual void foreachCoOwner(TLocalId id, bool returnSelf, std::function<bool(const NodeId)> f) {
+	void foreachCoOwner(TLocalId id, bool returnSelf, std::function<bool(const NodeId)> f) {
 		if(returnSelf) {
 			f(nodeId);
 		}
@@ -192,8 +182,8 @@ public:
 	/**
 	 * Works with both masters and shadows
 	 */
-	virtual void foreachNeighbouringVertex(TLocalId id, std::function<bool(const GlobalVertexId&)> f) {
-		assert(id < vertexCount);
+	void foreachNeighbouringVertex(TLocalId id, std::function<bool(const typename GidType)> f) {
+		assert(id < localVertexCount);
 		auto neighbourList = adjacencyList[id];
 
 		bool shouldStop = false;
@@ -202,27 +192,24 @@ public:
 		}
 	};
 
-	virtual ~GraphPartition() {
+	~GraphPartition() {
 		if(gIdDatatype != MPI_DATATYPE_NULL) {
 			MPI_Type_free(&gIdDatatype);
 		}
 	};
 
 private:
-	size_t vertexCount;
-	size_t vertexMaxCount;
+	size_t allVerticesCount;
+	size_t partitionCount;
+
+	size_t localVertexCount;
+	size_t localVertexMaxCount;
 	std::vector<ABCPGlobalVertexId> *adjacencyList;
 
 	NodeId nodeId;
 	size_t partitionOffset;
 
 	MPI_Datatype gIdDatatype;
-	boost::object_pool<ABCPGlobalVertexId> gidPool;
-
-private:
-	const ABCPGlobalVertexId& c(const GlobalVertexId& v) {
-		return dynamic_cast<const ABCPGlobalVertexId<TLocalId>&>(v);
-	}
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

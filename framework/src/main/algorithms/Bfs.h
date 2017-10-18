@@ -22,14 +22,14 @@
  */
 
 template <class TGraphPartition>
-class Bfs : public Algorithm<std::pair<GlobalVertexId**, GraphDist*>*, TGraphPartition> {
+class Bfs : public Algorithm<std::pair<TGraphPartition::GidType*, GraphDist*>*, TGraphPartition> {
 protected:
 	GP_TYPEDEFS
 
 public:
-	Bfs(const GlobalVertexId& _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
+	Bfs(const GlobalId _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
 
-	virtual std::pair<GlobalVertexId**, GraphDist*> *getResult() override {
+	virtual std::pair<GlobalId*, GraphDist*> *getResult() override {
 		return &result;
 	};
 
@@ -39,15 +39,15 @@ public:
 	};
 
 protected:
-	std::pair<GlobalVertexId**, GraphDist*> result;
-	GlobalVertexId* getPredecessor(LocalId vid) {
+	std::pair<GlobalId*, GraphDist*> result;
+	GlobalId& getPredecessor(LocalId vid) {
 		return result.first[vid];
 	}
 	GraphDist& getDistance(LocalId vid) {
 		return result.second[vid];
 	}
 
-	const GlobalVertexId& bfsRoot;
+	const GlobalId bfsRoot;
 };
 
 template <class TGraphPartition>
@@ -56,20 +56,18 @@ public:
 	const static int MAX_VERTICES_IN_MESSAGE = 100;
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs(_bfsRoot) {};
 
-	virtual ~Bfs_Mp_FixedMsgLen_1D_2CommRounds() {};
-
-	virtual bool run(GraphPartition *g) override {
+	bool run(TGraphPartition *g) { //@todo signature!
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
 		MPI_Datatype vertexMessage;
-		createVertexMessageDatatype(&vertexMessage);
+		createVertexMessageDatatype(&vertexMessage, g->geGlobalVertexIdDatatype());
 
-		result.first = new GlobalVertexId*[g->masterVerticesMaxCount()];
+		result.first = new GlobalId[g->masterVerticesMaxCount()];
 		result.second = new GraphDist[g->masterVerticesMaxCount()];
 
 		bool shouldContinue = true;
@@ -105,7 +103,7 @@ public:
 				if(getPredecessor(vid) == nullptr) {
 					/* node has not yet been visited */
 
-					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalVertexId& nid) {
+					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalId nid) {
 						auto targetNode = g->toMasterNodeId(nid);
 						VertexMessage *currBuffer = sendBuffers + targetNode;
 						int currentId = currBuffer->vidCount;
@@ -118,7 +116,7 @@ public:
 						} else {
 							/* fill the data */
 							currBuffer->vertexIds[currentId] = g->toLocalId(nid);
-							currBuffer->predecessors[currentId] = vid;
+							currBuffer->predecessors[currentId] = g->toGlobalId(vid);
 							currBuffer->distances[currentId] = this->getDistance(vid) + 1;
 							currBuffer->vidCount += 1;
 						}
@@ -163,8 +161,7 @@ public:
 					for(int j = 0; j < currentBuffer.vidCount; j++) {
 						/* save predecessor and distance for received node */
 						getDistance(currentBuffer.vertexIds[j]) = currentBuffer.distances[j];
-						getPredecessor(currentBuffer.vertexIds[j]).nodeId = senderNodeId;
-						getPredecessor(currentBuffer.vertexIds[j]).localId = currentBuffer.predecessors[j];
+						getPredecessor(currentBuffer.vertexIds[j]) = currentBuffer.predecessors[j];
 
 						/* add it to new frontier, which'll be processed during the next iteration */
 						frontier.push_back(currentBuffer.vertexIds[j]);
@@ -199,6 +196,7 @@ public:
 		delete[] outstandingSendRequests;
 		delete[] completedIndices;
 		delete[] othersReceivedAnything;
+		cleanupMpiDatatype(&vertexMessage);
 
 		return true;
 	};
@@ -207,11 +205,11 @@ private:
 	struct VertexMessage {
 		int vidCount = 0;
 		LocalId vertexIds[MAX_VERTICES_IN_MESSAGE];
-		LocalId predecessors[MAX_VERTICES_IN_MESSAGE];
+		GlobalId predecessors[MAX_VERTICES_IN_MESSAGE];
 		GraphDist distances[MAX_VERTICES_IN_MESSAGE];
 	};
 
-	void createVertexMessageDatatype(MPI_Datatype *memory) {
+	void createVertexMessageDatatype(MPI_Datatype *memory, MPI_Datatype gidDatatype) {
 		const int blocklens[] = {0, 1, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, MAX_VERTICES_IN_MESSAGE, 0};
 		const MPI_Aint disparray[] = {
 				0,
@@ -221,22 +219,30 @@ private:
 				offsetof(VertexMessage, distances),
 				sizeof(VertexMessage),
 		};
-		// LocalId is allias for typename TGraphPartition::LidType, but for some reason cannot use it with typeid
-		auto localIdMpiType = datatypeMap.at(typeid(LocalId));
-		const MPI_Datatype types[] = {MPI_LB, MPI_INT, localIdMpiType, localIdMpiType, GRAPH_DIST_MPI_TYPE, MPI_UB};
+		auto localIdMpiType = datatypeMap.at(typeid(typename LocalId));
+		const MPI_Datatype types[] = {MPI_LB, MPI_INT, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 		MPI_Type_create_struct(6, blocklens, disparray, types, memory);
 		MPI_Type_commit(memory);
 	};
+
+	void cleanupMpiDatatype(MPI_Datatype* dt) {
+		MPI_Type_free(dt);
+	}
 };
 
 namespace details {
+	/* @todo: move here fixed-size vertex format, stop passing memory to datatype creators
+	 * maybe extract some code
+	 * */
+
+	template<typename TLocalId, typename TGlobalId>
 	struct NewFrontierVertexInfo {
-		LocalVertexId vertexId;
-		LocalVertexId predecessor;
+		TLocalId vertexId;
+		TGlobalId predecessor;
 		GraphDist distance;
 
-		static void createMpiDatatype(MPI_Datatype *memory) {
+		static void createMpiDatatype(MPI_Datatype *memory, MPI_Datatype gidDatatype) {
 			const int blocklens[] = {0, 1, 1, 1, 0};
 			const MPI_Aint disparray[] = {
 					0,
@@ -245,8 +251,8 @@ namespace details {
 					offsetof(NewFrontierVertexInfo, distance),
 					sizeof(NewFrontierVertexInfo),
 			};
-			const MPI_Datatype types[] = {MPI_LB, LOCAL_VERTEX_ID_MPI_TYPE,
-			LOCAL_VERTEX_ID_MPI_TYPE, GRAPH_DIST_MPI_TYPE, MPI_UB};
+			auto localIdMpiType = datatypeMap.at(typeid(TLocalId));
+			const MPI_Datatype types[] = {MPI_LB, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 			MPI_Type_create_struct(5, blocklens, disparray, types, memory);
 			/* @todo: remove! */
@@ -259,7 +265,7 @@ class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs {
 public:
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_VarMsgLen_1D_2CommRounds(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_VarMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs(_bfsRoot) {};
 
 	virtual ~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
 

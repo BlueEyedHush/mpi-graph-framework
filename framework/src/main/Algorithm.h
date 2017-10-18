@@ -25,6 +25,4 @@ public:
 	virtual ~Algorithm() {};
 };
 
-template <class TResult> using DAlgorithm = Algorithm<TResult, DGraphPartition>;
-
 #endif //FRAMEWORK_ALGORITHM_H

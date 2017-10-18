@@ -15,6 +15,7 @@
 #include <GraphPartition.h>
 #include <utils/CsvReader.h>
 #include <utils/IndexPartitioner.h>
+#include <representations/ArrayBackedChunkedPartition.h>
 
 namespace details {
 	using namespace IndexPartitioner;
@@ -74,9 +75,9 @@ TSolutionType* loadPartialIntSolution(std::string solutionFilePath, int partitio
 }
 
 template <typename TLocalId>
-std::tuple<NodeId*, TLocalId*, GraphDist*> loadBfsSolutionFromFile(std::string path,
-                                                                   int partitionCount,
-                                                                   int partitionId)
+std::tuple<NodeId*, TLocalId*, GraphDist*, size_t> loadBfsSolutionFromFile(std::string path,
+                                                                           int partitionCount,
+                                                                           int partitionId)
 {
 	std::vector<NodeId> fullN;
 	std::vector<TLocalId> fullL;
@@ -87,6 +88,26 @@ std::tuple<NodeId*, TLocalId*, GraphDist*> loadBfsSolutionFromFile(std::string p
 	auto L = details::vecSubset(fullL, range);
 	auto D = details::vecSubset(fullD, range);
 	return std::make_tuple(N, L, D);
+}
+
+template <typename TLocalId, typename TGlobalId>
+std::pair<TGlobalId*, int*> bfsSolutionAsGids(std::string path, int partitionCount, int partitionId) {
+	NodeId* nIds;
+	TLocalId* lIds;
+	GraphDist* dists;
+	size_t size;
+
+	std::tie(nIds, lIds, dists, size) = loadBfsSolutionFromFile(path, partitionCount, partitionId);
+
+	TGlobalId *arr = new TGlobalId[size];
+	for(size_t i = 0; i < size; i++) {
+		arr[i] = TGlobalId(nIds[i], lIds[i]);
+	}
+
+	delete[] nIds;
+	delete[] lIds;
+
+	return std::make_pair(arr, dists);
 }
 
 #endif //FRAMEWORK_TESTUTILS_H

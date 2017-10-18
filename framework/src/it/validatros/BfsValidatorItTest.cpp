@@ -11,6 +11,7 @@
 
 typedef int TestLocalId;
 typedef int TestNumId;
+typedef ArrayBackedChunkedPartition::GidType ABCPGid;
 
 TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	int rank = -1;
@@ -19,17 +20,19 @@ TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	ABCPGraphBuilder<TestLocalId, TestNumId, true>  builder(size, rank);
+	ABCPGraphBuilder<TestLocalId, TestNumId>  builder(size, rank);
 	auto* gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
-	const GlobalVertexId& bfsRoot = *builder.getConvertedVertices()[0];
+	auto bfsRoot = builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<GlobalVertexId**, int*> ps = loadBfsSolutionFromFile("resources/test/STG.bfssol", size, rank);
+	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids("resources/test/STG.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BfsValidator<DGraphPartition> v(bfsRoot);
+	BfsValidator<ArrayBackedChunkedPartition<TestLocalId,TestNumId>> v(bfsRoot);
 	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
 	builder.destroyGraph(gp);
+	delete[] ps.first;
+	delete[] ps.second;
 
 	ASSERT_TRUE(validationResult);
 }
@@ -41,17 +44,19 @@ TEST(BfsValidator, RejectsIncorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	ABCPGraphBuilder<TestLocalId, TestNumId, true> builder(size, rank);
+	ABCPGraphBuilder<TestLocalId, TestNumId> builder(size, rank);
 	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
-	const GlobalVertexId& bfsRoot = *builder.getConvertedVertices()[0];
+	auto bfsRoot = *builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<GlobalVertexId**, int*> ps = loadBfsSolutionFromFile("resources/test/STG_incorrect.bfssol", size, rank);
+	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids("resources/test/STG_incorrect.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BfsValidator<DGraphPartition> v(bfsRoot);
+	BfsValidator<ArrayBackedChunkedPartition<TestLocalId,TestNumId>> v(bfsRoot);
 	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
 	builder.destroyGraph(gp);
+	delete[] ps.first;
+	delete[] ps.second;
 
 	ASSERT_FALSE(validationResult);
 }

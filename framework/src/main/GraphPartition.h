@@ -14,17 +14,6 @@
  * Representation
  */
 
-/*
- * This struct is meant to be used with polymorphism (parent for all custom implementations
- * of GlobalVertexId), but it should also be standard-layout (to enable direct serialization
- * for MPI). Therefore, it does not declare virtual destructor. This means that it should
- * NEVER BE DELETED THROUGH PARENT'S POINTER/REFERENCE, SHOULD BE CASTED TO DERIVED!
- */
-struct GlobalVertexId {
-protected:
-	~GlobalVertexId() {};
-};
-
 enum VERTEX_TYPE {
 	L_MASTER,
 	L_SHADOW,
@@ -41,12 +30,15 @@ enum VERTEX_TYPE {
  * all shadows should have ids larger than any master (first masters, then shadows).
  *
  * Neither localId/nodeId pair nor numeric representation are required to be identical during different executions.
+ * 
+ * TGlobalId type parameter is set by subclass (to force presence of proper typedef), rest is set by end-user
  */
-template <typename TLocalId, typename TNumericId>
+template <typename TGlobalId, typename TLocalId, typename TNumericId>
 class GraphPartition {
 public:
 	typedef TLocalId LidType;
 	typedef TNumericId NumType;
+	typedef TGlobalId GidType;
 
 public:
 
@@ -54,7 +46,7 @@ public:
 	 * Datatypes should be registers with MPI upon construction and deregistered during destruction
 	 * In particular, this helper shouldn't register the datatype -> it can be called more than once
 	 */
-	virtual MPI_Datatype geGlobalVertexIdDatatype() = 0;
+	MPI_Datatype geGlobalVertexIdDatatype();
 
 	/**
 	 * Works only for locally stored vertices: masters and shadows (slaves)
@@ -62,70 +54,39 @@ public:
 	 * will be set to true (if caller is not interested in isLocal value, he/she can simply pass nullptr)
 	 *
 	 */
-	virtual TLocalId toLocalId(const GlobalVertexId&, VERTEX_TYPE* vtype = nullptr) = 0;
-	virtual NodeId toMasterNodeId(const GlobalVertexId&) = 0;
-	virtual GlobalVertexId& toGlobalId(TLocalId) = 0;
-	virtual void freeGlobalId(const GlobalVertexId&) = 0;
-	virtual TNumericId toNumeric(const GlobalVertexId&) = 0;
-	virtual std::string idToString(const GlobalVertexId&) = 0;
-	virtual bool isSame(const GlobalVertexId&, const GlobalVertexId&) = 0;
+	TLocalId toLocalId(const TGlobalId, VERTEX_TYPE* vtype = nullptr);
+	NodeId toMasterNodeId(const TGlobalId);
+	TGlobalId toGlobalId(const TLocalId);
+	TNumericId toNumeric(const TGlobalId);
+	TNumericId toNumeric(const TLocalId);
+	std::string idToString(const TGlobalId);
+	std::string idToString(const TLocalId lId);
+	bool isSame(const TGlobalId, const TGlobalId);
 
-	virtual std::string idToString(const TLocalId lId) {
-		auto gid = toGlobalId(lId);
-		auto str = idToString(gid);
-		freeGlobalId(gid);
-		return str;
-	}
 
-	/* aliased by default, but can be overridden */
-	virtual TNumericId toNumeric(TLocalId lvid) {
-		auto gvid = toGlobalId(lvid);
-		auto numeric = toNumeric(gvid);
-		freeGlobalId(gvid);
-		return numeric;
-	}
 
-	virtual void foreachMasterVertex(std::function<bool(const TLocalId)>) = 0;
-	virtual size_t masterVerticesCount() = 0;
-	virtual size_t masterVerticesMaxCount() = 0;
+	void foreachMasterVertex(std::function<bool(const TLocalId)>);
+	size_t masterVerticesCount();
+	size_t masterVerticesMaxCount();
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	virtual void foreachCoOwner(TLocalId, bool returnSelf, std::function<bool(const NodeId)>) = 0;
+	void foreachCoOwner(TLocalId, bool returnSelf, std::function<bool(const NodeId)>);
 	/**
 	 * Works with both masters and shadows
 	 */
-	virtual void foreachNeighbouringVertex(TLocalId, std::function<bool(const GlobalVertexId&)>) = 0;
+	void foreachNeighbouringVertex(TLocalId, std::function<bool(const TGlobalId)>);
 
-	virtual ~GraphPartition() {};
+protected:
+	/* to prevent anybody from using this class as more than reference */
+	GraphPartition() {}
+	~GraphPartition() {};
 };
 
 /* macros that can be used in classes parametrized by GraphPartition */
 #define GP_TYPEDEFS \
 	typedef typename TGraphPartition::LidType LocalId; \
-	typedef typename TGraphPartition::NumType NumericId;
-
-/*
- * defines and typedefs that are used as template arguments when we intend to leverage polymorphism
- */
-#define LOCAL_VERTEX_ID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
-typedef unsigned long long LocalVertexId;
-#define NUMID_MPI_TYPE MPI_UNSIGNED_LONG_LONG;
-typedef unsigned long long NumericIdRepr;
-
-typedef GraphPartition<LocalVertexId, NumericIdRepr> DGraphPartition;
-
-/*
- * Usually, GraphPartition is the parent of concrete representation. If we want to avoid overhead of
- * virtuals (at the ccost of lack of flexibility), we can use this class as base.
- */
-template <typename TLocalId, typename TNumericId>
-class DummyGraphPartition {
-public:
-	typedef TLocalId LidType;
-	typedef TNumericId NumType;
-};
-
-
+	typedef typename TGraphPartition::NumType NumericId; \
+	typedef typename TGraphPartition::GidType GlobalId;
 
 #endif //FRAMEWORK_GRAPH_H

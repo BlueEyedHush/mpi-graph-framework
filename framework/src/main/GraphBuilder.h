@@ -11,23 +11,20 @@
 #include <Prerequisites.h>
 #include "GraphPartition.h"
 
-template<typename TGraphPartition, bool polymorphic>
+template<typename TGraphPartition>
 class GraphBuilder {
 protected:
-	typedef std::conditional<polymorphic, DGraphPartition, TGraphPartition>::type G;
-
+	GP_TYPEDEFS
+	
 public:
-	virtual G *buildGraph(std::string path,
-	                      std::vector<OriginalVertexId> verticesToConvert) = 0;
-	virtual std::vector<GlobalVertexId *> getConvertedVertices() = 0;
-	/**
-	 * It's better to not invoke this directly - if you ever pass received vertex to the algorithm and then
-	 * call this method, serious issues can occur (e.g. because algorithm has ended, but reference to that vertex
-	 * has been returned as a solution)
-	 */
-	virtual void destroyConvertedVertices() = 0;
-	virtual void destroyGraph(const G *) = 0;
-	virtual ~GraphBuilder() {};
+	TGraphPartition *buildGraph(std::string path,
+	                      std::vector<OriginalVertexId> verticesToConvert);
+	std::vector<GlobalId> getConvertedVertices();
+	void destroyGraph(const TGraphPartition*);
+
+protected:
+	GraphBuilder() {};
+	~GraphBuilder() {};
 };
 
 #endif //FRAMEWORK_GRAPHBUILDER_H
