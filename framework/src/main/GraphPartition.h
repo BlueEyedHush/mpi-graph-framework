@@ -32,6 +32,9 @@ enum VERTEX_TYPE {
  * Neither localId/nodeId pair nor numeric representation are required to be identical during different executions.
  * 
  * TGlobalId type parameter is set by subclass (to force presence of proper typedef), rest is set by end-user
+ *
+ * Default constructor of TGlobalId should create invalid vertex - valid ones can be returned only
+ * from the GraphPartition.
  */
 template <typename TGlobalId, typename TLocalId, typename TNumericId>
 class GraphPartition {
@@ -62,6 +65,7 @@ public:
 	std::string idToString(const TGlobalId);
 	std::string idToString(const TLocalId lId);
 	bool isSame(const TGlobalId, const TGlobalId);
+	bool isValid(const TGlobalId);
 
 
 
@@ -89,4 +93,10 @@ protected:
 	typedef typename TGraphPartition::NumType NumericId; \
 	typedef typename TGraphPartition::GidType GlobalId;
 
+/* specialization that can be used when writing algorithms (doesn't expose anything /e.g. like GlobalVertexId insides
+ * apart from what's present in the interface) */
+struct TGVID {};
+typedef GraphPartition<TGVID, unsigned int, unsigned int> TestGP;
+
 #endif //FRAMEWORK_GRAPH_H
+

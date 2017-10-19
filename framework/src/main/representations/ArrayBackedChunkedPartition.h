@@ -17,7 +17,7 @@
 
 template <typename T>
 struct ABCPGlobalVertexId {
-	ABCPGlobalVertexId() {}
+	ABCPGlobalVertexId() : nodeId(-1) {}
 	ABCPGlobalVertexId(NodeId nodeId, T localId) : nodeId(nodeId), localId(localId) {}
 
 	NodeId nodeId;
@@ -162,6 +162,9 @@ public:
 	bool isSame(const GidType a, const GidType b) {
 		return a.nodeId == b.nodeId && a.localId == b.localId;
 	};
+	bool isValid(const GidType id) {
+		return id.nodeId >= 0;
+	}
 
 	void foreachMasterVertex(std::function<bool(const TLocalId)> f) {
 		bool shouldStop = false;

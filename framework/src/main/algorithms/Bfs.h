@@ -58,7 +58,7 @@ public:
 
 	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs(_bfsRoot) {};
 
-	bool run(TGraphPartition *g) { //@todo signature!
+	bool run(TGraphP *g) { //@todo signature!
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
@@ -71,7 +71,7 @@ public:
 		result.second = new GraphDist[g->masterVerticesMaxCount()];
 
 		bool shouldContinue = true;
-		std::vector<LocalVertexId> frontier;
+		std::vector<LocalId> frontier;
 
 		/* append root to frontier if node matches */
 		VERTEX_TYPE rootVt;
@@ -80,7 +80,7 @@ public:
 			frontier.push_back(rootLocal);
 
 			if(rootVt == L_MASTER) {
-				result.first[rootLocal] = &bfsRoot;
+				result.first[rootLocal] = bfsRoot;
 				result.second[rootLocal] = 0;
 			}
 		}
@@ -100,7 +100,7 @@ public:
 
 		while(shouldContinue) {
 			for(LocalId vid: frontier) {
-				if(getPredecessor(vid) == nullptr) {
+				if(!g->isValid(getPredecessor(vid))) {
 					/* node has not yet been visited */
 
 					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalId nid) {
@@ -261,7 +261,8 @@ namespace details {
 	};
 }
 
-class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs {
+template <typename TGraphPartition>
+class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs<TestGP/*@todo*/> {
 public:
 	const static int SEND_TAG = 1;
 
@@ -269,7 +270,7 @@ public:
 
 	virtual ~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
 
-	virtual bool run(GraphPartition *g) override {
+	virtual bool run(TGraphP *g) override {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
@@ -397,7 +398,7 @@ public:
 
 	Bfs_Mp_VarMsgLen_1D_1CommsTag(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
 	virtual ~Bfs_Mp_VarMsgLen_1D_1CommsTag() {};
-	virtual bool run(GraphPartition *g) override {
+	virtual bool run(TGraphP *g) override {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
