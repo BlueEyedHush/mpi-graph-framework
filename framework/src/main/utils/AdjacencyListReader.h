@@ -36,14 +36,14 @@ public:
 	size_t getVertexCount() {return vertexCount;}
 	size_t getEdgeCount() {return edgeCount;}
 
-	boost::optional<VertexSpec> getNextVertex() {
+	boost::optional<VertexSpec<TVertexId>> getNextVertex() {
 		auto oParsedLine = csvReader.getNextLine();
 		if(oParsedLine != boost::none) {
 			auto parsedLine = *oParsedLine;
 			TVertexId vid = parsedLine[0];
 			auto neighStartIt = ++(parsedLine.begin());
 			auto neighEndIt = parsedLine.end();
-			return VertexSpec(vid, std::set<TVertexId>(neighStartIt, neighEndIt));
+			return VertexSpec<TVertexId>(vid, std::set<TVertexId>(neighStartIt, neighEndIt));
 		} else {
 			return boost::none;
 		}

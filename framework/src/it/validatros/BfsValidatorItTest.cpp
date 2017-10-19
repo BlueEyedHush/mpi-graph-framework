@@ -11,7 +11,8 @@
 
 typedef int TestLocalId;
 typedef int TestNumId;
-typedef ArrayBackedChunkedPartition::GidType ABCPGid;
+using G = ArrayBackedChunkedPartition<TestLocalId, TestNumId>;
+using ABCPGid = typename G::GidType;
 
 TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	int rank = -1;
@@ -24,10 +25,10 @@ TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	auto* gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
 	auto bfsRoot = builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids("resources/test/STG.bfssol", size, rank);
+	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids<TestLocalId, ABCPGid>("resources/test/STG.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BfsValidator<ArrayBackedChunkedPartition<TestLocalId,TestNumId>> v(bfsRoot);
+	BfsValidator<G> v(bfsRoot);
 	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
 	builder.destroyGraph(gp);
@@ -46,12 +47,12 @@ TEST(BfsValidator, RejectsIncorrectSolutionForSTG) {
 
 	ABCPGraphBuilder<TestLocalId, TestNumId> builder(size, rank);
 	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
-	auto bfsRoot = *builder.getConvertedVertices()[0];
+	auto bfsRoot = builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";
-	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids("resources/test/STG_incorrect.bfssol", size, rank);
+	std::pair<ABCPGid*, int*> ps = bfsSolutionAsGids<TestLocalId, ABCPGid>("resources/test/STG_incorrect.bfssol", size, rank);
 	LOG(INFO) << "Loaded solution from file";
 
-	BfsValidator<ArrayBackedChunkedPartition<TestLocalId,TestNumId>> v(bfsRoot);
+	BfsValidator<G> v(bfsRoot);
 	bool validationResult = v.validate(gp, &ps);
 	LOG(INFO) << "Executed validator";
 	builder.destroyGraph(gp);

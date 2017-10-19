@@ -35,7 +35,7 @@ namespace details {
 
 		return result;
 	}
-};
+}
 
 /*
  * All pointers returned from helpers (those inside tuples) has to be deleted using delete[]
@@ -79,15 +79,13 @@ std::tuple<NodeId*, TLocalId*, GraphDist*, size_t> loadBfsSolutionFromFile(std::
                                                                            int partitionCount,
                                                                            int partitionId)
 {
-	std::vector<NodeId> fullN;
-	std::vector<TLocalId> fullL;
-	std::vector<GraphDist> fullD;
-	std::tie(fullN, fullL, fullD) = bfsSolutionFromFile(path);
-	auto range = details::get_range_for_partition(fullN.size(), partitionCount, partitionId);
-	auto N = details::vecSubset(fullN, range);
-	auto L = details::vecSubset(fullL, range);
-	auto D = details::vecSubset(fullD, range);
-	return std::make_tuple(N, L, D);
+	auto t = bfsSolutionFromFile<TLocalId>(path);
+	auto size = std::get<0>(t).size();
+	auto range = details::get_range_for_partition(size, partitionCount, partitionId);
+	auto N = details::vecSubset(std::get<0>(t), range);
+	auto L = details::vecSubset(std::get<1>(t), range);
+	auto D = details::vecSubset(std::get<2>(t), range);
+	return std::make_tuple(N, L, D, size);
 }
 
 template <typename TLocalId, typename TGlobalId>
@@ -97,7 +95,7 @@ std::pair<TGlobalId*, int*> bfsSolutionAsGids(std::string path, int partitionCou
 	GraphDist* dists;
 	size_t size;
 
-	std::tie(nIds, lIds, dists, size) = loadBfsSolutionFromFile(path, partitionCount, partitionId);
+	std::tie(nIds, lIds, dists, size) = loadBfsSolutionFromFile<TLocalId>(path, partitionCount, partitionId);
 
 	TGlobalId *arr = new TGlobalId[size];
 	for(size_t i = 0; i < size; i++) {

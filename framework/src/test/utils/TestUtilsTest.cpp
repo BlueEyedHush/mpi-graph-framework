@@ -5,9 +5,9 @@
 TEST(TestUtils, vecSubsetPreconditions) {
 	std::vector<int> solution = {5,6,7,8};
 
-	EXPECT_DEATH((details::vecSubset(solution, 2, 2)), "Debug Assertion failed");
-	EXPECT_DEATH((details::vecSubset(solution, 6, 7)), "Debug Assertion failed");
-	EXPECT_DEATH((details::vecSubset(solution, -1, 0)), "Debug Assertion failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(2, 2))), "Debug Assertion failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(6, 7))), "Debug Assertion failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(-1, 0))), "Debug Assertion failed");
 }
 
 TEST(TestUtils, vecSubsetResultCorrectness) {
@@ -26,7 +26,7 @@ TEST(TestUtils, vecSubsetResultCorrectness) {
 }
 
 TEST(TestUtils, LoadPartialSolution) {
-	int *ps = loadPartialIntSolution(std::string("resources/test/STG.csol"), 2, 1);
+	int *ps = loadPartialIntSolution<int>(std::string("resources/test/STG.csol"), 2, 1);
 
 	ASSERT_EQ(ps[0], 1);
 	ASSERT_EQ(ps[1], 0);
@@ -78,9 +78,9 @@ TEST(TestUtils, LoadBfsSolutionFromFile) {
 	unsigned int *lid0, *lid1, *lid2;
 	GraphDist *dist0, *dist1, *dist2;
 
-	std::tie(n0, lid0, dist0) = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 0);
-	std::tie(n1, lid1, dist1) = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 1);
-	std::tie(n2, lid2, dist2) = loadBfsSolutionFromFile("resources/test/test.bfssol", 3, 2);
+	std::tie(n0, lid0, dist0, std::ignore) = loadBfsSolutionFromFile<unsigned int>("resources/test/test.bfssol", 3, 0);
+	std::tie(n1, lid1, dist1, std::ignore) = loadBfsSolutionFromFile<unsigned int>("resources/test/test.bfssol", 3, 1);
+	std::tie(n2, lid2, dist2, std::ignore) = loadBfsSolutionFromFile<unsigned int>("resources/test/test.bfssol", 3, 2);
 
 	ASSERT_EQ(n0[0], 0); ASSERT_EQ(lid0[0], 0); ASSERT_EQ(dist0[0], 0);
 	ASSERT_EQ(n0[1], 0); ASSERT_EQ(lid0[1], 1); ASSERT_EQ(dist0[1], 1);

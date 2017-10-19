@@ -14,7 +14,7 @@
 template<typename TGraphPartition>
 class GraphBuilder {
 protected:
-	GP_TYPEDEFS
+	IMPORT_ALIASES(TGraphPartition)
 	
 public:
 	TGraphPartition *buildGraph(std::string path,

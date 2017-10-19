@@ -22,9 +22,9 @@
  */
 
 template <class TGraphPartition>
-class Bfs : public Algorithm<std::pair<TGraphPartition::GidType*, GraphDist*>*, TGraphPartition> {
+class Bfs : public Algorithm<std::pair<typename TGraphPartition::GidType*, GraphDist*>*, TGraphPartition> {
 protected:
-	GP_TYPEDEFS
+	IMPORT_ALIASES(TGraphPartition)
 
 public:
 	Bfs(const GlobalId _bfsRoot) : result(nullptr, nullptr), bfsRoot(_bfsRoot) {};
@@ -75,7 +75,7 @@ namespace details {
 						offsetof(VertexMessage, distances),
 						sizeof(VertexMessage),
 				};
-				auto localIdMpiType = datatypeMap.at(typeid(typename TLocalId));
+				auto localIdMpiType = datatypeMap.at(typeid(TLocalId));
 				const MPI_Datatype types[] = {MPI_LB, MPI_INT, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 				MPI_Type_create_struct(6, blocklens, disparray, types, memory);

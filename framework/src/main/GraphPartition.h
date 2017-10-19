@@ -88,10 +88,10 @@ protected:
 };
 
 /* macros that can be used in classes parametrized by GraphPartition */
-#define GP_TYPEDEFS \
-	typedef typename TGraphPartition::LidType LocalId; \
-	typedef typename TGraphPartition::NumType NumericId; \
-	typedef typename TGraphPartition::GidType GlobalId;
+#define IMPORT_ALIASES(ALIAS_HOLDER) \
+	using LocalId = typename ALIAS_HOLDER::LidType; \
+	using GlobalId = typename ALIAS_HOLDER::GidType; \
+	using NumericId = typename ALIAS_HOLDER::NumType; \
 
 /* specialization that can be used when writing algorithms (doesn't expose anything /e.g. like GlobalVertexId insides
  * apart from what's present in the interface) */

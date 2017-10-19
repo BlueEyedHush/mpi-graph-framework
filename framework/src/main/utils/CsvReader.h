@@ -31,7 +31,7 @@ public:
 		line.clear();
 		std::getline(ifs, line);
 		if (!line.empty()) {
-			return details::parseLine(line);
+			return details::parseLine<T>(line);
 		} else {
 			return boost::none;
 		}

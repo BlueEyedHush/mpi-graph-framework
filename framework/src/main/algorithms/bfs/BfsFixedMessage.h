@@ -9,43 +9,45 @@
 
 template <class TGraphPartition>
 class Bfs_Mp_FixedMsgLen_1D_2CommRounds : public Bfs<TGraphPartition> {
+private:
+	IMPORT_ALIASES(TGraphPartition)
+	using VertexM = details::fixedLen::VertexMessage<LocalId, GlobalId>;
+
 public:
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs<TGraphPartition>(_bfsRoot) {};
 
-	bool run(TGraphP *g) { //@todo signature!
-		using namespace details::fixedLen;
-
+	bool run(TGraphPartition *g) { //@todo signature!
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
-		MPI_Datatype* vertexMessage = VertexMessage::createVertexMessageDatatype(g->geGlobalVertexIdDatatype());
+		MPI_Datatype* vertexMessage = VertexM::createVertexMessageDatatype(g->geGlobalVertexIdDatatype());
 
-		result.first = new GlobalId[g->masterVerticesMaxCount()];
-		result.second = new GraphDist[g->masterVerticesMaxCount()];
+		this->result.first = new GlobalId[g->masterVerticesMaxCount()];
+		this->result.second = new GraphDist[g->masterVerticesMaxCount()];
 
 		bool shouldContinue = true;
 		std::vector<LocalId> frontier;
 
 		/* append root to frontier if node matches */
 		VERTEX_TYPE rootVt;
-		auto rootLocal = g->toLocalId(bfsRoot, &rootVt);
+		auto rootLocal = g->toLocalId(this->bfsRoot, &rootVt);
 		if(rootVt == L_SHADOW && rootVt == L_MASTER) {
 			frontier.push_back(rootLocal);
 
 			if(rootVt == L_MASTER) {
-				result.first[rootLocal] = bfsRoot;
-				result.second[rootLocal] = 0;
+				this->result.first[rootLocal] = this->bfsRoot;
+				this->result.second[rootLocal] = 0;
 			}
 		}
 
-		auto sendBuffers = new VertexMessage[worldSize];
+		auto sendBuffers = new VertexM[worldSize];
 		auto outstandingSendRequests = new MPI_Request[worldSize];
 
-		auto receiveBuffers = new VertexMessage[worldSize];
+		auto receiveBuffers = new VertexM[worldSize];
 		auto outstandingReceiveRequests = new MPI_Request[worldSize];
 		/* 2 below variables used for MPI_Testsome for both sending & receiving */
 		int completed = 0;
@@ -62,14 +64,15 @@ public:
 
 					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalId nid) {
 						auto targetNode = g->toMasterNodeId(nid);
-						VertexMessage *currBuffer = sendBuffers + targetNode;
+						VertexM *currBuffer = sendBuffers + targetNode;
 						int currentId = currBuffer->vidCount;
 
 						/* check if there is space left for yet another vertex */
-						if(currBuffer->vidCount >= MAX_VERTICES_IN_MESSAGE) {
+						auto maxVertCount = details::fixedLen::MAX_VERTICES_IN_MESSAGE;
+						if(currBuffer->vidCount >= maxVertCount) {
 							/* @ToDo: rather ugly, can be fixed when internal iteration is removed */
 							LOG(FATAL) << "Number of vertices in single send buffer (targetId: " << targetNode
-							           << ") larger than allowed (" << MAX_VERTICES_IN_MESSAGE << ")";
+							           << ") larger than allowed (" << maxVertCount << ")";
 						} else {
 							/* fill the data */
 							currBuffer->vertexIds[currentId] = g->toLocalId(nid);
@@ -153,7 +156,7 @@ public:
 		delete[] outstandingSendRequests;
 		delete[] completedIndices;
 		delete[] othersReceivedAnything;
-		VertexMessage::cleanupMpiDatatype(vertexMessage);
+		VertexM::cleanupMpiDatatype(vertexMessage);
 
 		return true;
 	};

@@ -66,11 +66,13 @@ namespace details {
 		typedef unsigned long long ull;
 
 	public:
-		DistanceChecker(GrouppingMpiAsync& _asyncExecutor, Comms& _comms, TGraphPartition& g) :
-				mpiAsync(_asyncExecutor), comms(_comms), g(g) {}
+		DistanceChecker(GrouppingMpiAsync& _asyncExecutor,
+		                Comms<TGraphPartition, TGlobalId>& _comms,
+		                TGraphPartition& g)
+				: mpiAsync(_asyncExecutor), comms(_comms), g(g) {}
 
 		void scheduleGetDistance(const TGlobalId id, std::function<void(int)> cb) {
-			ull numId = g->toNumerical(id);
+			ull numId = g.toNumeric(id);
 			auto it = distanceMap.find(numId);
 			if (it != distanceMap.end()) {
 				cb(it->second);
@@ -114,23 +116,24 @@ namespace details {
 }
 
 template <class TGraphPartition>
-class BfsValidator : public Validator<TGraphPartition, std::pair<TGraphPartition::GidType*, int*>*> {
-public:
-	GP_TYPEDEFS
+class BfsValidator : public Validator<TGraphPartition, std::pair<typename TGraphPartition::GidType*, int*>*> {
+private:
+	IMPORT_ALIASES(TGraphPartition)
 
+public:
 	BfsValidator(const GlobalId _root) : root(_root) {};
 
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
 	virtual bool validate(TGraphPartition *g, std::pair<GlobalId*, int*> *partialSolution) override {
 		GrouppingMpiAsync executor;
 		details::Comms<TGraphPartition, GlobalId> comms(g, *partialSolution);
-		details::DistanceChecker<TGraphPartition, GlobalId> dc(executor, comms, g);
+		details::DistanceChecker<TGraphPartition, GlobalId> dc(executor, comms, *g);
 
 		int checkedCount = 0;
 		bool valid = true;
 		g->foreachMasterVertex([&dc, &valid, &checkedCount, partialSolution, g, this](const LocalId id) {
 			const GlobalId currGID = g->toGlobalId(id);
-			const GlobalId predecessor = *(partialSolution->first[id]);
+			const GlobalId predecessor = partialSolution->first[id];
 			int actualDistance = partialSolution->second[id];
 
 			/* check if distance positive */
@@ -171,8 +174,6 @@ public:
 
 				checkedCount += 1;
 			}
-
-			g->freeGlobalId(currGID);
 
 			return true;
 		});

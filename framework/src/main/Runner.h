@@ -15,20 +15,20 @@ struct AlgorithmExecutionResult {
 	bool validatorStatus = false;
 };
 
-template<typename T>
-AlgorithmExecutionResult runAndCheck(GraphPartition *graph,
-                                     std::function<Algorithm<T> *(void)> algorithmProvider,
-                                     std::function<Validator<T> *(void)> validatorProvider)
+template<class TGraphPartition, typename TResult>
+AlgorithmExecutionResult runAndCheck(TGraphPartition *graph,
+                                     std::function<Algorithm<TResult, TGraphPartition> *(void)> algorithmProvider,
+                                     std::function<Validator<TGraphPartition, TResult> *(void)> validatorProvider)
 {
-	Algorithm<T> *algorithm = algorithmProvider();
-	Validator<T> *validator = validatorProvider();
+	auto *algorithm = algorithmProvider();
+	auto *validator = validatorProvider();
 	AlgorithmExecutionResult r;
 
 	r.algorithmStatus = algorithm->run(graph);
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	T solution = algorithm->getResult();
+	TResult solution = algorithm->getResult();
 	r.validatorStatus = validator->validate(graph, solution);
 
 	return r;

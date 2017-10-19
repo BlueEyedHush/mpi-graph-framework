@@ -9,10 +9,6 @@
 
 template <class TResult, class TGraphPartition>
 class Algorithm {
-protected:
-	typedef TGraphPartition TGraphP;
-	typedef TResult TRes;
-
 public:
 	virtual bool run(TGraphPartition *g) = 0;
 	/**
