@@ -9,7 +9,7 @@
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/GraphColouring.h"
 #include "algorithms/GraphColouringAsync.h"
-#include "algorithms/Bfs.h"
+#include "algorithms/bfs/Bfs1CommsRound.h"
 #include "validators/ColouringValidator.h"
 #include "validators/BfsValidator.h"
 

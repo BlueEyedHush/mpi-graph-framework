@@ -4,7 +4,9 @@
 #include <utils/TestUtils.h>
 #include <Runner.h>
 #include <representations/AdjacencyListHashPartition.h>
-#include <algorithms/Bfs.h>
+#include <algorithms/bfs/Bfs1CommsRound.h>
+#include <algorithms/bfs/BfsFixedMessage.h>
+#include <algorithms/bfs/BfsVarMessage.h>
 #include <validators/BfsValidator.h>
 
 template <typename TGraphPartition>

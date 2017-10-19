@@ -126,9 +126,10 @@ namespace details {
 	}
 }
 
-
+/*
 #include "bfs/BfsFixedMessage.h"
 #include "bfs/BfsVarMessage.h"
 #include "bfs/Bfs1CommsRound.h"
+*/
 
 #endif //FRAMEWORK_BFS_H
