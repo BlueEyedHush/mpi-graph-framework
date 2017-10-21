@@ -58,7 +58,7 @@ namespace details {
 				num_str.push_back(ch);
 			} else {
 				if(charInProgress) {
-					T num = static_cast<T>(std::stoll(num_str));
+					T num = static_cast<T>(std::stoull(num_str));
 					convertedLine.push_back(num);
 					num_str.clear();
 				}
@@ -66,7 +66,7 @@ namespace details {
 		}
 
 		if(charInProgress && num_str.size() > 0) {
-			T num = std::stoi(num_str);
+			T num = static_cast<T>(std::stoull(num_str));
 			convertedLine.push_back(num);
 		}
 

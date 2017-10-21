@@ -26,15 +26,17 @@ struct VertexSpec {
 template <typename TVertexId>
 class AdjacencyListReader {
 public:
-	AdjacencyListReader(std::string path) : csvReader(path) {
-		auto vertexLine = *csvReader.getNextLine();
-		vertexCount = vertexLine[0];
-		auto edgeLine = *csvReader.getNextLine();
-		edgeCount = edgeLine[0];
-	}
+	AdjacencyListReader(std::string path)
+			: csvReader(path), initialized(false), vertexCount(0), edgeCount(0) {}
 	
-	size_t getVertexCount() {return vertexCount;}
-	size_t getEdgeCount() {return edgeCount;}
+	size_t getVertexCount() {
+		if(!initialized) initialize();
+		return vertexCount;
+	}
+	size_t getEdgeCount() {
+		if(!initialized) initialize();
+		return edgeCount;
+	}
 
 	boost::optional<VertexSpec<TVertexId>> getNextVertex() {
 		auto oParsedLine = csvReader.getNextLine();
@@ -53,6 +55,14 @@ private:
 	CsvReader<TVertexId> csvReader;
 	size_t vertexCount;
 	size_t edgeCount;
+	bool initialized;
+
+	void initialize() {
+		auto vertexLine = *csvReader.getNextLine();
+		vertexCount = vertexLine[0];
+		auto edgeLine = *csvReader.getNextLine();
+		edgeCount = edgeLine[0];
+	}
 };
 
 
