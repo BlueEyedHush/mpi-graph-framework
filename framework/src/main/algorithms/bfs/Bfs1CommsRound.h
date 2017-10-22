@@ -7,39 +7,44 @@
 
 #include <algorithms/Bfs.h>
 
-class Bfs_Mp_VarMsgLen_1D_1CommsTag : public Bfs {
+template <class TGraphPartition>
+class Bfs_Mp_VarMsgLen_1D_1CommsTag : public Bfs<TGraphPartition> {
+private:
+	IMPORT_ALIASES(TGraphPartition)
+	using VertexM = details::varLength::VertexMessage<LocalId, GlobalId>;
+
 public:
 	const static int NOTHING_SENT_TAG = 1;
 	const static int SOMETHING_SENT_TAG = 2;
 
-	Bfs_Mp_VarMsgLen_1D_1CommsTag(const GlobalVertexId& _bfsRoot) : Bfs(_bfsRoot) {};
-	virtual ~Bfs_Mp_VarMsgLen_1D_1CommsTag() {};
-	virtual bool run(TGraphP *g) override {
+	Bfs_Mp_VarMsgLen_1D_1CommsTag(const GlobalId _bfsRoot) : Bfs<TGraphPartition>(_bfsRoot) {};
+	~Bfs_Mp_VarMsgLen_1D_1CommsTag() {};
+	bool run(TGraphPartition *g) {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
-		MPI_Datatype vertexMessage;
-		createVertexMessageDatatype(&vertexMessage);
+		MPI_Datatype* vertexMessage = VertexM::createMpiDatatype(g->geGlobalVertexIdDatatype());
 
-		result.first = new GlobalVertexId[g->getMaxLocalVertexCount()];
-		result.second = new int[g->getMaxLocalVertexCount()];
+		this->result.first = new GlobalId[g->masterVerticesMaxCount()]();
+		this->result.second = new int[g->masterVerticesMaxCount()];
 
 		std::vector<LocalVertexId> frontier;
 
 		/* append root to frontier if node matches */
-		if(bfsRoot.nodeId == currentNodeId) {
-			frontier.push_back(bfsRoot.localId);
-			result.second[bfsRoot.localId] = 0;
+		if(g->toMasterNodeId(this->bfsRoot) == currentNodeId) {
+			auto lid = g->toLocalId(this->bfsRoot);
+			frontier.push_back(lid);
+			this->result.second[lid] = 0;
 		}
 
-		auto sendBuffers = new std::vector<NewFrontierVertexInfo>[worldSize];
+		auto sendBuffers = new std::vector<VertexM>[worldSize];
 		auto outstandingSendRequests = new MPI_Request[worldSize];
 		int completed = 0;
 		int* completedIndices = new int[worldSize];
 
-		VariableLengthBufferManager<NewFrontierVertexInfo> receiveBufferManager;
+		VariableLengthBufferManager<VertexM> receiveBufferManager;
 		MPI_Status probeStatus;
 		int elementCountInMessage;
 
@@ -51,16 +56,18 @@ public:
 			anyoneSentAnything = false;
 
 			for(LocalVertexId vid: frontier) {
-				if(!getPredecessor(vid).isValid()) {
+				if(!g->isValid(this->getPredecessor(vid))) {
 					/* node has not yet been visited */
 
-					g->forEachNeighbour(vid, [&sendBuffers, &weSentAnything, vid, this](GlobalVertexId nid) {
-						NewFrontierVertexInfo vInfo;
+					g->foreachNeighbouringVertex(vid, [&sendBuffers, &weSentAnything, vid, this](const GlobalId nid) {
+						VertexM vInfo;
 						vInfo.vertexId = nid.localId;
 						vInfo.predecessor = vid;
 						vInfo.distance = this->getDistance(vid) + 1;
 						sendBuffers[nid.nodeId].push_back(vInfo);
 						weSentAnything = true;
+
+						return true;
 					});
 				}
 			}
@@ -74,7 +81,7 @@ public:
 				auto& vec = sendBuffers[i];
 				MPI_Isend(vec.data(),
 				          static_cast<int>(vec.size()),
-				          vertexMessage,
+				          *vertexMessage,
 				          i,
 				          weSentAnything ? SOMETHING_SENT_TAG : NOTHING_SENT_TAG,
 				          MPI_COMM_WORLD,
@@ -86,19 +93,18 @@ public:
 			/* receive incoming messages and process data */
 			for(completed = 0; completed < worldSize; completed++) {
 				MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &probeStatus);
-				MPI_Get_count(&probeStatus, vertexMessage, &elementCountInMessage);
+				MPI_Get_count(&probeStatus, *vertexMessage, &elementCountInMessage);
 				anyoneSentAnything = anyoneSentAnything || (probeStatus.MPI_TAG == SOMETHING_SENT_TAG);
 				auto senderId = probeStatus.MPI_SOURCE;
-				NewFrontierVertexInfo *b = receiveBufferManager.getBuffer(static_cast<size_t>(elementCountInMessage));
-				MPI_Recv(b, elementCountInMessage, vertexMessage, senderId, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				VertexM *b = receiveBufferManager.getBuffer(static_cast<size_t>(elementCountInMessage));
+				MPI_Recv(b, elementCountInMessage, *vertexMessage, senderId, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 				for(int i = 0; i < elementCountInMessage; i++) {
-					NewFrontierVertexInfo *vInfo = b + i;
+					VertexM *vInfo = b + i;
 
 					/* save predecessor and distance for received node */
 					getDistance(vInfo->vertexId) = vInfo->distance;
-					getPredecessor(vInfo->vertexId).nodeId = senderId;
-					getPredecessor(vInfo->vertexId).localId = vInfo->predecessor;
+					getPredecessor(vInfo->vertexId) = vInfo->predecessor;
 
 					/* add it to new frontier, which'll be processed during the next iteration */
 					frontier.push_back(vInfo->vertexId);
@@ -123,7 +129,7 @@ public:
 		delete[] sendBuffers;
 		delete[] outstandingSendRequests;
 		delete[] completedIndices;
-		/* cleanup type */
+		VertexM::cleanupMpiDatatype(vertexMessage);
 
 		return true;
 	};

@@ -26,7 +26,7 @@ public:
 
 		MPI_Datatype* vertexMessage = VertexM::createVertexMessageDatatype(g->geGlobalVertexIdDatatype());
 
-		this->result.first = new GlobalId[g->masterVerticesMaxCount()];
+		this->result.first = new GlobalId[g->masterVerticesMaxCount()]();
 		this->result.second = new GraphDist[g->masterVerticesMaxCount()];
 
 		bool shouldContinue = true;

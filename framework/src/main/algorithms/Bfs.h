@@ -93,7 +93,7 @@ namespace details {
 
 	namespace varLength {
 		template<typename TLocalId, typename TGlobalId>
-		struct NewFrontierVertexInfo {
+		struct VertexMessage {
 			TLocalId vertexId;
 			TGlobalId predecessor;
 			GraphDist distance;
@@ -104,10 +104,10 @@ namespace details {
 				const int blocklens[] = {0, 1, 1, 1, 0};
 				const MPI_Aint disparray[] = {
 						0,
-						offsetof(NewFrontierVertexInfo, vertexId),
-						offsetof(NewFrontierVertexInfo, predecessor),
-						offsetof(NewFrontierVertexInfo, distance),
-						sizeof(NewFrontierVertexInfo),
+						offsetof(VertexMessage, vertexId),
+						offsetof(VertexMessage, predecessor),
+						offsetof(VertexMessage, distance),
+						sizeof(VertexMessage),
 				};
 				auto localIdMpiType = datatypeMap.at(typeid(TLocalId));
 				const MPI_Datatype types[] = {MPI_LB, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
