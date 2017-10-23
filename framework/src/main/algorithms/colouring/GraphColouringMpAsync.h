@@ -164,11 +164,12 @@ namespace details {
 	};
 }
 
-class GraphColouringMPAsync : public Algorithm<VertexColour*> {
+template <class TGraphPartition>
+class GraphColouringMPAsync : public GraphColouring<TGraphPartition> {
 public:
-	GraphColouringMPAsync() : finalColouring(nullptr) {};
+	bool run(TGraphPartition *g) {
+		using namespace details;
 
-	bool run(GraphPartition *g) {
 		int nodeId = g->getNodeId();
 
 		std::unordered_map<int, VertexTempData*> vertexDataMap;
@@ -259,16 +260,6 @@ public:
 
 		return true;
 	}
-
-	VertexColour *getResult() {return finalColouring;}
-
-	~GraphColouringMPAsync() {
-		if (finalColouring != nullptr) delete[] finalColouring;
-	}
-
-
-private:
-	int *finalColouring;
 };
 
 
