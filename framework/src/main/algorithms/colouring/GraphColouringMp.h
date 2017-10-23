@@ -13,6 +13,7 @@
 #include <list>
 #include <unordered_map>
 #include <mpi.h>
+#include <glog/logging.h>
 #include <algorithms/Colouring.h>
 #include <utils/BufferPool.h>
 
@@ -25,6 +26,9 @@ namespace details {
 
 template <class TGraphPartition>
 class GraphColouringMp : public GraphColouring<TGraphPartition> {
+private:
+	IMPORT_ALIASES(TGraphPartition)
+
 public:
 	bool run(TGraphPartition *g) {
 		using namespace details;
@@ -34,13 +38,13 @@ public:
 		std::unordered_map<int, VertexTempData*> vertexDataMap;
 		finalColouring = new int[g->getMaxLocalVertexCount()];
 
-		MPI_Datatype mpi_message_type;
-		register_mpi_message(&mpi_message_type);
+		MPI_Datatype mpi_message_type = Message::mpiDatatype();
+		MPI_Type_commit(&mpi_message_type);
 
 		BufferPool<BufferAndRequest> sendBuffers;
 		BufferPool<BufferAndRequest> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
-		fprintf(stderr, "[%d] Finished initialization\n", nodeId);
+		LOG(INFO) << "Finished initialization";
 
 		/* start outstanding receive requests */
 		receiveBuffers.foreachFree([&](BufferAndRequest *b) {
@@ -48,7 +52,7 @@ public:
 			return true;
 		});
 
-		fprintf(stderr, "[%d] Posted initial outstanding receive requests\n", nodeId);
+		LOG(INFO) << "Posted initial outstanding receive requests";
 
 		/* gather information about rank of neighbours & initialize temporary structures */
 		g->forEachLocalVertex([&](LocalVertexId v_id) {
@@ -57,22 +61,22 @@ public:
 
 			vertexDataMap[v_id] = new VertexTempData();
 
-			fprintf(stderr, "[%d] Looking @ (%d, %d, %llu) neighbours\n", nodeId, nodeId, v_id, v_id_num);
+			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "[" << v_id_num << "] neighbours";
 			g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
 				unsigned long long neigh_num = g->toNumerical(neigh_id);
-				fprintf(stderr, "[%d] Looking @ (%d,%d,%llu)\n", nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num);
+				LOG(INFO) << "Looking @ " << g->idToString(neigh_id) << "[" << neigh_num << "]";
 				if (neigh_num > v_id_num) {
 					vertexDataMap[v_id]->wait_counter++;
-					fprintf(stderr, "[%d] Qualified!\n", nodeId);
+					LOG(INFO) << "Qualified!";
 				} else {
-					fprintf(stderr, "[%d] Rejected!\n", nodeId);
+					LOG(INFO) << "Rejected!";
 				}
 			});
 
-			fprintf(stderr, "[%d] Waiting for %d nodes to establish colouring\n", nodeId, vertexDataMap[v_id]->wait_counter);
+			LOG(INFO) << "Waiting for %d nodes to establish colouringn", nodeId, vertexDataMap[v_id]->wait_counter);
 		});
 
-		fprintf(stderr, "[%d] Finished gathering information about neighbours\n", nodeId);
+		LOG(INFO) << "Finished gathering information about neighbours";
 
 		int coloured_count = 0;
 		while(coloured_count < g->getLocalVertexCount()) {
@@ -94,8 +98,8 @@ public:
 					int chosen_colour = previous_used_colour + 1;
 					finalColouring[v_id] = chosen_colour;
 
-					fprintf(stderr, "!!! [%d] All neighbours of (%d, %d,%llu) chosen colours, we choose %d\n", nodeId, nodeId,
-					        v_id, v_id_num, chosen_colour);
+					LOG(INFO) << "!!! All neighbours of " << g->idToString(v_id) << "[" << v_id_num
+					          << "] chosen colours, we choose " << chosen_colour;
 
 					/* inform neighbours */
 					g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
@@ -105,7 +109,7 @@ public:
 							if(g->isLocalVertex(neigh_id)) {
 								vertexDataMap[neigh_id.localId]->wait_counter -= 1;
 								vertexDataMap[neigh_id.localId]->used_colours.insert(chosen_colour);
-								fprintf(stderr, "[%d] (%d,%d,%llu) is local, informing about colour %d\n", nodeId,
+								LOG(INFO) << "(%d,%d,%llu) is local, informing about colour %dn", nodeId,
 								        neigh_id.nodeId, neigh_id.localId, neigh_num, chosen_colour);
 							} else {
 								BufferAndRequest *b = sendBuffers.getNew();
@@ -114,18 +118,19 @@ public:
 
 								MPI_Isend(&b->buffer, 1, mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
 
-								fprintf(stderr, "[%d] Isend to (%d,%d,%llu) info that (%d,%d,%llu) has been coloured with %d\n",
-								        nodeId, neigh_id.nodeId, neigh_id.localId, neigh_num, nodeId, v_id, v_id_num, chosen_colour);
+								LOG(INFO) << "Isend to " << g->idToString(neigh_id) << "[" << neigh_num << "] info that "
+								          << g->idToString(v_id) << "[" << v_id_num << "] has been coloured with "
+								          << chosen_colour;
 							}
 						}
 					});
-					fprintf(stderr, "[%d] Informed neighbours about colour being chosen\n", nodeId);
+					LOG(INFO) << "Informed neighbours about colour being chosen";
 
 					vertexDataMap[v_id]->wait_counter = -1;
 					coloured_count += 1;
 				}
 			});
-			fprintf(stderr, "[%d] Finished processing of 0-wait-count vertices\n", nodeId);
+			LOG(INFO) << "Finished processing of 0-wait-count vertices";
 
 			/* check if any outstanding receive request completed */
 			int receive_result;
@@ -139,8 +144,10 @@ public:
 					int t_id = b->buffer.receiving_node_id;
 					vertexDataMap[t_id]->wait_counter -= 1;
 					vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-					fprintf(stderr, "[%d] Received: node = %d, colour = %d\n", nodeId, b->buffer.receiving_node_id,
+					LOG(INFO) << "Received: node = %d, colour = %dn", nodeId, b->buffer.receiving_node_id,
 					        b->buffer.used_colour);
+
+					// @todo finish rewriting logger invocations (also look up); use TestGP (and remove!)
 
 					/* post new request */
 					MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
@@ -149,7 +156,7 @@ public:
 				/* one way or another, buffer doesn't change it's status */
 				return false;
 			});
-			fprintf(stderr, "[%d] Finished (for current iteration) processing of outstanding receive requests\n", nodeId);
+			LOG(INFO) << "Finished (for current iteration) processing of outstanding receive requests";
 
 			/* wait for send requests and clean them up */
 			sendBuffers.foreachUsed([](BufferAndRequest *b) {
@@ -162,7 +169,7 @@ public:
 					return false;
 				}
 			});
-			fprintf(stderr, "[%d] Finished (for current iteration) waiting for send buffers\n", nodeId);
+			LOG(INFO) << "Finished (for current iteration) waiting for send buffers";
 		}
 
 		/* clean up */
@@ -171,10 +178,12 @@ public:
 			return true;
 		});
 
+		MPI_Type_free(&mpi_message_type);
+
 		for(auto kv: vertexDataMap) {
 			delete kv.second;
 		}
-		fprintf(stderr, "[%d] Cleanup finished, terminating\n", nodeId);
+		LOG(INFO) << "Cleanup finished, terminating";
 
 		return true;
 	}
