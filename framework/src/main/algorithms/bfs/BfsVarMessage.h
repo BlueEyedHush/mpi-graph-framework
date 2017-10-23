@@ -8,7 +8,7 @@
 #include <algorithms/Bfs.h>
 
 template <typename TGraphPartition>
-class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs<TestGP/*@todo*/> {
+class Bfs_Mp_VarMsgLen_1D_2CommRounds : public Bfs<TGraphPartition> {
 private:
 	IMPORT_ALIASES(TGraphPartition)
 	using VertexM = details::varLength::VertexMessage<LocalId, GlobalId>;
@@ -16,11 +16,11 @@ private:
 public:
 	const static int SEND_TAG = 1;
 
-	Bfs_Mp_VarMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs(_bfsRoot) {};
+	Bfs_Mp_VarMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs<TGraphPartition>(_bfsRoot) {};
 
-	virtual ~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
+	~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
 
-	virtual bool run(TestGP *g /* @todo */) override {
+	bool run(TGraphPartition *g) {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
@@ -58,10 +58,10 @@ public:
 				if(!g->isValid(this->getPredecessor(vid))) {
 					/* node has not yet been visited */
 
-					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, this](const GlobalId nid) {
+					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, this, g](const GlobalId nid) {
 						VertexM vInfo;
 						vInfo.vertexId = nid.localId;
-						vInfo.predecessor = vid;
+						vInfo.predecessor = g->toGlobalId(vid);
 						vInfo.distance = this->getDistance(vid) + 1;
 						sendBuffers[nid.nodeId].push_back(vInfo);
 
@@ -98,8 +98,8 @@ public:
 					auto *vInfo = b + i;
 
 					/* save predecessor and distance for received node */
-					getDistance(vInfo->vertexId) = vInfo->distance;
-					getPredecessor(vInfo->vertexId) = vInfo->predecessor;
+					this->getDistance(vInfo->vertexId) = vInfo->distance;
+					this->getPredecessor(vInfo->vertexId) = vInfo->predecessor;
 
 					/* add it to new frontier, which'll be processed during the next iteration */
 					frontier.push_back(vInfo->vertexId);

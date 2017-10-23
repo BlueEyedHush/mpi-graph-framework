@@ -10,6 +10,8 @@
 template <class TResult, class TGraphPartition>
 class Algorithm {
 public:
+	using ResultType = TResult;
+
 	virtual bool run(TGraphPartition *g) = 0;
 	/**
 	 *  This method should only return part of the result that is local to the node

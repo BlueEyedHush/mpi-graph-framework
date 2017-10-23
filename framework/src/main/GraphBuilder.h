@@ -17,10 +17,12 @@ protected:
 	IMPORT_ALIASES(TGraphPartition)
 	
 public:
+	using GPType = TGraphPartition;
+
 	TGraphPartition *buildGraph(std::string path,
 	                      std::vector<OriginalVertexId> verticesToConvert);
 	std::vector<GlobalId> getConvertedVertices();
-	void destroyGraph(const TGraphPartition*);
+	void destroyGraph(TGraphPartition*);
 
 protected:
 	GraphBuilder() {};

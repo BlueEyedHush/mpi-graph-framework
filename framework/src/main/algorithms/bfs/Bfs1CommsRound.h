@@ -59,10 +59,10 @@ public:
 				if(!g->isValid(this->getPredecessor(vid))) {
 					/* node has not yet been visited */
 
-					g->foreachNeighbouringVertex(vid, [&sendBuffers, &weSentAnything, vid, this](const GlobalId nid) {
+					g->foreachNeighbouringVertex(vid, [&sendBuffers, &weSentAnything, vid, this, g](const GlobalId nid) {
 						VertexM vInfo;
 						vInfo.vertexId = nid.localId;
-						vInfo.predecessor = vid;
+						vInfo.predecessor = g->toGlobalId(vid);
 						vInfo.distance = this->getDistance(vid) + 1;
 						sendBuffers[nid.nodeId].push_back(vInfo);
 						weSentAnything = true;
@@ -103,8 +103,8 @@ public:
 					VertexM *vInfo = b + i;
 
 					/* save predecessor and distance for received node */
-					getDistance(vInfo->vertexId) = vInfo->distance;
-					getPredecessor(vInfo->vertexId) = vInfo->predecessor;
+					this->getDistance(vInfo->vertexId) = vInfo->distance;
+					this->getPredecessor(vInfo->vertexId) = vInfo->predecessor;
 
 					/* add it to new frontier, which'll be processed during the next iteration */
 					frontier.push_back(vInfo->vertexId);

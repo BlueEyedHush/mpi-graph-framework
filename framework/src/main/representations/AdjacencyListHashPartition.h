@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <sstream>
-#include <boost/pool/object_pool.hpp>
+#include <boost/pool/pool.hpp>
 #include <GraphBuilder.h>
 #include <GraphPartition.h>
 #include <utils/MpiTypemap.h>
@@ -138,7 +138,7 @@ public:
 	}
 
 
-	void foreachMasterVertex(std::function<bool(const LocalId)>) {
+	void foreachMasterVertex(std::function<bool(const LocalId)> f) {
 		bool shouldStop = false;
 		for(TLocalId vid = 0; vid < vCount && !shouldStop; vid++) {
 			shouldStop = f(vid);
@@ -159,7 +159,7 @@ public:
 		}
 	}
 
-	void foreachNeighbouringVertex(const LocalId id, std::function<bool(const LocalId)> f) {
+	void foreachNeighbouringVertex(const LocalId id, std::function<bool(const GlobalId)> f) {
 		auto startPos = data.offsetTableWinMem[id];
 		auto endPos = (id < vCount-1) ? data.offsetTableWinMem[id+1] : eCount;
 
@@ -260,7 +260,7 @@ public:
 			}
 
 			/* pools used for immediate RMA operations (1st for neighbour list, 2nd for offset table */
-			boost::object_pool<ALHPGlobalVertexId<LocalId>> adjListPool;
+			boost::pool<> adjListPool(sizeof(ALHPGlobalVertexId<LocalId>));
 			LocalId offsetPool[FLUSH_EVERY];
 
 			bool allProcessed = false;
@@ -305,7 +305,7 @@ public:
 						*offset = adjListOffset;
 
 						/* 5th prepare buffer used to update neighbour list */
-						ALHPGlobalVertexId<LocalId> *mappedNeigh =
+						auto *mappedNeigh =
 								reinterpret_cast<ALHPGlobalVertexId<LocalId>*>(adjListPool.ordered_malloc(neighCount));
 
 						/* 6th replace original edge end with remapped value (or postpone it until it's known) */
@@ -340,7 +340,7 @@ public:
 						 * remapped. if the answer is yes, fill in the remapped value */
 
 						// allocate buffer for MPI_Put containing single GlobalId (the one we are currently processing)
-						ALHPGlobalVertexId<LocalId> *pooledMappedId = adjListPool.malloc();
+						auto *pooledMappedId = reinterpret_cast<ALHPGlobalVertexId<LocalId>*>(adjListPool.malloc());
 						// @todo: use copy constructor if boost::pool allows it
 						memcpy(pooledMappedId, &vertexGid, sizeof(ALHPGlobalVertexId<LocalId>));
 						// initiate transfer to each place where placeholder was put
@@ -355,8 +355,8 @@ public:
 
 				MPI_Win_flush_local_all(offsetTableWin);
 				MPI_Win_flush_local_all(adjListWin);
+				adjListPool.purge_memory();
 			}
-			adjListPool.purge_memory();
 
 			/* write number of vertices and edges for each node */
 			boost::pool<> LocalIdPool(sizeof(LocalId));
@@ -428,15 +428,17 @@ public:
 		return new ALHPGraphPartition<LocalId, NumericId>(d);
 	}
 
-	std::vector<GlobalId> getConvertedVertices();
+	std::vector<GlobalId> getConvertedVertices() {
+		return std::vector<GlobalId> (convertedVertices, convertedVertices + convertedVerticesCount);
+	}
 
-	void destroyGraph(const G* g) {
+	void destroyGraph(G* g) {
 		MPI_Type_free(&(g->data.gIdDatatype));
 		delete g;
 	}
 
 private:
-	ALHPGlobalVertexId<LocalId>* convertedVertices;
+	GlobalId* convertedVertices;
 	size_t convertedVerticesCount;
 };
 

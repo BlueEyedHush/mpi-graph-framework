@@ -59,7 +59,7 @@ public:
 
 		while(shouldContinue) {
 			for(LocalId vid: frontier) {
-				if(!g->isValid(getPredecessor(vid))) {
+				if(!g->isValid(this->getPredecessor(vid))) {
 					/* node has not yet been visited */
 
 					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, g, this](const GlobalId nid) {
@@ -120,8 +120,8 @@ public:
 					/* iterate over all vertices in the message */
 					for(int j = 0; j < currentBuffer.vidCount; j++) {
 						/* save predecessor and distance for received node */
-						getDistance(currentBuffer.vertexIds[j]) = currentBuffer.distances[j];
-						getPredecessor(currentBuffer.vertexIds[j]) = currentBuffer.predecessors[j];
+						this->getDistance(currentBuffer.vertexIds[j]) = currentBuffer.distances[j];
+						this->getPredecessor(currentBuffer.vertexIds[j]) = currentBuffer.predecessors[j];
 
 						/* add it to new frontier, which'll be processed during the next iteration */
 						frontier.push_back(currentBuffer.vertexIds[j]);

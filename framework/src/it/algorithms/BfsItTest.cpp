@@ -9,86 +9,69 @@
 #include <algorithms/bfs/BfsVarMessage.h>
 #include <validators/BfsValidator.h>
 
-template <typename TGraphPartition>
-void executeColouringTest(std::string graphPath,
-                          Algorithm<std::pair<GlobalVertexId**, int*>*, TGraphPartition> *algorithm,
-                          Validator<std::pair<GlobalVertexId**, int*>*, TGraphPartition> *validator) {
-	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
-	TGraphPartition *g = graphBuilder->buildGraph(graphPath);
+template <
+		template<typename, typename> class TGraphBuilder,
+		template<typename> class TBfsAlgo,
+		template<typename> class TBfsValidator>
+static void executeTest(std::string graphPath, ull originalRootId)
+{
+	auto *graphBuilder = new TGraphBuilder<int,int>();
+	auto *g = graphBuilder->buildGraph(graphPath, {originalRootId});
 	delete graphBuilder;
 
-	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId**, int*>*>(g,
-	                                                                            [algorithm]() { return algorithm; }, 
-	                                                                            [validator]() { return validator; });
+	using TGP = typename TGraphBuilder<int,int>::GPType;
+	using TResult = typename TBfsAlgo<TGP>::ResultType;
 
+	auto bfsRoot = graphBuilder->getConvertedVertices()[0];
+	auto* algo = new TBfsAlgo<TGP>(bfsRoot);
+	auto* validator = new TBfsValidator<TGP>(bfsRoot);
+	AlgorithmExecutionResult r = runAndCheck(g, *algo, *validator);
+
+	delete validator;
+	delete algo;
 	graphBuilder->destroyGraph(g);
 	ASSERT_TRUE(r.algorithmStatus);
 	ASSERT_TRUE(r.validatorStatus);
 }
 
-
 TEST(Bfs_Mp_FixedMsgLen_1D_2CommRounds, FindsCorrectSolutionForSTG) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_FixedMsgLen_1D_2CommRounds(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_FixedMsgLen_1D_2CommRounds,
+			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_FixedMsgLen_1D_2CommRounds, FindsCorrectSolutionForComplete50) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_FixedMsgLen_1D_2CommRounds(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/complete50.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_FixedMsgLen_1D_2CommRounds,
+			BfsValidator>("resources/test/complete50.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_2CommRounds, FindsCorrectSolutionForSTG) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_VarMsgLen_1D_2CommRounds(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_VarMsgLen_1D_2CommRounds,
+			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_2CommRounds, FindsCorrectSolutionForComplete50) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_VarMsgLen_1D_2CommRounds(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/complete50.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_VarMsgLen_1D_2CommRounds,
+			BfsValidator>("resources/test/complete50.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForSTG) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_VarMsgLen_1D_1CommsTag,
+			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForComplete50) {
-	GlobalVertexId bfsRoot(0, 0);
-	auto a = new Bfs_Mp_VarMsgLen_1D_1CommsTag(bfsRoot);
-	auto v = new BfsValidator(bfsRoot);
-
-	executeColouringTest("resources/test/complete50.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeTest<
+			ALHPGraphBuilder,
+			Bfs_Mp_VarMsgLen_1D_1CommsTag,
+			BfsValidator>("resources/test/complete50.adjl", 0);
 }
