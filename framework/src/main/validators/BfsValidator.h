@@ -124,7 +124,7 @@ public:
 	BfsValidator(const GlobalId _root) : root(_root) {};
 
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
-	virtual bool validate(TGraphPartition *g, std::pair<GlobalId*, int*> *partialSolution) override {
+	bool validate(TGraphPartition *g, std::pair<GlobalId*, int*> *partialSolution) {
 		GrouppingMpiAsync executor;
 		details::Comms<TGraphPartition, GlobalId> comms(g, *partialSolution);
 		details::DistanceChecker<TGraphPartition, GlobalId> dc(executor, comms, *g);

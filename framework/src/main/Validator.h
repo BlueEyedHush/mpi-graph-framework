@@ -10,7 +10,7 @@
 template <class TGraphPartition, class TResult>
 class Validator {
 public:
-	virtual bool validate(TGraphPartition *g, TResult partialSolution) = 0;
+	bool validate(TGraphPartition *g, TResult partialSolution);
 };
 
 #endif //FRAMEWORK_VALIDATOR_H

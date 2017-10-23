@@ -5,9 +5,9 @@
 #ifndef FRAMEWORK_GRAPHCOLOURINGASYNC_H
 #define FRAMEWORK_GRAPHCOLOURINGASYNC_H
 
-#include <Algorithm.h>
+#include <algorithms/Colouring.h>
 
-class GraphColouringMPAsync : public Algorithm<int*> {
+class GraphColouringMPAsync : public Algorithm<VertexColour*> {
 public:
 	GraphColouringMPAsync();
 	virtual bool run(GraphPartition *g) override;
@@ -15,7 +15,7 @@ public:
 	 *
 	 * @return colouring for local vertices
 	 */
-	virtual int *getResult() override;
+	virtual VertexColour *getResult() override;
 	virtual ~GraphColouringMPAsync() override ;
 
 private:
