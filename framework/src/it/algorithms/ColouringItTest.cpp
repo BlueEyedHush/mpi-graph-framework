@@ -4,63 +4,49 @@
 #include <utils/TestUtils.h>
 #include <Runner.h>
 #include <representations/AdjacencyListHashPartition.h>
-#include <algorithms/GraphColouring.h>
-#include <algorithms/GraphColouringAsync.h>
+#include <algorithms/colouring/GraphColouringMp.h>
+#include <algorithms/colouring/GraphColouringMpAsync.h>
 #include <validators/ColouringValidator.h>
 
-void executeColouringTest(std::string graphPath,
-                          Algorithm<int *> *algorithm,
-                          Validator<int *> *validator) {
-	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
-	GraphPartition *g = graphBuilder->buildGraph(graphPath);
+template <
+		template<typename, typename> class TGraphBuilder,
+		template<typename> class TAlgo,
+		template<typename> class TValidator>
+static void executeTest(std::string graphPath)
+{
+	auto *graphBuilder = new TGraphBuilder<int,int>();
+	auto *g = graphBuilder->buildGraph(graphPath);
 	delete graphBuilder;
 
-	AlgorithmExecutionResult r = runAndCheck<int *>(g,
-	                                                [algorithm]() { return algorithm; },
-	                                                [validator]() { return validator; });
+	using TGP = typename TGraphBuilder<int,int>::GPType;
+	using TResult = typename TAlgo<TGP>::ResultType;
 
+	auto* algo = new TAlgo<TGP>();
+	auto* validator = new TValidator<TGP>();
+	AlgorithmExecutionResult r = runAndCheck(g, *algo, *validator);
+
+	delete validator;
+	delete algo;
 	graphBuilder->destroyGraph(g);
 	ASSERT_TRUE(r.algorithmStatus);
 	ASSERT_TRUE(r.validatorStatus);
 }
 
+template <template<typename> class TAlgo>
+using executeColouringTest = decltype(executeTest<ALHPGraphBuilder, TAlgo, ColouringValidator>(""));
 
 TEST(ColouringMPAsync, FindsCorrectSolutionForSTG) {
-	auto a = new GraphColouringMPAsync();
-	auto v = new ColouringValidator();
-
-	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeColouringTest<GraphColouringMPAsync>("resources/test/SimpleTestGraph.adjl");
 }
 
 TEST(ColouringMPAsync, FindsCorrectSolutionForComplete50) {
-	auto a = new GraphColouringMPAsync();
-	auto v = new ColouringValidator();
-
-	executeColouringTest("resources/test/complete50.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeColouringTest<GraphColouringMPAsync>("resources/test/complete50.adjl");
 }
 
 TEST(ColouringMP, FindsCorrectSolutionForSTG) {
-	auto a = new GraphColouringMP();
-	auto v = new ColouringValidator();
-
-	executeColouringTest("resources/test/SimpleTestGraph.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeColouringTest<GraphColouringMp>("resources/test/SimpleTestGraph.adjl");
 }
 
 TEST(ColouringMP, FindsCorrectSolutionForComplete50) {
-	auto a = new GraphColouringMP();
-	auto v = new ColouringValidator();
-
-	executeColouringTest("resources/test/complete50.adjl", a, v);
-
-	delete a;
-	delete v;
+	executeColouringTest<GraphColouringMp>("resources/test/complete50.adjl");
 }

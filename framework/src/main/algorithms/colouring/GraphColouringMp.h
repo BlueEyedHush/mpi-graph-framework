@@ -18,9 +18,10 @@
 #include <utils/BufferPool.h>
 
 namespace details {
+	template<typename TLocalId>
 	struct BufferAndRequest {
 		MPI_Request request;
-		Message buffer;
+		Message<TLocalId> buffer;
 	};
 }
 
@@ -37,18 +38,18 @@ public:
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
 		std::unordered_map<LocalId, VertexTempData*> vertexDataMap;
-		finalColouring = new VertexColour[g->masterVerticesMaxCount()];
+		this->finalColouring = new VertexColour[g->masterVerticesMaxCount()];
 
-		MPI_Datatype mpi_message_type = Message::mpiDatatype();
+		MPI_Datatype mpi_message_type = Message<LocalId>::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
 
-		BufferPool<BufferAndRequest> sendBuffers;
-		BufferPool<BufferAndRequest> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
+		BufferPool<BufferAndRequest<LocalId>> sendBuffers;
+		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
 		LOG(INFO) << "Finished initialization";
 
 		/* start outstanding receive requests */
-		receiveBuffers.foreachFree([&](BufferAndRequest *b) {
+		receiveBuffers.foreachFree([&](BufferAndRequest<LocalId> *b) {
 			MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
 			return true;
 		});
@@ -85,7 +86,7 @@ public:
 		int coloured_count = 0;
 		while(coloured_count < g->masterVerticesCount()) {
 			/* process vertices with count == 0 */
-			g->foreachMasterVertex([&, nodeId](const LocalId v_id) {
+			g->foreachMasterVertex([&, nodeId, this](const LocalId v_id) {
 				if(vertexDataMap[v_id]->wait_counter == 0) {
 					auto v_id_num = g->toNumeric(v_id);
 
@@ -99,7 +100,7 @@ public:
 						iter_count += 1;
 					}
 					int chosen_colour = previous_used_colour + 1;
-					finalColouring[v_id] = chosen_colour;
+					this->finalColouring[v_id] = chosen_colour;
 
 					LOG(INFO) << "!!! All neighbours of " << g->idToString(v_id) << "[" << v_id_num
 					          << "] chosen colours, we choose " << chosen_colour;
@@ -115,7 +116,7 @@ public:
 								LOG(INFO) << g->idToString(neigh_id) << "[" << neigh_num
 								          << "] is local, informing about colour "<< chosen_colour;
 							} else {
-								BufferAndRequest *b = sendBuffers.getNew();
+								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
 								b->buffer.receiving_node_id = neigh_id.localId;
 								b->buffer.used_colour = chosen_colour;
 
@@ -141,7 +142,7 @@ public:
 
 			/* check if any outstanding receive request completed */
 			int receive_result;
-			receiveBuffers.foreachUsed([&](BufferAndRequest *b) {
+			receiveBuffers.foreachUsed([&](BufferAndRequest<LocalId> *b) {
 				receive_result = 0;
 				MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
 
@@ -163,7 +164,7 @@ public:
 			LOG(INFO) << "Finished (for current iteration) processing of outstanding receive requests";
 
 			/* wait for send requests and clean them up */
-			sendBuffers.foreachUsed([](BufferAndRequest *b) {
+			sendBuffers.foreachUsed([](BufferAndRequest<LocalId> *b) {
 				int result = 0;
 				MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
 				if (result != 0) {
@@ -177,7 +178,7 @@ public:
 		}
 
 		/* clean up */
-		receiveBuffers.foreachUsed([&](BufferAndRequest *b) {
+		receiveBuffers.foreachUsed([&](BufferAndRequest<LocalId> *b) {
 			MPI_Cancel(&b->request);
 			return true;
 		});

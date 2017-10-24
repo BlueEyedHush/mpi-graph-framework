@@ -14,7 +14,7 @@
 #include <mpi.h>
 #include <boost/pool/pool.hpp>
 #include <boost/pool/object_pool.hpp>
-#include <glog/logging.h
+#include <glog/logging.h>
 #include <algorithms/Colouring.h>
 #include <utils/MPIAsync.h>
 #include <utils/CliColours.h>
@@ -22,14 +22,15 @@
 namespace details {
 	/* each of those callbacks must be templetized */
 
-	static MPI_Request* scheduleReceive(Message *b, MPI_Datatype *mpi_message_type, boost::pool<> *rqPool) {
+	template<typename TLocalId>
+	static MPI_Request* scheduleReceive(Message<TLocalId> *b, MPI_Datatype *mpi_message_type, boost::pool<> *rqPool) {
 		MPI_Request *rq = reinterpret_cast<MPI_Request *>(rqPool->malloc());
 		MPI_Irecv(b, 1, *mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, rq);
 		return rq;
 	}
 
-	class OnReceiveFinished;
-	class OnSendFinished;
+	template<typename TGraphPartition> class OnReceiveFinished;
+	template<typename TGraphPartition> class OnSendFinished;
 	template <class TGraphPartition> class ColourVertex;
 
 	template <typename TGraphPartition>
@@ -44,20 +45,23 @@ namespace details {
 		int *coloured_count;
 		MPIAsync *am;
 
-		boost::object_pool<Message> *sendPool;
-		boost::object_pool<OnReceiveFinished> *receiveFinishedCbPool;
-		boost::object_pool<OnSendFinished> *sendFinishedCbPool;
+		boost::object_pool<Message<LocalId>> *sendPool;
+		boost::object_pool<OnReceiveFinished<TGraphPartition>> *receiveFinishedCbPool;
+		boost::object_pool<OnSendFinished<TGraphPartition>> *sendFinishedCbPool;
 		boost::object_pool<ColourVertex<TGraphPartition>> *colourVertexCbPool;
 		boost::pool<> *mpiRequestPool;
 
 		VertexColour *finalColouring;
 	};
 
+	template<typename TGraphPartition>
 	struct OnSendFinished : public MPIAsync::Callback {
-		Message *b;
-		GlobalData *gd;
+		IMPORT_ALIASES(TGraphPartition)
 
-		OnSendFinished(Message *b, GlobalData *gd) : b(b), gd(gd) {}
+		Message<LocalId> *b;
+		GlobalData<TGraphPartition> *gd;
+
+		OnSendFinished(Message<LocalId> *b, GlobalData<TGraphPartition> *gd) : b(b), gd(gd) {}
 
 		virtual void operator()() override {
 			gd->sendPool->destroy(b);
@@ -70,9 +74,9 @@ namespace details {
 		IMPORT_ALIASES(TGraphPartition)
 
 		int v_id;
-		GlobalData *gd;
+		GlobalData<TGraphPartition> *gd;
 
-		ColourVertex(int v_id, GlobalData *gd) : v_id(v_id), gd(gd) {}
+		ColourVertex(int v_id, GlobalData<TGraphPartition> *gd) : v_id(v_id), gd(gd) {}
 
 		virtual void operator()() override {
 			auto v_id_num = gd->g->toNumeric(v_id);
@@ -112,7 +116,7 @@ namespace details {
 							LOG(INFO) << "Scheduled";
 						}
 					} else {
-						Message *b = gd->sendPool->construct();
+						Message<LocalId> *b = gd->sendPool->construct();
 						b->receiving_node_id = neigh_id.localId;
 						b->used_colour = chosen_colour;
 
@@ -123,7 +127,7 @@ namespace details {
 						          << gd->g->idToString(v_id) << "[" << v_id_num << "] has been coloured with " 
 						          << chosen_colour << " scheduled";
 
-						OnSendFinished *cb = gd->sendFinishedCbPool->construct(b, gd);
+						OnSendFinished<TGraphPartition> *cb = gd->sendFinishedCbPool->construct(b, gd);
 						gd->am->submitWaitingTask(rq, cb);
 					}
 				}
@@ -135,11 +139,14 @@ namespace details {
 		}
 	};
 
+	template<typename TGraphPartition>
 	struct OnReceiveFinished : public MPIAsync::Callback {
-		Message *b;
-		GlobalData *gd;
+		IMPORT_ALIASES(TGraphPartition)
 
-		OnReceiveFinished(Message *buffer, GlobalData *globalData) : b(buffer), gd(globalData) {}
+		Message<LocalId> *b;
+		GlobalData<TGraphPartition> *gd;
+
+		OnReceiveFinished(Message<LocalId> *buffer, GlobalData<TGraphPartition> *globalData) : b(buffer), gd(globalData) {}
 
 		virtual void operator()() override {
 			auto t_id = b->receiving_node_id;
@@ -150,12 +157,12 @@ namespace details {
 
 			/* post new request */
 			MPI_Request *rq = scheduleReceive(b, gd->mpi_message_type, gd->mpiRequestPool);
-			OnReceiveFinished *cb = gd->receiveFinishedCbPool->construct(b, gd);
+			OnReceiveFinished<TGraphPartition> *cb = gd->receiveFinishedCbPool->construct(b, gd);
 			gd->am->submitWaitingTask(rq, cb);
 
 			if(gd->vertexDataMap->at(t_id)->wait_counter == 0) {
 				/* handle if count decreased to 0, and is not below 0 - this happens in case of already processed vertices */
-				ColourVertex *cb = gd->colourVertexCbPool->construct(t_id, gd);
+				ColourVertex<TGraphPartition> *cb = gd->colourVertexCbPool->construct(t_id, gd);
 				gd->am->submitTask(cb);
 			}
 
@@ -187,16 +194,16 @@ public:
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
 		std::unordered_map<int, VertexTempData*> vertexDataMap;
-		finalColouring = new int[g->masterVerticesMaxCount()];
+		this->finalColouring = new int[g->masterVerticesMaxCount()];
 
-		MPI_Datatype mpi_message_type = Message::mpiDatatype();
+		MPI_Datatype mpi_message_type = Message<LocalId>::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
 
-		boost::object_pool<Message> sendPool;
-		boost::object_pool<Message> receivePool;
-		boost::object_pool<OnReceiveFinished> receiveFinishedCbPool;
-		boost::object_pool<OnSendFinished> sendFinishedCbPool;
-		boost::object_pool<ColourVertex> colourVertexCbPool;
+		boost::object_pool<Message<LocalId>> sendPool;
+		boost::object_pool<Message<LocalId>> receivePool;
+		boost::object_pool<OnReceiveFinished<TGraphPartition>> receiveFinishedCbPool;
+		boost::object_pool<OnSendFinished<TGraphPartition>> sendFinishedCbPool;
+		boost::object_pool<ColourVertex<TGraphPartition>> colourVertexCbPool;
 		boost::pool<> requestPool(sizeof(MPI_Request));
 
 		RequestCleaner *rc = new RequestCleaner(requestPool);
@@ -205,7 +212,7 @@ public:
 
 		LOG(INFO) << "Finished initialization";
 
-		GlobalData globalData;
+		GlobalData<TGraphPartition> globalData;
 		globalData.am = &am;
 		globalData.coloured_count = &coloured_count;
 		globalData.g = g;
@@ -217,11 +224,11 @@ public:
 		globalData.sendFinishedCbPool = &sendFinishedCbPool;
 		globalData.colourVertexCbPool = &colourVertexCbPool;
 		globalData.mpiRequestPool = &requestPool;
-		globalData.finalColouring = finalColouring;
+		globalData.finalColouring = this->finalColouring;
 
 		/* start outstanding receive requests */
 		for(int i = 0; i < OUTSTANDING_RECEIVE_REQUESTS; i++) {
-			Message *b = receivePool.construct();
+			Message<LocalId> *b = receivePool.construct();
 			MPI_Request *rq = scheduleReceive(b, &mpi_message_type, &requestPool);
 			am.submitWaitingTask(rq, receiveFinishedCbPool.construct(b, &globalData));
 		}
