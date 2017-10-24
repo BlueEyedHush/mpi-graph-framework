@@ -59,7 +59,7 @@ public:
 		return finalColouring;
 	};
 
-	virtual ~Algorithm() {
+	virtual ~GraphColouring() {
 		if(finalColouring != nullptr) delete[] finalColouring;
 	};
 

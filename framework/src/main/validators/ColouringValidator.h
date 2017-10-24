@@ -34,7 +34,7 @@ public: /* @todo: finish rewriting validator */
 		bool solutionCorrect = true;
 		int processed = 0;
 		/* @todo: correct indentation & wrapping - tweak CLion rules */
-		g->foreachMasterVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed](const LocalId v_id) {
+		g->foreachMasterVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed, nodeId](const LocalId v_id) {
 			g->foreachNeighbouringVertex(v_id, [g, nodeId, partialSolution, v_id, &partialSolutionWin, &solutionCorrect, &scheduler, &processed](const GlobalId neigh_id) {
 				auto neighLocalId = g->toLocalId(neigh_id);
 				if(neighLocalId == nodeId) {

@@ -7,54 +7,34 @@
 #include <validators/ColouringValidator.h>
 #include <representations/ArrayBackedChunkedPartition.h>
 #include <utils/TestUtils.h>
+#include <Runner.h>
 
-TEST(ColouringValidator, AcceptsCorrectSolutionForSTG) {
+static void executeTest(std::string graphPath, std::string solutionPath, bool expectedValidationOutcome) {
 	int rank = -1;
 	int size = -1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	ABCPGraphBuilder builder(size, rank);
-	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
-	int *ps = loadPartialIntSolution(std::string("resources/test/STG.csol"), size, rank);
+	using GB = ABCPGraphBuilder<int,int>;
+	GB builder(size, rank);
+	auto gp = builder.buildGraph(graphPath, {});
+	int *ps = loadPartialIntSolution<int>(solutionPath, size, rank);
 
-	ColouringValidator v;
+	ColouringValidator<GB::GPType> v;
 	bool validationResult = v.validate(gp, ps);
 	builder.destroyGraph(gp);
 
-	ASSERT_TRUE(validationResult);
+	ASSERT_EQ(validationResult, expectedValidationOutcome);
+}
+
+TEST(ColouringValidator, AcceptsCorrectSolutionForSTG) {
+	executeTest("resources/test/SimpleTestGraph.adjl", "resources/test/STG.csol", true);
 }
 
 TEST(ColouringValidator, RejectsIncorrectSolutionForSTG) {
-	int rank = -1;
-	int size = -1;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-	ABCPGraphBuilder builder(size, rank);
-	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl");
-	int *ps = loadPartialIntSolution(std::string("resources/test/STG_incorrect.csol"), size, rank);
-
-	ColouringValidator v;
-	bool validationResult = v.validate(gp, ps);
-	builder.destroyGraph(gp);
-
-	ASSERT_FALSE(validationResult);
+	executeTest("resources/test/SimpleTestGraph.adjl", "resources/test/STG_incorrect.csol", false);
 }
 
 TEST(ColouringValidator, AcceptsCorrectSolutionForC50) {
-	int rank = -1;
-	int size = -1;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-	ABCPGraphBuilder builder(size, rank);
-	auto gp = builder.buildGraph("resources/test/complete50.adjl");
-	int *ps = loadPartialIntSolution(std::string("resources/test/C50.csol"), size, rank);
-
-	ColouringValidator v;
-	bool validationResult = v.validate(gp, ps);
-	builder.destroyGraph(gp);
-
-	ASSERT_TRUE(validationResult);
+	executeTest("resources/test/complete50.adjl", "resources/test/C50.csol", true);
 }
