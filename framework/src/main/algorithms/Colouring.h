@@ -15,8 +15,9 @@ namespace details {
 	const int MPI_TAG = 0;
 	const size_t OUTSTANDING_RECEIVE_REQUESTS = 5;
 
+	template <typename LocalId>
 	struct Message {
-		LocalVertexId receiving_node_id;
+		LocalId receiving_node_id;
 		int used_colour;
 
 		static MPI_Datatype mpiDatatype() {

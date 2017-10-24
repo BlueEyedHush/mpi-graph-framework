@@ -33,10 +33,11 @@ public:
 	bool run(TGraphPartition *g) {
 		using namespace details;
 
-		int nodeId = g->getNodeId();
+		int nodeId;
+		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
-		std::unordered_map<int, VertexTempData*> vertexDataMap;
-		finalColouring = new int[g->getMaxLocalVertexCount()];
+		std::unordered_map<LocalId, VertexTempData*> vertexDataMap;
+		finalColouring = new VertexColour[g->masterVerticesMaxCount()];
 
 		MPI_Datatype mpi_message_type = Message::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
@@ -55,15 +56,14 @@ public:
 		LOG(INFO) << "Posted initial outstanding receive requests";
 
 		/* gather information about rank of neighbours & initialize temporary structures */
-		g->forEachLocalVertex([&](LocalVertexId v_id) {
-			GlobalVertexId globalForVId(nodeId, v_id);
-			unsigned long long v_id_num = g->toNumerical(globalForVId);
+		g->foreachMasterVertex([&](const LocalId v_id) {
+			auto v_id_num = g->toNumeric(v_id);
 
 			vertexDataMap[v_id] = new VertexTempData();
 
 			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "[" << v_id_num << "] neighbours";
-			g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
-				unsigned long long neigh_num = g->toNumerical(neigh_id);
+			g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
+				auto neigh_num = g->toNumeric(neigh_id);
 				LOG(INFO) << "Looking @ " << g->idToString(neigh_id) << "[" << neigh_num << "]";
 				if (neigh_num > v_id_num) {
 					vertexDataMap[v_id]->wait_counter++;
@@ -71,20 +71,23 @@ public:
 				} else {
 					LOG(INFO) << "Rejected!";
 				}
+
+				return true;
 			});
 
-			LOG(INFO) << "Waiting for %d nodes to establish colouringn", nodeId, vertexDataMap[v_id]->wait_counter);
+			LOG(INFO) << "Waiting for %d nodes to establish colouring";
+
+			return true;
 		});
 
 		LOG(INFO) << "Finished gathering information about neighbours";
 
 		int coloured_count = 0;
-		while(coloured_count < g->getLocalVertexCount()) {
+		while(coloured_count < g->masterVerticesCount()) {
 			/* process vertices with count == 0 */
-			g->forEachLocalVertex([&](LocalVertexId v_id) {
+			g->foreachMasterVertex([&, nodeId](const LocalId v_id) {
 				if(vertexDataMap[v_id]->wait_counter == 0) {
-					GlobalVertexId globalForVId(nodeId, v_id);
-					unsigned long long v_id_num = g->toNumerical(globalForVId);
+					auto v_id_num = g->toNumeric(v_id);
 
 					/* lets find smallest unused colour */
 					int iter_count = 0;
@@ -102,15 +105,15 @@ public:
 					          << "] chosen colours, we choose " << chosen_colour;
 
 					/* inform neighbours */
-					g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
-						unsigned long long neigh_num = g->toNumerical(neigh_id);
+					g->foreachNeighbouringVertex(v_id, [&, g, nodeId](const GlobalId neigh_id) {
+						unsigned long long neigh_num = g->toNumeric(neigh_id);
 						if (neigh_num < v_id_num) {
 							/* if it's larger it already has colour and is not interested */
-							if(g->isLocalVertex(neigh_id)) {
+							if(g->toMasterNodeId(neigh_id) == nodeId) {
 								vertexDataMap[neigh_id.localId]->wait_counter -= 1;
 								vertexDataMap[neigh_id.localId]->used_colours.insert(chosen_colour);
-								LOG(INFO) << "(%d,%d,%llu) is local, informing about colour %dn", nodeId,
-								        neigh_id.nodeId, neigh_id.localId, neigh_num, chosen_colour);
+								LOG(INFO) << g->idToString(neigh_id) << "[" << neigh_num
+								          << "] is local, informing about colour "<< chosen_colour;
 							} else {
 								BufferAndRequest *b = sendBuffers.getNew();
 								b->buffer.receiving_node_id = neigh_id.localId;
@@ -123,11 +126,15 @@ public:
 								          << chosen_colour;
 							}
 						}
+
+						return true;
 					});
 					LOG(INFO) << "Informed neighbours about colour being chosen";
 
 					vertexDataMap[v_id]->wait_counter = -1;
 					coloured_count += 1;
+
+					return true;
 				}
 			});
 			LOG(INFO) << "Finished processing of 0-wait-count vertices";
@@ -144,10 +151,7 @@ public:
 					int t_id = b->buffer.receiving_node_id;
 					vertexDataMap[t_id]->wait_counter -= 1;
 					vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-					LOG(INFO) << "Received: node = %d, colour = %dn", nodeId, b->buffer.receiving_node_id,
-					        b->buffer.used_colour);
-
-					// @todo finish rewriting logger invocations (also look up); use TestGP (and remove!)
+					LOG(INFO) << "Received: node = " << b->buffer.receiving_node_id << ", colour = " << b->buffer.used_colour;
 
 					/* post new request */
 					MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);

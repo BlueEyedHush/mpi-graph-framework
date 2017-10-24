@@ -30,23 +30,27 @@ namespace details {
 
 	class OnReceiveFinished;
 	class OnSendFinished;
-	class ColourVertex;
+	template <class TGraphPartition> class ColourVertex;
 
+	template <typename TGraphPartition>
 	struct GlobalData {
-		std::unordered_map<int, VertexTempData*> *vertexDataMap;
-		int nodeId;
+		IMPORT_ALIASES(TGraphPartition)
+
+		std::unordered_map<LocalId, VertexTempData*> *vertexDataMap;
+		NodeId nodeId;
 		MPI_Datatype *mpi_message_type;
-		GraphPartition *g;
+		TGraphPartition *g;
+		// @todo make it size_t
 		int *coloured_count;
 		MPIAsync *am;
 
 		boost::object_pool<Message> *sendPool;
 		boost::object_pool<OnReceiveFinished> *receiveFinishedCbPool;
 		boost::object_pool<OnSendFinished> *sendFinishedCbPool;
-		boost::object_pool<ColourVertex> *colourVertexCbPool;
+		boost::object_pool<ColourVertex<TGraphPartition>> *colourVertexCbPool;
 		boost::pool<> *mpiRequestPool;
 
-		int *finalColouring;
+		VertexColour *finalColouring;
 	};
 
 	struct OnSendFinished : public MPIAsync::Callback {
@@ -61,15 +65,17 @@ namespace details {
 		}
 	};
 
+	template <class TGraphPartition>
 	struct ColourVertex : public MPIAsync::Callback {
+		IMPORT_ALIASES(TGraphPartition)
+
 		int v_id;
 		GlobalData *gd;
 
 		ColourVertex(int v_id, GlobalData *gd) : v_id(v_id), gd(gd) {}
 
 		virtual void operator()() override {
-			GlobalVertexId globalForVId(gd->nodeId, v_id);
-			unsigned long long v_id_num = gd->g->toNumerical(globalForVId);
+			auto v_id_num = gd->g->toNumeric(v_id);
 
 			/* lets find smallest unused colour */
 			int iter_count = 0;
@@ -89,11 +95,11 @@ namespace details {
 			          << "] chosen colours, we choose " << chosen_colour << CLI_RESET;
 
 			/* inform neighbours */
-			gd->g->forEachNeighbour(v_id, [&](GlobalVertexId neigh_id) {
-				unsigned long long neigh_num = gd->g->toNumerical(neigh_id);
+			gd->g->foreachMasterVertex(v_id, [&](const GlobalId neigh_id) {
+				auto neigh_num = gd->g->toNumeric(neigh_id);
 				if (neigh_num < v_id_num) {
 					/* if it's larger it already has colour and is not interested */
-					if(gd->g->isLocalVertex(neigh_id)) {
+					if(gd->g->toMasterNode(neigh_id) == gd->nodeId) {
 						gd->vertexDataMap->at(neigh_id.localId)->wait_counter -= 1;
 						gd->vertexDataMap->at(neigh_id.localId)->used_colours.insert(chosen_colour);
 						LOG(INFO) << gd->g->idToString(neigh_id) << "[" << neigh_num 
@@ -169,12 +175,12 @@ namespace details {
 }
 
 template <class TGraphPartition>
-class GraphColouringMPAsync : public GraphColouring<TestGP /*@todo*/> {
+class GraphColouringMPAsync : public GraphColouring<TGraphPartition> {
 private:
-	IMPORT_ALIASES(TestGP /*@todo*/)
+	IMPORT_ALIASES(TGraphPartition)
 
 public:
-	bool run(TestGP /*@todo*/ *g) {
+	bool run(TGraphPartition *g) {
 		using namespace details;
 
 		int nodeId;
