@@ -96,7 +96,11 @@ protected:
 /* specialization that can be used when writing algorithms (doesn't expose anything /e.g. like GlobalVertexId insides
  * apart from what's present in the interface) */
 struct TGVID {};
-typedef GraphPartition<TGVID, unsigned int, unsigned int> TestGP;
+
+class TestGP : public GraphPartition<TGVID, unsigned int, unsigned int> {
+public:
+	TestGP() {}
+};
 
 #endif //FRAMEWORK_GRAPH_H
 

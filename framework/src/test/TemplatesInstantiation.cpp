@@ -1,0 +1,135 @@
+
+
+/**
+ * Check correctness of templates by trying to instantiate them
+ *
+ * This code is never executed, it exist only to allow compiler to inspect template specialization.
+ */
+
+/* for types which doesn't have default constructor; since we are never going to execute this,
+ * it's ugliness shouldn't be a problem
+ */
+template <typename T>
+T* uglyInstantiation() {
+	auto* t = new char[sizeof(T)];
+	return reinterpret_cast<T*>(t);
+}
+
+/*
+ * Builders and representations
+ */
+#include <representations/ArrayBackedChunkedPartition.h>
+using ABCP_GB = ABCPGraphBuilder<int,int>;
+using ABCP_GP = ArrayBackedChunkedPartition<int,int>;
+using ABCP_GB_U = ABCPGraphBuilder<size_t,size_t>;
+using ABCP_GP_U = ArrayBackedChunkedPartition<size_t,size_t>;
+
+#include <representations/AdjacencyListHashPartition.h>
+using ALHP_GB = ALHPGraphBuilder<int,int>;
+using ALHP_GP = ALHPGraphPartition<int,int>;
+using ALHP_GB_U = ALHPGraphBuilder<size_t,size_t>;
+using ALHP_GP_U = ALHPGraphPartition<size_t,size_t>;
+
+template <typename TGraphBuilder>
+void callEachGbFunction(TGraphBuilder& builder) {
+	builder.buildGraph("", {});
+	builder.getConvertedVertices();
+	builder.destroyGraph(uglyInstantiation<typename TGraphBuilder::GPType>());
+}
+
+template <typename TGraphPartition>
+void callEachGpFunction(TGraphPartition& gp) {
+	IMPORT_ALIASES(TGraphPartition)
+
+	GlobalId globalId;
+	LocalId localId = 0;
+	VERTEX_TYPE vtype;
+	auto nodeIdConsumer = [](const NodeId) {return true;};
+	auto localIdconsumer = [](const LocalId) {return true;};
+	auto globalIdconsumer = [](const GlobalId) {return true;};
+
+	gp.getGlobalVertexIdDatatype();
+	gp.toLocalId(globalId, &vtype);
+	gp.toMasterNodeId(globalId);
+	gp.toGlobalId(localId);
+	gp.toNumeric(globalId);
+	gp.toNumeric(localId);
+	gp.idToString(globalId);
+	gp.idToString(localId);
+	gp.isSame(globalId, globalId);
+	gp.isValid(globalId);
+	gp.foreachMasterVertex(localIdconsumer);
+	gp.masterVerticesCount();
+	gp.masterVerticesMaxCount();
+	gp.foreachCoOwner(localId, true, nodeIdConsumer);
+	gp.foreachNeighbouringVertex(localId, globalIdconsumer);
+}
+
+void testBuildersAndGraphs() {
+	callEachGpFunction(*uglyInstantiation<ABCP_GP>());
+	callEachGpFunction(*uglyInstantiation<ABCP_GP_U>());
+	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
+	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
+
+	callEachGbFunction(*uglyInstantiation<ABCP_GB>());
+	callEachGbFunction(*uglyInstantiation<ALHP_GB>());
+	callEachGbFunction(*uglyInstantiation<ABCP_GB_U>());
+	callEachGbFunction(*uglyInstantiation<ALHP_GB_U>());
+}
+
+/*
+ * Algorithms
+ */
+#include <algorithms/bfs/BfsVarMessage.h>
+using BFS_VM = Bfs_Mp_VarMsgLen_1D_2CommRounds<TestGP>;
+
+#include <algorithms/bfs/BfsFixedMessage.h>
+using BFS_FM = Bfs_Mp_FixedMsgLen_1D_2CommRounds<TestGP>;
+
+#include <algorithms/bfs/Bfs1CommsRound.h>
+using BFS_1C = Bfs_Mp_VarMsgLen_1D_1CommsTag<TestGP>;
+
+#include <algorithms/colouring/GraphColouringMp.h>
+using COLOUR_MP = GraphColouringMp<TestGP>;
+
+#include <algorithms/colouring/GraphColouringMpAsync.h>
+using COLOUR_MP_ASYNC = GraphColouringMPAsync<TestGP>;
+
+
+template <typename TAlgo> void callEachAlgoFunctions(TAlgo& algo) {
+	auto G = TestGP();
+	algo.run(&G);
+	algo.getResult();
+}
+
+void testAlgorithms() {
+	callEachAlgoFunctions(*uglyInstantiation<BFS_VM>());
+	callEachAlgoFunctions(*uglyInstantiation<BFS_FM>());
+	callEachAlgoFunctions(*uglyInstantiation<BFS_1C>());
+	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP>());
+	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP_ASYNC>());
+}
+
+/*
+ * Validators
+ */
+#include <validators/BfsValidator.h>
+using V_BFS = BfsValidator<TestGP>;
+
+#include <validators/ColouringValidator.h>
+using V_COLOUR = ColouringValidator<TestGP>;
+
+template <typename TValidator>
+void callEachValidatorFunctions(TValidator& algo) {
+	auto G = TestGP();
+	using R = typename TValidator::ResultType;
+	auto result = *uglyInstantiation<R>();
+	algo.validate(&G, result);
+}
+
+void testValidators() {
+	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
+	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
+	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
+	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
+}
