@@ -119,6 +119,17 @@ TEST(TEST_NAME, ForEachNeighbouringVertex) {
 	b.destroyGraph(gp);
 }
 
+TEST(ABCPGraphBuilder, GraphBuilding) {
+	auto path = std::string("resources/test/SimpleTestGraph.adjl");
+	ABCPGraphBuilder<LocalId,NumericId> builder0(2, 0);
+
+	auto gp = builder0.buildGraph(path, {});
+
+	ASSERT_NE(gp, nullptr);
+
+	builder0.destroyGraph(gp);
+}
+
 TEST(ABCPGraphBuilder, VertexConversion) {
 	auto path = std::string("resources/test/SimpleTestGraph.adjl");
 	ABCPGraphBuilder<LocalId,NumericId> builder0(2, 0);
@@ -129,17 +140,6 @@ TEST(ABCPGraphBuilder, VertexConversion) {
 	ASSERT_TRUE(cv.size() == 2);
 	ASSERT_EQ(cv[0], GlobalId(0,0));
 	ASSERT_EQ(cv[1], GlobalId(1,1));
-
-	builder0.destroyGraph(gp);
-}
-
-TEST(ABCPGraphBuilder, GraphBuilding) {
-	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	ABCPGraphBuilder<LocalId,NumericId> builder0(2, 0);
-
-	auto gp = builder0.buildGraph(path, {});
-
-	ASSERT_EQ(gp, nullptr);
 
 	builder0.destroyGraph(gp);
 }

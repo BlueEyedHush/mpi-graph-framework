@@ -17,7 +17,6 @@ static void executeTest(std::string graphPath, ull originalRootId)
 {
 	auto *graphBuilder = new TGraphBuilder<int,int>();
 	auto *g = graphBuilder->buildGraph(graphPath, {originalRootId});
-	delete graphBuilder;
 
 	using TGP = typename TGraphBuilder<int,int>::GPType;
 	using TResult = typename TBfsAlgo<TGP>::ResultType;
@@ -29,6 +28,7 @@ static void executeTest(std::string graphPath, ull originalRootId)
 
 	delete validator;
 	delete algo;
+	delete graphBuilder;
 	graphBuilder->destroyGraph(g);
 	ASSERT_TRUE(r.algorithmStatus);
 	ASSERT_TRUE(r.validatorStatus);

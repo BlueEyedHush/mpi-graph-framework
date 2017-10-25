@@ -35,10 +35,16 @@ public:
 		std::vector<LocalVertexId> frontier;
 
 		/* append root to frontier if node matches */
-		if(g->toMasterNodeId(this->bfsRoot) == currentNodeId) {
-			auto lid = g->toLocalId(this->bfsRoot);
-			frontier.push_back(lid);
-			this->result.second[lid] = 0;
+		VERTEX_TYPE rootVt;
+		auto rootLocal = g->toLocalId(this->bfsRoot, &rootVt);
+		if(rootVt == L_SHADOW || rootVt == L_MASTER) {
+			frontier.push_back(rootLocal);
+
+			if(rootVt == L_MASTER) {
+				/* at this point we set only distance (it'll be used in calculations for neighbours, so it must
+				 * be correct */
+				this->result.second[rootLocal] = 0;
+			}
 		}
 
 		auto sendBuffers = new std::vector<VertexM>[worldSize];
@@ -130,6 +136,11 @@ public:
 			for(int i = 0; i < worldSize && !shouldContinue; i++) {
 				shouldContinue = othersReceivedAnything[i];
 			}
+		}
+
+		/* set value of root node to itself (couldn't be added earlier because algorithm'd never investigate it */
+		if(rootVt == L_MASTER) {
+			this->result.first[rootLocal] = this->bfsRoot;
 		}
 
 		/* ToDo - check if new returned memory */

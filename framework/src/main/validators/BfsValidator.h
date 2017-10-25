@@ -144,7 +144,7 @@ public:
 			}
 
 			/* check if difference in predecessor and successor distance equals 1 (or if correct node is root) */
-			if(g->isSame(predecessor, currGID)) {
+			if(!g->isSame(predecessor, currGID)) {
 				auto checkDistCb =
 				[&valid, &checkedCount, g, &currGID, &predecessor, actualDistance](int predecessorDistance) {
 					int expectedPrecedessorDist = actualDistance-1;
@@ -165,7 +165,7 @@ public:
 				dc.scheduleGetDistance(predecessor, checkDistCb);
 			} else {
 				/* only root node can have himself as a predecessor */
-				if(g->isSame(currGID, root)) {
+				if(!g->isSame(currGID, root)) {
 					LOG(INFO) << g->idToString(predecessor) << " reported as root (correct root: "
 					          << g->idToString(root) << " )" << std::endl;
 

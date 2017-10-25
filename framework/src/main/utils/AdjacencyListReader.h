@@ -39,6 +39,8 @@ public:
 	}
 
 	boost::optional<VertexSpec<TVertexId>> getNextVertex() {
+		if(!initialized) initialize();
+
 		auto oParsedLine = csvReader.getNextLine();
 		if(oParsedLine != boost::none) {
 			auto parsedLine = *oParsedLine;
@@ -62,6 +64,8 @@ private:
 		vertexCount = vertexLine[0];
 		auto edgeLine = *csvReader.getNextLine();
 		edgeCount = edgeLine[0];
+
+		initialized = true;
 	}
 };
 

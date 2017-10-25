@@ -5,9 +5,9 @@
 TEST(TestUtils, vecSubsetPreconditions) {
 	std::vector<int> solution = {5,6,7,8};
 
-	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(2, 2))), "Debug Assertion failed");
-	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(6, 7))), "Debug Assertion failed");
-	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(-1, 0))), "Debug Assertion failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(2, 2))), "failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(6, 7))), "failed");
+	EXPECT_DEATH((details::vecSubset<int>(solution, std::make_pair(-1, 0))), "failed");
 }
 
 TEST(TestUtils, vecSubsetResultCorrectness) {

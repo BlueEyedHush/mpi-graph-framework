@@ -26,12 +26,13 @@ namespace details {
 		ull vertexCount;
 	};
 
+	template <typename TLocalId>
 	struct AdjListPos {
-		AdjListPos(NodeId _nodeId, LocalVertexId _adjListOffset)
+		AdjListPos(NodeId _nodeId, TLocalId _adjListOffset)
 				: nodeId(_nodeId), adjListOffset(_adjListOffset) {}
 
 		NodeId nodeId;
-		LocalVertexId adjListOffset;
+		TLocalId adjListOffset;
 	};
 
 
@@ -103,7 +104,7 @@ public:
 	}
 
 	GlobalId toGlobalId(const LocalId lid) {
-		return ALHPGlobalVertexId<LocalId>(data.world_rank, lid);
+		return GlobalId(data.world_rank, lid);
 	}
 
 	NumericId toNumeric(const GlobalId id) {
@@ -114,7 +115,7 @@ public:
 	}
 
 	NumericId toNumeric(const LocalId lid) {
-		return toNumeric(ALHPGlobalVertexId<LocalId>(data.world_rank, lid));
+		return toNumeric(GlobalId(data.world_rank, lid));
 	}
 
 	std::string idToString(const GlobalId gid) {
@@ -190,6 +191,13 @@ private:
 public:
 	ALHPGraphBuilder() : convertedVertices(nullptr), convertedVerticesCount(0) {};
 
+	~ALHPGraphBuilder() {
+		if(convertedVertices != nullptr) {
+			assert(convertedVerticesCount != 0);
+			delete[] convertedVertices;
+		}
+ 	}
+
 	G* buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
@@ -206,7 +214,7 @@ public:
 		LocalId *offsetTableWinMem = nullptr;
 		GlobalId *adjListWinMem = nullptr;
 
-		d.gIdDatatype = ALHPGlobalVertexId<LocalId>::mpiDatatype();
+		d.gIdDatatype = GlobalId::mpiDatatype();
 		MPI_Type_commit(&d.gIdDatatype);
 
 		ull sizes[2]; // 1st - edge list window size (adjList), 2nd - offset table window size
@@ -234,14 +242,20 @@ public:
 
 		auto vertToConvCount = verticesToConvert.size();
 		if(vertToConvCount > 0) {
-			convertedVertices = new ALHPGlobalVertexId<LocalId>[vertToConvCount];
+			convertedVerticesCount = vertToConvCount;
+
+			convertedVertices = new GlobalId[vertToConvCount];
 			MPI_Win_create(convertedVertices,
-			               vertToConvCount*sizeof(ALHPGlobalVertexId<LocalId>),
-			               sizeof(ALHPGlobalVertexId<LocalId>),
+			               vertToConvCount*sizeof(GlobalId),
+			               sizeof(GlobalId),
 			               MPI_INFO_NULL, MPI_COMM_WORLD,
 			               &convertedVerticesW);
 			MPI_Win_lock_all(0, convertedVerticesW);
 		}
+
+		/* pools used for immediate RMA operations (1st for neighbour list, 2nd for offset table */
+		boost::pool<> adjListPool(sizeof(GlobalId));
+		LocalId offsetPool[FLUSH_EVERY];
 
 		if (world_rank == 0) {
 
@@ -249,7 +263,7 @@ public:
 			/* @todo: replace maps with simple arrays */
 
 			/* when we read edge with end-vertex which hasn't yet been remapped, it goes here */
-			std::unordered_map<ull, std::vector<AdjListPos>> toRemap;
+			std::unordered_map<ull, std::vector<AdjListPos<LocalId>>> toRemap;
 			/* here we store information about vertices we already remapped (already remapped
 			 * edges might be encountered in edges yet to come) */
 			std::unordered_map<ull, GlobalId> remappingTable;
@@ -258,10 +272,6 @@ public:
 			for(int i = 0; i < world_size; i++) {
 				nodeToOffsetInfo[i] = PerNodeOffsetInfo();
 			}
-
-			/* pools used for immediate RMA operations (1st for neighbour list, 2nd for offset table */
-			boost::pool<> adjListPool(sizeof(ALHPGlobalVertexId<LocalId>));
-			LocalId offsetPool[FLUSH_EVERY];
 
 			bool allProcessed = false;
 			NodeId nextNodeId = 0;
@@ -274,12 +284,12 @@ public:
 					if(vInfoOpt) {
 						VertexSpec<LocalId> vInfo = *vInfoOpt;
 
-						size_t neighCount = vInfo.neighbours.size() - 1;
+						size_t neighCount = vInfo.neighbours.size();
 						LocalId adjListOffset = -1;
 
 						/* we need to remap our vertex; due to round-robin nature of this algorithm
 						 * it'll go to nextNodeId */
-						ALHPGlobalVertexId<LocalId> vertexGid;
+						GlobalId vertexGid;
 						vertexGid.nodeId = nextNodeId;
 
 						/* 1st, lets read (and update) information about current offsets
@@ -306,7 +316,7 @@ public:
 
 						/* 5th prepare buffer used to update neighbour list */
 						auto *mappedNeigh =
-								reinterpret_cast<ALHPGlobalVertexId<LocalId>*>(adjListPool.ordered_malloc(neighCount));
+								reinterpret_cast<GlobalId*>(adjListPool.ordered_malloc(neighCount));
 
 						/* 6th replace original edge end with remapped value (or postpone it until it's known) */
 						// @todo: assuming vertices indices are continous,start from 0 and the file is sorted, we can guess the remapping
@@ -318,10 +328,10 @@ public:
 							} else {
 								/* not yet mapped, we have to postpone it */
 								if(toRemap.count(neighId) == 0) {
-									toRemap[neighId] = std::vector<AdjListPos>();
+									toRemap[neighId] = std::vector<AdjListPos<LocalId>>();
 								}
 								toRemap[neighId].push_back(
-										AdjListPos(vertexGid.nodeId, adjListOffset + nextMappedNeighIndex - 1));
+										AdjListPos<LocalId>(vertexGid.nodeId, adjListOffset + nextMappedNeighIndex));
 								/* no need to write anything to mappedNeigh - it'll be overwritten later on */
 							}
 
@@ -340,11 +350,11 @@ public:
 						 * remapped. if the answer is yes, fill in the remapped value */
 
 						// allocate buffer for MPI_Put containing single GlobalId (the one we are currently processing)
-						auto *pooledMappedId = reinterpret_cast<ALHPGlobalVertexId<LocalId>*>(adjListPool.malloc());
+						auto *pooledMappedId = reinterpret_cast<GlobalId*>(adjListPool.malloc());
 						// @todo: use copy constructor if boost::pool allows it
-						memcpy(pooledMappedId, &vertexGid, sizeof(ALHPGlobalVertexId<LocalId>));
+						memcpy(pooledMappedId, &vertexGid, sizeof(GlobalId));
 						// initiate transfer to each place where placeholder was put
-						for(AdjListPos coords: toRemap[vInfo.vertexId]) {
+						for(auto coords: toRemap[vInfo.vertexId]) {
 							MPI_Put(pooledMappedId, 1, d.gIdDatatype, coords.nodeId, coords.adjListOffset,
 							        1, d.gIdDatatype, adjListWin);
 						}
@@ -383,14 +393,17 @@ public:
 			/* save remapping info requested by user */
 			for(size_t i = 0; i < verticesToConvert.size(); i++) {
 				auto originalId = verticesToConvert[i];
-				auto mappedId = remappingTable.at(originalId);
+				auto *buffer = reinterpret_cast<GlobalId*>(adjListPool.malloc());
+				*buffer = remappingTable.at(originalId);
 
 				// mirror this information across all nodes
 				for(int nodeId = 0; nodeId < world_size; nodeId++) {
-					MPI_Put(&mappedId, 1, d.gIdDatatype, nodeId, i, 1,
-					        d.gIdDatatype, convertedVerticesW);
+					MPI_Put(buffer, 1, d.gIdDatatype, nodeId, i, 1, d.gIdDatatype, convertedVerticesW);
 				}
 			}
+
+			MPI_Win_flush_all(convertedVerticesW);
+			adjListPool.purge_memory();
 
 			MPI_Barrier(MPI_COMM_WORLD);
 		} else {

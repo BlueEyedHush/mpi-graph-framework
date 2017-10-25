@@ -37,12 +37,13 @@ public: /* @todo: finish rewriting validator */
 		g->foreachMasterVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed, nodeId](const LocalId v_id) {
 			g->foreachNeighbouringVertex(v_id, [g, nodeId, partialSolution, v_id, &partialSolutionWin, &solutionCorrect, &scheduler, &processed](const GlobalId neigh_id) {
 				auto neighLocalId = g->toLocalId(neigh_id);
-				if(neighLocalId == nodeId) {
+				if(g->toMasterNodeId(neigh_id) == nodeId) {
 					/* colours for both vertices on this node */
 					if(partialSolution[neighLocalId] == partialSolution[v_id]) {
 						solutionCorrect = false;
 
-						LOG(INFO) << g->idToString(v_id) << "[" << g->toNumeric(v_id) << "] "
+						LOG(INFO) << "Failure: "
+						          << g->idToString(v_id) << "[" << g->toNumeric(v_id) << "] "
 						          << "colour: " << partialSolution[v_id] << ", "
 						          << g->idToString(neigh_id) << "[" << g->toNumeric(neigh_id) << "] "
 						          << "colour: " << partialSolution[neighLocalId];

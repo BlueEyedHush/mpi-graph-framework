@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <climits>
 #include <sstream>
+#include <glog/logging.h>
 #include <boost/pool/object_pool.hpp>
 #include <GraphPartition.h>
 #include <GraphBuilder.h>
@@ -17,7 +18,7 @@
 
 template <typename T>
 struct ABCPGlobalVertexId {
-	ABCPGlobalVertexId() : nodeId(-1) {}
+	ABCPGlobalVertexId() : nodeId(-1), localId(0) {}
 	ABCPGlobalVertexId(NodeId nodeId, T localId) : nodeId(nodeId), localId(localId) {}
 
 	NodeId nodeId;
@@ -63,7 +64,7 @@ public:
 	                            size_t allVerticesCount,
 	                            size_t partitionCount)
 			: adjacencyList(adjList), localVertexCount(vertexCount), nodeId(nodeId), partitionOffset(partitionOffset),
-			  localVertexMaxCount(vertexMaxCount)
+			  localVertexMaxCount(vertexMaxCount), allVerticesCount(allVerticesCount), partitionCount(partitionCount)
 	{
 		gIdDatatype = MPI_DATATYPE_NULL;
 	};
@@ -90,7 +91,7 @@ public:
 	};
 	NumericId toNumeric(const GlobalId gid) {
 		auto ownersPartitionOffset =
-				IndexPartitioner::get_range_for_partition(allVerticesCount, partitionCount, nodeId).first;
+				IndexPartitioner::get_range_for_partition(allVerticesCount, partitionCount, gid.nodeId).first;
 		return ownersPartitionOffset + gid.localId;
 	};
 	NumericId toNumeric(const TLocalId lid) { return partitionOffset + lid; };
@@ -170,12 +171,14 @@ public:
 	ABCPGraphBuilder(size_t partitionCount, size_t partitionId) : P(partitionCount), partitionId(partitionId) {};
 
 	G* buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
+		using namespace IndexPartitioner;
+
 		/* read headers to learn how much vertices present */
 		AdjacencyListReader<OriginalVertexId> reader(path);
 		auto vCount = reader.getVertexCount();
 
 		/* get our range */
-		auto range = IndexPartitioner::get_range_for_partition(vCount, P, partitionId);
+		auto range = get_range_for_partition(vCount, P, partitionId);
 		auto partitionStart = range.first;
 		size_t vertexCount = range.second - range.first;
 
@@ -190,7 +193,10 @@ public:
 			auto idFrom0 = vs.vertexId - partitionStart;
 			std::transform(vs.neighbours.begin(), vs.neighbours.end(), std::back_inserter(allLocalVertices[idFrom0]),
 			               [=](OriginalVertexId nid) {
-				               return ABCPGlobalVertexId<LocalId>(partitionId, static_cast<TLocalId>(nid) - partitionStart);
+				               auto targetPartition = get_partition_from_index(vCount, P, nid);
+				               auto targetPartitionStart = get_range_for_partition(vCount, P, targetPartition).first;
+				               return ABCPGlobalVertexId<LocalId>(targetPartition,
+				                                                  static_cast<TLocalId>(nid) - targetPartitionStart);
 			               });
 		}
 

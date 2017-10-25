@@ -73,6 +73,7 @@ if(GTEST_FOUND)
         add_executable(itTests ${IT_TEST_SRC})
         target_link_libraries(itTests ${GTEST_LIBRARIES} ${MPI_C_LIBRARIES} framework_lib)
         add_test(NAME ItTests COMMAND mpiexec -np ${IT_TEST_PROCESS_COUNT} -l ./itTests)
+        # ./itTests --gtest_filter=ColouringValidator.AcceptsCorrectSolutionForSTG
     else()
         message(FATAL_ERROR "Can't find MPI, so cannot build integration tests")
     endif()

@@ -22,7 +22,7 @@ namespace details {
 
 	template<typename T>
 	T* vecSubset(const std::vector<T> vec, const std::pair<int,int> range) {
-		assert(vec.size() <= range.second);
+		assert(range.second <= vec.size());
 		assert(range.first >= 0);
 		assert(range.first < range.second);
 
@@ -107,5 +107,7 @@ std::pair<TGlobalId*, int*> bfsSolutionAsGids(std::string path, int partitionCou
 
 	return std::make_pair(arr, dists);
 }
+
+#define CAP_PRINT(EXPR) #EXPR ": " << EXPR << " "
 
 #endif //FRAMEWORK_TESTUTILS_H
