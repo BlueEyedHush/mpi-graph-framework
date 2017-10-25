@@ -24,7 +24,7 @@ public:
 		int worldSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
-		MPI_Datatype* vertexMessage = VertexM::createVertexMessageDatatype(g->geGlobalVertexIdDatatype());
+		MPI_Datatype* vertexMessage = VertexM::createVertexMessageDatatype(g->getGlobalVertexIdDatatype());
 
 		this->result.first = new GlobalId[g->masterVerticesMaxCount()]();
 		this->result.second = new GraphDist[g->masterVerticesMaxCount()];

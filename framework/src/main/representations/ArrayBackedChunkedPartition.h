@@ -64,7 +64,7 @@ public:
 		gIdDatatype = MPI_DATATYPE_NULL;
 	};
 
-	MPI_Datatype geGlobalVertexIdDatatype() {
+	MPI_Datatype getGlobalVertexIdDatatype() {
 		/* type is registered lazily so that this implementation of GraphPartition can be used without
 		 * MPI runtime being initialized (i.e. in tests)
 		 */

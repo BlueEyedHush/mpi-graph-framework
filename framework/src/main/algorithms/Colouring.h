@@ -34,7 +34,7 @@ namespace details {
 	struct VertexTempData {
 		VertexTempData() : wait_counter(0) {}
 
-		std::set<int> used_colours;
+		std::set<VertexColour> used_colours;
 		int wait_counter;
 	};
 }

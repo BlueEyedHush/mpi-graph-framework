@@ -110,17 +110,19 @@ public:
 						unsigned long long neigh_num = g->toNumeric(neigh_id);
 						if (neigh_num < v_id_num) {
 							/* if it's larger it already has colour and is not interested */
-							if(g->toMasterNodeId(neigh_id) == nodeId) {
-								vertexDataMap[neigh_id.localId]->wait_counter -= 1;
-								vertexDataMap[neigh_id.localId]->used_colours.insert(chosen_colour);
+							auto neighNodeId = g->toMasterNodeId(neigh_id);
+							auto neighLocalId = g->toLocalId(neigh_id);
+							if(neighNodeId == nodeId) {
+								vertexDataMap[neighLocalId]->wait_counter -= 1;
+								vertexDataMap[neighLocalId]->used_colours.insert(chosen_colour);
 								LOG(INFO) << g->idToString(neigh_id) << "[" << neigh_num
 								          << "] is local, informing about colour "<< chosen_colour;
 							} else {
 								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
-								b->buffer.receiving_node_id = neigh_id.localId;
+								b->buffer.receiving_node_id = neighLocalId;
 								b->buffer.used_colour = chosen_colour;
 
-								MPI_Isend(&b->buffer, 1, mpi_message_type, neigh_id.nodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
+								MPI_Isend(&b->buffer, 1, mpi_message_type, neighNodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
 
 								LOG(INFO) << "Isend to " << g->idToString(neigh_id) << "[" << neigh_num << "] info that "
 								          << g->idToString(v_id) << "[" << v_id_num << "] has been coloured with "

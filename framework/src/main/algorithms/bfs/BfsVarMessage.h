@@ -26,7 +26,7 @@ public:
 		int worldSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
-		MPI_Datatype* vertexMessage = VertexM::createMpiDatatype(g->geGlobalVertexIdDatatype());
+		MPI_Datatype* vertexMessage = VertexM::createMpiDatatype(g->getGlobalVertexIdDatatype());
 
 		this->result.first = new GlobalId[g->masterVerticesMaxCount()]();
 		this->result.second = new int[g->masterVerticesMaxCount()];
@@ -60,10 +60,10 @@ public:
 
 					g->foreachNeighbouringVertex(vid, [&sendBuffers, vid, this, g](const GlobalId nid) {
 						VertexM vInfo;
-						vInfo.vertexId = nid.localId;
+						vInfo.vertexId = g->toLocalId(nid);
 						vInfo.predecessor = g->toGlobalId(vid);
 						vInfo.distance = this->getDistance(vid) + 1;
-						sendBuffers[nid.nodeId].push_back(vInfo);
+						sendBuffers[g->toMasterNodeId(nid)].push_back(vInfo);
 
 						return true;
 					});

@@ -88,7 +88,7 @@ public:
 	ALHPGraphPartition(ALHPGraphPartition&& g) = default;
 	ALHPGraphPartition& operator=(ALHPGraphPartition&& g) = default;
 
-	MPI_Datatype geGlobalVertexIdDatatype() { return data.gIdDatatype; }
+	MPI_Datatype getGlobalVertexIdDatatype() { return data.gIdDatatype; }
 
 	LocalId toLocalId(const GlobalId gid, VERTEX_TYPE* vtype = nullptr) {
 		if(vtype != nullptr) {

@@ -49,7 +49,7 @@ public:
 	 * Datatypes should be registers with MPI upon construction and deregistered during destruction
 	 * In particular, this helper shouldn't register the datatype -> it can be called more than once
 	 */
-	MPI_Datatype geGlobalVertexIdDatatype();
+	MPI_Datatype getGlobalVertexIdDatatype();
 
 	/**
 	 * Works only for locally stored vertices: masters and shadows (slaves)
@@ -63,7 +63,7 @@ public:
 	TNumericId toNumeric(const TGlobalId);
 	TNumericId toNumeric(const TLocalId);
 	std::string idToString(const TGlobalId);
-	std::string idToString(const TLocalId lId);
+	std::string idToString(const TLocalId);
 	bool isSame(const TGlobalId, const TGlobalId);
 	bool isValid(const TGlobalId);
 
