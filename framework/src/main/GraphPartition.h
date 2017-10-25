@@ -98,8 +98,27 @@ protected:
 struct TGVID {};
 
 class TestGP : public GraphPartition<TGVID, unsigned int, unsigned int> {
+private:
+	using P = GraphPartition<TGVID, unsigned int, unsigned int>;
+	IMPORT_ALIASES(P)
+
 public:
 	TestGP() {}
+	MPI_Datatype getGlobalVertexIdDatatype() {return MPI_DATATYPE_NULL;return 0;}
+	LocalId toLocalId(const GlobalId, VERTEX_TYPE* vtype = nullptr) {return 0;}
+	NodeId toMasterNodeId(const GlobalId) {return -1;}
+	GlobalId toGlobalId(const LocalId) {return TGVID();}
+	NumericId toNumeric(const GlobalId) {return 0;}
+	NumericId toNumeric(const LocalId) {return 0;}
+	std::string idToString(const GlobalId) {return "";}
+	std::string idToString(const LocalId) {return "";}
+	bool isSame(const GlobalId, const GlobalId) {return false;}
+	bool isValid(const GlobalId) {return false;}
+	void foreachMasterVertex(std::function<bool(const LocalId)>) {}
+	size_t masterVerticesCount() {return 0;}
+	size_t masterVerticesMaxCount() {return 0;}
+	void foreachCoOwner(LocalId, bool returnSelf, std::function<bool(const NodeId)>) {}
+	void foreachNeighbouringVertex(LocalId, std::function<bool(const GlobalId)>) {}
 };
 
 #endif //FRAMEWORK_GRAPH_H
