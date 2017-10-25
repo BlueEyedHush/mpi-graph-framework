@@ -46,11 +46,6 @@ struct ABCPGlobalVertexId {
 };
 
 /*
- * Each issues GlobalVertexId must be acccount for using freeGlobalId (excluding those returned during
- * internal iteration - those should never be freed)
- * Lifetime of each GlobalId is tied to lifetime of ABCP class which returned it (storing it somewhere is not a
- * good idea)
- *
  * For this representation, toNumeric always returns original ID (as loaded from file).
  */
 template <typename TLocalId, typename TNumId>

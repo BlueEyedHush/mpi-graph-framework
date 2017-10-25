@@ -23,9 +23,6 @@ enum VERTEX_TYPE {
 /**
  * Any method of this class (including special members) is guaranteed to be executed while MPI is up-and-working
  *
- * GraphPartition object retains ownership of all returned GlobalVertexId. Each no longer necessary GlobalVertexId
- * object should be explicitly released using free(GlobalVertexId&)
- *
  * Each vertex stored on local machine must have LocalId assigned (masters and shadows from other nodes). However,
  * all shadows should have ids larger than any master (first masters, then shadows).
  *
