@@ -34,6 +34,15 @@ struct ABCPGlobalVertexId {
 
 		return d;
 	}
+
+	/* used for testing, interface is GraphPartition::isSame */
+	bool operator==(const ABCPGlobalVertexId& o) const {
+		return nodeId == o.nodeId && localId == o.localId;
+	}
+
+	bool operator!=(const ABCPGlobalVertexId& o) const {
+		return !operator==(o);
+	}
 };
 
 /*
