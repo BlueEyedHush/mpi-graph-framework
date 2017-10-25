@@ -138,10 +138,10 @@ public:
 	}
 
 
-	void foreachMasterVertex(std::function<bool(const LocalId)> f) {
-		bool shouldStop = false;
-		for(TLocalId vid = 0; vid < vCount && !shouldStop; vid++) {
-			shouldStop = f(vid);
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)> f) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(TLocalId vid = 0; vid < vCount && ip == CONTINUE; vid++) {
+			ip = f(vid);
 		}
 	}
 
@@ -153,20 +153,20 @@ public:
 		return data.offsetTableWinSize;
 	}
 
-	void foreachCoOwner(const LocalId lid, bool returnSelf, std::function<bool(const NodeId)> f) {
+	void foreachCoOwner(const LocalId lid, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
 		if(returnSelf) {
 			f(data.world_rank);
 		}
 	}
 
-	void foreachNeighbouringVertex(const LocalId id, std::function<bool(const GlobalId)> f) {
+	void foreachNeighbouringVertex(const LocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
 		auto startPos = data.offsetTableWinMem[id];
 		auto endPos = (id < vCount-1) ? data.offsetTableWinMem[id+1] : eCount;
 
-		bool shouldStop = false;
-		for(LocalVertexId i = startPos; i < endPos && !shouldStop; i++) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(LocalVertexId i = startPos; i < endPos && ip == CONTINUE; i++) {
 			GlobalId neighId = data.adjListWinMem[i];
-			shouldStop = f(neighId);
+			ip = f(neighId);
 		}
 	};
 

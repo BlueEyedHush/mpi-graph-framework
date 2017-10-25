@@ -44,9 +44,9 @@ void callEachGpFunction(TGraphPartition& gp) {
 	GlobalId globalId;
 	LocalId localId = 0;
 	VERTEX_TYPE vtype;
-	auto nodeIdConsumer = [](const NodeId) {return true;};
-	auto localIdconsumer = [](const LocalId) {return true;};
-	auto globalIdconsumer = [](const GlobalId) {return true;};
+	auto nodeIdConsumer = [](const NodeId) {return ITER_PROGRESS::STOP;};
+	auto localIdconsumer = [](const LocalId) {return ITER_PROGRESS::STOP;};
+	auto globalIdconsumer = [](const GlobalId) {return ITER_PROGRESS::STOP;};
 
 	gp.getGlobalVertexIdDatatype();
 	gp.toLocalId(globalId, &vtype);

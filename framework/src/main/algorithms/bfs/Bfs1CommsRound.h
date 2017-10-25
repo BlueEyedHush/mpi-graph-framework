@@ -67,7 +67,7 @@ public:
 						sendBuffers[g->toMasterNodeId(nid)].push_back(vInfo);
 						weSentAnything = true;
 
-						return true;
+						return ITER_PROGRESS::CONTINUE;
 					});
 				}
 			}

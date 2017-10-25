@@ -20,6 +20,11 @@ enum VERTEX_TYPE {
 	NON_LOCAL
 };
 
+enum ITER_PROGRESS {
+	STOP,
+	CONTINUE,
+};
+
 /**
  * Any method of this class (including special members) is guaranteed to be executed while MPI is up-and-working
  *
@@ -66,17 +71,17 @@ public:
 
 
 
-	void foreachMasterVertex(std::function<bool(const TLocalId)>);
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const TLocalId)>);
 	size_t masterVerticesCount();
 	size_t masterVerticesMaxCount();
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	void foreachCoOwner(TLocalId, bool returnSelf, std::function<bool(const NodeId)>);
+	void foreachCoOwner(TLocalId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)>);
 	/**
 	 * Works with both masters and shadows
 	 */
-	void foreachNeighbouringVertex(TLocalId, std::function<bool(const TGlobalId)>);
+	void foreachNeighbouringVertex(TLocalId, std::function<ITER_PROGRESS (const TGlobalId)>);
 
 protected:
 	/* to prevent anybody from using this class as more than reference */
@@ -111,11 +116,11 @@ public:
 	std::string idToString(const LocalId) {return "";}
 	bool isSame(const GlobalId, const GlobalId) {return false;}
 	bool isValid(const GlobalId) {return false;}
-	void foreachMasterVertex(std::function<bool(const LocalId)>) {}
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)>) {}
 	size_t masterVerticesCount() {return 0;}
 	size_t masterVerticesMaxCount() {return 0;}
-	void foreachCoOwner(LocalId, bool returnSelf, std::function<bool(const NodeId)>) {}
-	void foreachNeighbouringVertex(LocalId, std::function<bool(const GlobalId)>) {}
+	void foreachCoOwner(LocalId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)>) {}
+	void foreachNeighbouringVertex(LocalId, std::function<ITER_PROGRESS (const GlobalId)>) {}
 };
 
 #endif //FRAMEWORK_GRAPH_H

@@ -81,7 +81,7 @@ public:
 							currBuffer->vidCount += 1;
 						}
 
-						return true;
+						return ITER_PROGRESS::CONTINUE;
 					});
 				}
 			}

@@ -43,13 +43,13 @@ TEST(TEST_NAME, LocalVertexCorrectness) {
 	std::unordered_set<LocalId> actualVertexId0;
 	gp0->foreachMasterVertex([&actualVertexId0](const LocalId id) {
 		actualVertexId0.insert(id);
-		return true;
+		return CONTINUE;
 	});
 
 	std::unordered_set<LocalId> actualVertexId1;
 	gp1->foreachMasterVertex([&actualVertexId1](const LocalId id) {
 		actualVertexId1.insert(id);
-		return true;
+		return CONTINUE;
 	});
 
 	std::unordered_set<LocalId> expectedLocalVertices = {0,1};
@@ -111,7 +111,7 @@ TEST(TEST_NAME, ForEachNeighbouringVertex) {
 
 	gp->foreachNeighbouringVertex(gid3.localId, [&actualNeighbours, &gp](const GlobalId& nid) {
 		actualNeighbours.insert(gp->toNumeric(nid));
-		return true;
+		return CONTINUE;
 	});
 
 	ASSERT_EQ(expectedNeighbours, actualNeighbours);

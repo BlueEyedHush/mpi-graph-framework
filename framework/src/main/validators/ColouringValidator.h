@@ -66,10 +66,10 @@ public: /* @todo: finish rewriting validator */
 					});
 				}
 
-				return true;
+				return ITER_PROGRESS::CONTINUE;
 			});
 
-			return true;
+			return ITER_PROGRESS::CONTINUE;
 		});
 
 		LOG(INFO) << "Local vertices scanned, flushing window";

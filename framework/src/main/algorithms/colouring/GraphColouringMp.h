@@ -73,12 +73,12 @@ public:
 					LOG(INFO) << "Rejected!";
 				}
 
-				return true;
+				return ITER_PROGRESS::CONTINUE;
 			});
 
 			LOG(INFO) << "Waiting for %d nodes to establish colouring";
 
-			return true;
+			return ITER_PROGRESS::CONTINUE;
 		});
 
 		LOG(INFO) << "Finished gathering information about neighbours";
@@ -130,14 +130,14 @@ public:
 							}
 						}
 
-						return true;
+						return ITER_PROGRESS::CONTINUE;
 					});
 					LOG(INFO) << "Informed neighbours about colour being chosen";
 
 					vertexDataMap[v_id]->wait_counter = -1;
 					coloured_count += 1;
 
-					return true;
+					return ITER_PROGRESS::CONTINUE;
 				}
 			});
 			LOG(INFO) << "Finished processing of 0-wait-count vertices";

@@ -134,7 +134,7 @@ namespace details {
 					}
 				}
 
-				return true;
+				return ITER_PROGRESS::CONTINUE;
 			});
 			LOG(INFO) << "Informed neighbours about colour being chosen";
 			*gd->coloured_count += 1;
@@ -257,7 +257,7 @@ public:
 					LOG(INFO) << "Rejected!";
 				}
 
-				return true;
+				return ITER_PROGRESS::CONTINUE;
 			});
 
 			vertexDataMap[v_id]->wait_counter += wait_counter;
@@ -267,7 +267,7 @@ public:
 
 			LOG(INFO) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " nodes to establish colouring";
 
-			return true;
+			return ITER_PROGRESS::CONTINUE;
 		});
 
 		LOG(INFO) << "Finished gathering information about neighbours";

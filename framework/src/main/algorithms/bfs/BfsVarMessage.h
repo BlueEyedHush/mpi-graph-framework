@@ -65,7 +65,7 @@ public:
 						vInfo.distance = this->getDistance(vid) + 1;
 						sendBuffers[g->toMasterNodeId(nid)].push_back(vInfo);
 
-						return true;
+						return CONTINUE;
 					});
 				}
 			}

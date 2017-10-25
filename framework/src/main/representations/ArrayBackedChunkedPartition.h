@@ -111,10 +111,10 @@ public:
 		return id.nodeId >= 0;
 	}
 
-	void foreachMasterVertex(std::function<bool(const TLocalId)> f) {
-		bool shouldStop = false;
-		for(TLocalId vid = 0; vid < localVertexCount && !shouldStop; vid++) {
-			shouldStop = f(vid);
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const TLocalId)> f) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(TLocalId vid = 0; vid < localVertexCount && ip == CONTINUE; vid++) {
+			ip = f(vid);
 		}
 	};
 	size_t masterVerticesCount() { return localVertexCount; };
@@ -122,7 +122,7 @@ public:
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
-	void foreachCoOwner(TLocalId id, bool returnSelf, std::function<bool(const NodeId)> f) {
+	void foreachCoOwner(TLocalId id, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
 		if(returnSelf) {
 			f(nodeId);
 		}
@@ -130,13 +130,13 @@ public:
 	/**
 	 * Works with both masters and shadows
 	 */
-	void foreachNeighbouringVertex(TLocalId id, std::function<bool(const GlobalId)> f) {
+	void foreachNeighbouringVertex(TLocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
 		assert(id < localVertexCount);
 		auto neighbourList = adjacencyList[id];
 
-		bool shouldStop = false;
-		for(size_t neighId = 0; neighId < neighbourList.size() && !shouldStop; neighId++) {
-			shouldStop = f(neighbourList.at(neighId));
+		ITER_PROGRESS ip = CONTINUE;
+		for(size_t neighId = 0; neighId < neighbourList.size() && ip == CONTINUE; neighId++) {
+			ip = f(neighbourList.at(neighId));
 		}
 	};
 
@@ -180,14 +180,15 @@ public:
 		size_t vertexCount = range.second - range.first;
 
 		// skip vertices that are not our responsibility
-		for(int i = 0; i < range.first; i++) {
-			reader.getVertexCount();
+		for(int i = 0; i < partitionStart; i++) {
+			reader.getNextVertex();
 		}
 
 		auto* allLocalVertices = new std::vector<ABCPGlobalVertexId<LocalId>>[vertexCount];
 		for(size_t i = 0; i < vertexCount; i++) {
 			VertexSpec<OriginalVertexId> vs = *reader.getNextVertex();
-			std::transform(vs.neighbours.begin(), vs.neighbours.end(), std::back_inserter(allLocalVertices[vs.vertexId]),
+			auto idFrom0 = vs.vertexId - partitionStart;
+			std::transform(vs.neighbours.begin(), vs.neighbours.end(), std::back_inserter(allLocalVertices[idFrom0]),
 			               [=](OriginalVertexId nid) {
 				               return ABCPGlobalVertexId<LocalId>(partitionId, static_cast<TLocalId>(nid) - partitionStart);
 			               });
