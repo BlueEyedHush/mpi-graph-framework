@@ -173,7 +173,7 @@ public:
 	                 size_t partitionCount,
 	                 size_t partitionId,
 	                 std::vector<OriginalVertexId> verticesToConvert)
-			: P(verticesToConvert), path(path), partitionsCount(partitionCount), partitionId(partitionId)
+			: P(verticesToConvert, destroyGraph), path(path), partitionsCount(partitionCount), partitionId(partitionId)
 	{
 
 	};
@@ -225,14 +225,14 @@ protected:
 		return std::make_pair(gp, convertedVertices);
 	};
 
-	void destroyGraph(G* g) override {
-		delete g;
-	}
-
 private:
 	std::string path;
 	size_t partitionsCount;
 	size_t partitionId;
+
+	static void destroyGraph(G* g) {
+		delete g;
+	}
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

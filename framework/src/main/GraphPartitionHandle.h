@@ -40,7 +40,7 @@ public:
 	 */
 	void releaseGraph() {
 		if(initialized) {
-			destroyGraph(graph);
+			destroyer(graph);
 			graph = nullptr;
 			convertedVertices.clear();
 
@@ -53,19 +53,27 @@ public:
 	};
 
 protected:
-	/* to prevent direct instantiation of this class */
-	GraphPartitionHandle(std::vector<OriginalVertexId> verticesToConvert)
-			: verticesToConvert(verticesToConvert), initialized(false), graph(nullptr) {};
+	using GraphDestroyer = void(*)(TGraphPartition*);
 
-	/* for concrete subclasses to implement */
+	/**
+	 *
+	 * @param verticesToConvert
+	 * @param destroyer I started with virtual inheritance, but switched to composition - virtual functions behave
+	 * rather weiredly when called from destructor (which makes sense - ordinary mechanism would dispatch it on
+	 * partially destructed object /since child destructors has already been executed/). This means that destroyer
+	 * should not use handler object - static function'd be best.
+	 */
+	GraphPartitionHandle(std::vector<OriginalVertexId> verticesToConvert, GraphDestroyer destroyer)
+			: verticesToConvert(verticesToConvert), initialized(false), graph(nullptr), destroyer(destroyer) {};
+
 	virtual std::pair<TGraphPartition*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert) = 0;
-	virtual void destroyGraph(TGraphPartition*) = 0;
 
 private:
 	const std::vector<OriginalVertexId> verticesToConvert;
 	bool initialized;
 	TGraphPartition* graph;
 	std::vector<GlobalId> convertedVertices;
+	GraphDestroyer destroyer;
 
 	void initialize() {
 		std::tie(graph, convertedVertices) = buildGraph(verticesToConvert);

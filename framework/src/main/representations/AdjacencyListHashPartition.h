@@ -191,13 +191,13 @@ private:
 	using Gd = details::GraphData<LocalId, GlobalId>;
 
 public:
-	ALHGraphHandle(std::string path, std::vector<OriginalVertexId> verticesToConvert)
-			: P(verticesToConvert), path(path)
+	ALHGraphHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
+			: P(verticesToConv, destroyGraph), path(path)
 	{
 
 	};
 
-protected:
+private:
 	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert) {
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
@@ -442,13 +442,15 @@ protected:
 		return std::make_pair(gp, cvv);
 	}
 
-	void destroyGraph(G* g) {
-		MPI_Type_free(&(g->data.gIdDatatype));
-		delete g;
-	}
+
 
 private:
 	std::string path;
+
+	static void destroyGraph(G* g) {
+		MPI_Type_free(&(g->data.gIdDatatype));
+		delete g;
+	}
 };
 
 #endif //FRAMEWORK_ADJACENCYLISTHASHPARTITION_H

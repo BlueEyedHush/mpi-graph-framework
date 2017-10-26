@@ -102,12 +102,12 @@ TEST(ABCPGraphBuilder, GraphBuilding) {
 
 TEST(ABCPGraphBuilder, VertexConversion) {
 	auto path = std::string(stgPath);
-	ABCGraphHandle<LocalId,NumericId> builder0(stgPath, 2, 0, {});
+	ABCGraphHandle<LocalId,NumericId> builder0(stgPath, 2, 0, {0, 3});
 
 	auto gp = builder0.getGraph();
 	auto cv = builder0.getConvertedVertices();
 
-	ASSERT_TRUE(cv.size() == 2);
+	ASSERT_EQ(cv.size(), 2);
 	ASSERT_EQ(cv[0], GlobalId(0,0));
 	ASSERT_EQ(cv[1], GlobalId(1,1));
 }
