@@ -162,15 +162,24 @@ private:
 };
 
 template <typename TLocalId, typename TNumId>
-class ABCPGraphBuilder : public GraphPartitionHandle<ArrayBackedChunkedPartition<TLocalId, TNumId>> {
+class ABCGraphHandle : public GraphPartitionHandle<ArrayBackedChunkedPartition<TLocalId, TNumId>> {
 private:
 	using G = ArrayBackedChunkedPartition<TLocalId, TNumId>;
+	using P = GraphPartitionHandle<G>;
 	IMPORT_ALIASES(G)
 
 public:
-	ABCPGraphBuilder(size_t partitionCount, size_t partitionId) : P(partitionCount), partitionId(partitionId) {};
+	ABCGraphHandle(std::string path,
+	                 size_t partitionCount,
+	                 size_t partitionId,
+	                 std::vector<OriginalVertexId> verticesToConvert)
+			: P(verticesToConvert), path(path), partitionsCount(partitionCount), partitionId(partitionId)
+	{
 
-	G* buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
+	};
+
+protected:
+	std::pair<G*, std::vector<GlobalId>>  buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
 		using namespace IndexPartitioner;
 
 		/* read headers to learn how much vertices present */
@@ -178,7 +187,7 @@ public:
 		auto vCount = reader.getVertexCount();
 
 		/* get our range */
-		auto range = get_range_for_partition(vCount, P, partitionId);
+		auto range = get_range_for_partition(vCount, partitionsCount, partitionId);
 		auto partitionStart = range.first;
 		size_t vertexCount = range.second - range.first;
 
@@ -187,45 +196,43 @@ public:
 			reader.getNextVertex();
 		}
 
-		auto* allLocalVertices = new std::vector<ABCPGlobalVertexId<LocalId>>[vertexCount];
+		auto* allLocalVertices = new std::vector<GlobalId>[vertexCount];
 		for(size_t i = 0; i < vertexCount; i++) {
 			VertexSpec<OriginalVertexId> vs = *reader.getNextVertex();
 			auto idFrom0 = vs.vertexId - partitionStart;
 			std::transform(vs.neighbours.begin(), vs.neighbours.end(), std::back_inserter(allLocalVertices[idFrom0]),
 			               [=](OriginalVertexId nid) {
-				               auto targetPartition = get_partition_from_index(vCount, P, nid);
-				               auto targetPartitionStart = get_range_for_partition(vCount, P, targetPartition).first;
+				               auto targetPartition = get_partition_from_index(vCount, partitionsCount, nid);
+				               auto targetPartitionStart = get_range_for_partition(vCount, partitionsCount, targetPartition).first;
 				               return ABCPGlobalVertexId<LocalId>(targetPartition,
 				                                                  static_cast<TLocalId>(nid) - targetPartitionStart);
 			               });
 		}
 
 		/* convert vertices */
-		convertedVertices.clear();
+		std::vector<GlobalId> convertedVertices;
 		for(auto oId: verticesToConvert) {
-			int partitionId = IndexPartitioner::get_partition_from_index(reader.getVertexCount(), P, oId);
-			int rangeStart = IndexPartitioner::get_range_for_partition(reader.getVertexCount(), P, partitionId).first;
+			int partitionId = IndexPartitioner::get_partition_from_index(reader.getVertexCount(), partitionsCount, oId);
+			int rangeStart = IndexPartitioner::get_range_for_partition(reader.getVertexCount(), partitionsCount, partitionId).first;
 			convertedVertices.push_back(ABCPGlobalVertexId<LocalId>(partitionId, oId - rangeStart));
 		}
 
 		/* if anybody gets more than others, it'll be first partition */
-		auto longestRange = IndexPartitioner::get_range_for_partition(vCount, P, 0);
-		return new G(allLocalVertices, vertexCount, longestRange.second - longestRange.first,
-		                                       partitionId, partitionStart, vCount, P);
+		auto longestRange = IndexPartitioner::get_range_for_partition(vCount, partitionsCount, 0);
+		auto* gp =  new G(allLocalVertices, vertexCount, longestRange.second - longestRange.first,
+		                  partitionId, partitionStart, vCount, partitionsCount);
+
+		return std::make_pair(gp, convertedVertices);
 	};
 
-	std::vector<ABCPGlobalVertexId<LocalId>> getConvertedVertices() {
-		return convertedVertices;
-	}
-
-	void destroyGraph(const G* g) {
+	void destroyGraph(G* g) override {
 		delete g;
 	}
 
 private:
-	size_t P;
+	std::string path;
+	size_t partitionsCount;
 	size_t partitionId;
-	std::vector<ABCPGlobalVertexId<LocalId>> convertedVertices;
 };
 
 #endif //FRAMEWORK_SIMPLESTATICGRAPH_H

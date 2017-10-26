@@ -21,7 +21,7 @@ TEST(BfsValidator, AcceptsCorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	ABCPGraphBuilder<TestLocalId, TestNumId>  builder(size, rank);
+	ABCGraphHandle<TestLocalId, TestNumId>  builder(size, rank);
 	auto* gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
 	auto bfsRoot = builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";
@@ -45,7 +45,7 @@ TEST(BfsValidator, RejectsIncorrectSolutionForSTG) {
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	ABCPGraphBuilder<TestLocalId, TestNumId> builder(size, rank);
+	ABCGraphHandle<TestLocalId, TestNumId> builder(size, rank);
 	auto gp = builder.buildGraph("resources/test/SimpleTestGraph.adjl", {0});
 	auto bfsRoot = builder.getConvertedVertices()[0];
 	LOG(INFO) << "Loaded graph from file";

@@ -19,9 +19,9 @@ T* uglyInstantiation() {
  * Builders and representations
  */
 #include <representations/ArrayBackedChunkedPartition.h>
-using ABCP_GB = ABCPGraphBuilder<int,int>;
+using ABCP_GB = ABCGraphHandle<int,int>;
 using ABCP_GP = ArrayBackedChunkedPartition<int,int>;
-using ABCP_GB_U = ABCPGraphBuilder<size_t,size_t>;
+using ABCP_GB_U = ABCGraphHandle<size_t,size_t>;
 using ABCP_GP_U = ArrayBackedChunkedPartition<size_t,size_t>;
 
 #include <representations/AdjacencyListHashPartition.h>

@@ -34,8 +34,8 @@ int V_OFFSETS[V_N] = {
 
 
 TEST(TEST_NAME, LocalVertexCorrectness) {
-	ABCPGraphBuilder<LocalId,NumericId> b0(2, 0);
-	ABCPGraphBuilder<LocalId,NumericId> b1(2, 1);
+	ABCGraphHandle<LocalId,NumericId> b0(2, 0);
+	ABCGraphHandle<LocalId,NumericId> b1(2, 1);
 
 	auto gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 	auto gp1 = b1.buildGraph("resources/test/SimpleTestGraph.adjl", {});
@@ -61,7 +61,7 @@ TEST(TEST_NAME, LocalVertexCorrectness) {
 }
 
 TEST(TEST_NAME, ToMasterNodeId) {
-	ABCPGraphBuilder<LocalId,NumericId> b0(2, 0);
+	ABCGraphHandle<LocalId,NumericId> b0(2, 0);
 
 	auto gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 
@@ -72,8 +72,8 @@ TEST(TEST_NAME, ToMasterNodeId) {
 }
 
 TEST(TEST_NAME, ToNumeric) {
-	ABCPGraphBuilder<LocalId,NumericId> b0(2, 0);
-	ABCPGraphBuilder<LocalId,NumericId> b1(2, 1);
+	ABCGraphHandle<LocalId,NumericId> b0(2, 0);
+	ABCGraphHandle<LocalId,NumericId> b1(2, 1);
 
 	auto* gp0 = b0.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 	auto* gp1 = b1.buildGraph("resources/test/SimpleTestGraph.adjl", {});
@@ -93,7 +93,7 @@ TEST(TEST_NAME, ToNumeric) {
 }
 
 TEST(TEST_NAME, ForEachNeighbouringVertex) {
-	ABCPGraphBuilder<LocalId,NumericId> b(2, 1);
+	ABCGraphHandle<LocalId,NumericId> b(2, 1);
 
 	auto gp = b.buildGraph("resources/test/SimpleTestGraph.adjl", {});
 
@@ -121,7 +121,7 @@ TEST(TEST_NAME, ForEachNeighbouringVertex) {
 
 TEST(ABCPGraphBuilder, GraphBuilding) {
 	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	ABCPGraphBuilder<LocalId,NumericId> builder0(2, 0);
+	ABCGraphHandle<LocalId,NumericId> builder0(2, 0);
 
 	auto gp = builder0.buildGraph(path, {});
 
@@ -132,7 +132,7 @@ TEST(ABCPGraphBuilder, GraphBuilding) {
 
 TEST(ABCPGraphBuilder, VertexConversion) {
 	auto path = std::string("resources/test/SimpleTestGraph.adjl");
-	ABCPGraphBuilder<LocalId,NumericId> builder0(2, 0);
+	ABCGraphHandle<LocalId,NumericId> builder0(2, 0);
 
 	auto gp = builder0.buildGraph(path, {0, 3});
 	auto cv = builder0.getConvertedVertices();

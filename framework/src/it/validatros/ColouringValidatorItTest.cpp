@@ -15,7 +15,7 @@ static void executeTest(std::string graphPath, std::string solutionPath, bool ex
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	using GB = ABCPGraphBuilder<int,int>;
+	using GB = ABCGraphHandle<int,int>;
 	GB builder(size, rank);
 	auto gp = builder.buildGraph(graphPath, {});
 	int *ps = loadPartialIntSolution<int>(solutionPath, size, rank);
