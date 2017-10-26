@@ -33,7 +33,7 @@ static void executeTest(std::string graphPath)
 }
 
 template <template<typename> class TAlgo>
-using executeColouringTest = decltype(executeTest<ALHPGraphBuilder, TAlgo, ColouringValidator>(""));
+using executeColouringTest = decltype(executeTest<ALHGraphHandle, TAlgo, ColouringValidator>(""));
 
 TEST(ColouringMPAsync, FindsCorrectSolutionForSTG) {
 	executeColouringTest<GraphColouringMPAsync>("resources/test/SimpleTestGraph.adjl");

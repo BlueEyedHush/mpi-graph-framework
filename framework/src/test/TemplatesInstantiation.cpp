@@ -25,9 +25,9 @@ using ABCP_GB_U = ABCGraphHandle<size_t,size_t>;
 using ABCP_GP_U = ArrayBackedChunkedPartition<size_t,size_t>;
 
 #include <representations/AdjacencyListHashPartition.h>
-using ALHP_GB = ALHPGraphBuilder<int,int>;
+using ALHP_GB = ALHGraphHandle<int,int>;
 using ALHP_GP = ALHPGraphPartition<int,int>;
-using ALHP_GB_U = ALHPGraphBuilder<size_t,size_t>;
+using ALHP_GB_U = ALHGraphHandle<size_t,size_t>;
 using ALHP_GP_U = ALHPGraphPartition<size_t,size_t>;
 
 template <typename TGraphBuilder>

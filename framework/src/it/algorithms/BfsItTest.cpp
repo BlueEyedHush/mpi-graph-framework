@@ -36,42 +36,42 @@ static void executeTest(std::string graphPath, ull originalRootId)
 
 TEST(Bfs_Mp_FixedMsgLen_1D_2CommRounds, FindsCorrectSolutionForSTG) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_FixedMsgLen_1D_2CommRounds,
 			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_FixedMsgLen_1D_2CommRounds, FindsCorrectSolutionForComplete50) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_FixedMsgLen_1D_2CommRounds,
 			BfsValidator>("resources/test/complete50.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_2CommRounds, FindsCorrectSolutionForSTG) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_VarMsgLen_1D_2CommRounds,
 			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_2CommRounds, FindsCorrectSolutionForComplete50) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_VarMsgLen_1D_2CommRounds,
 			BfsValidator>("resources/test/complete50.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForSTG) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_VarMsgLen_1D_1CommsTag,
 			BfsValidator>("resources/test/SimpleTestGraph.adjl", 0);
 }
 
 TEST(Bfs_Mp_VarMsgLen_1D_1CommsTag, FindsCorrectSolutionForComplete50) {
 	executeTest<
-			ALHPGraphBuilder,
+			ALHGraphHandle,
 			Bfs_Mp_VarMsgLen_1D_1CommsTag,
 			BfsValidator>("resources/test/complete50.adjl", 0);
 }

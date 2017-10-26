@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <sstream>
+#include <cstring>
 #include <boost/pool/pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
@@ -73,7 +74,7 @@ struct ALHPGlobalVertexId {
 	}
 };
 
-template <typename TLocalId, typename TNumId> class ALHPGraphBuilder;
+template <typename TLocalId, typename TNumId> class ALHGraphHandle;
 
 template <typename TLocalId, typename TNumId> 
 class ALHPGraphPartition : public GraphPartition<ALHPGlobalVertexId<TLocalId>, TLocalId, TNumId> {
@@ -178,27 +179,26 @@ private:
 	TLocalId vCount;
 	TLocalId eCount;
 
-	friend ALHPGraphBuilder<LocalId, NumericId>;
+	friend ALHGraphHandle<LocalId, NumericId>;
 };
 
 template <typename TLocalId, typename TNumId>
-class ALHPGraphBuilder : public GraphPartitionHandle<ALHPGraphPartition<TLocalId, TNumId>> {
+class ALHGraphHandle : public GraphPartitionHandle<ALHPGraphPartition<TLocalId, TNumId>> {
 private:
 	using G = ALHPGraphPartition<TLocalId, TNumId>;
+	using P = GraphPartitionHandle<G>;
 	IMPORT_ALIASES(G)
 	using Gd = details::GraphData<LocalId, GlobalId>;
 
 public:
-	ALHPGraphBuilder() : convertedVertices(nullptr), convertedVerticesCount(0) {};
+	ALHGraphHandle(std::string path, std::vector<OriginalVertexId> verticesToConvert)
+			: P(verticesToConvert), path(path)
+	{
 
-	~ALHPGraphBuilder() {
-		if(convertedVertices != nullptr) {
-			assert(convertedVerticesCount != 0);
-			delete[] convertedVertices;
-		}
- 	}
+	};
 
-	G* buildGraph(std::string path, std::vector<OriginalVertexId> verticesToConvert) {
+protected:
+	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert) {
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
 		using namespace details;
@@ -240,10 +240,9 @@ public:
 		MPI_Win_lock_all(0, adjListWin);
 		MPI_Win_lock_all(0, offsetTableWin);
 
+		GlobalId* convertedVertices;
 		auto vertToConvCount = verticesToConvert.size();
 		if(vertToConvCount > 0) {
-			convertedVerticesCount = vertToConvCount;
-
 			convertedVertices = new GlobalId[vertToConvCount];
 			MPI_Win_create(convertedVertices,
 			               vertToConvCount*sizeof(GlobalId),
@@ -438,11 +437,9 @@ public:
 		d.world_rank = world_rank;
 		d.world_size = world_size;
 
-		return new ALHPGraphPartition<LocalId, NumericId>(d);
-	}
-
-	std::vector<GlobalId> getConvertedVertices() {
-		return std::vector<GlobalId> (convertedVertices, convertedVertices + convertedVerticesCount);
+		auto cvv = std::vector<GlobalId> (convertedVertices, convertedVertices + vertToConvCount);
+		auto *gp = new ALHPGraphPartition<LocalId, NumericId>(d);
+		return std::make_pair(gp, cvv);
 	}
 
 	void destroyGraph(G* g) {
@@ -451,8 +448,7 @@ public:
 	}
 
 private:
-	GlobalId* convertedVertices;
-	size_t convertedVerticesCount;
+	std::string path;
 };
 
 #endif //FRAMEWORK_ADJACENCYLISTHASHPARTITION_H
