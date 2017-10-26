@@ -15,21 +15,20 @@ template <
 		template<typename> class TBfsValidator>
 static void executeTest(std::string graphPath, ull originalRootId)
 {
-	auto *graphBuilder = new TGraphBuilder<int,int>();
-	auto *g = graphBuilder->buildGraph(graphPath, {originalRootId});
+	auto *graphHandle = new TGraphBuilder<int,int>(graphPath, {originalRootId});
+	auto& g = graphHandle->getGraph();
 
 	using TGP = typename TGraphBuilder<int,int>::GPType;
 	using TResult = typename TBfsAlgo<TGP>::ResultType;
 
-	auto bfsRoot = graphBuilder->getConvertedVertices()[0];
+	auto bfsRoot = graphHandle->getConvertedVertices()[0];
 	auto* algo = new TBfsAlgo<TGP>(bfsRoot);
 	auto* validator = new TBfsValidator<TGP>(bfsRoot);
-	AlgorithmExecutionResult r = runAndCheck(g, *algo, *validator);
+	AlgorithmExecutionResult r = runAndCheck(&g, *algo, *validator);
 
 	delete validator;
 	delete algo;
-	delete graphBuilder;
-	graphBuilder->destroyGraph(g);
+	delete graphHandle;
 	ASSERT_TRUE(r.algorithmStatus);
 	ASSERT_TRUE(r.validatorStatus);
 }

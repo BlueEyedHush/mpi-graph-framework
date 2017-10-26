@@ -89,7 +89,7 @@ std::tuple<NodeId*, TLocalId*, GraphDist*, size_t> loadBfsSolutionFromFile(std::
 }
 
 template <typename TLocalId, typename TGlobalId>
-std::pair<TGlobalId*, int*> bfsSolutionAsGids(std::string path, int partitionCount, int partitionId) {
+std::pair<TGlobalId*, GraphDist*> bfsSolutionAsGids(std::string path, int partitionCount, int partitionId) {
 	NodeId* nIds;
 	TLocalId* lIds;
 	GraphDist* dists;
@@ -106,6 +106,12 @@ std::pair<TGlobalId*, int*> bfsSolutionAsGids(std::string path, int partitionCou
 	delete[] lIds;
 
 	return std::make_pair(arr, dists);
+}
+
+template <class TGlobalId>
+void bfsSolutionAsGidsDestroy(std::pair<TGlobalId*, GraphDist*> valueReturned) {
+	delete[] valueReturned.first;
+	delete[] valueReturned.second;
 }
 
 #define CAP_PRINT(EXPR) #EXPR ": " << EXPR << " "

@@ -31,10 +31,10 @@ using ALHP_GB_U = ALHGraphHandle<size_t,size_t>;
 using ALHP_GP_U = ALHPGraphPartition<size_t,size_t>;
 
 template <typename TGraphBuilder>
-void callEachGbFunction(TGraphBuilder& builder) {
-	builder.buildGraph("", {});
+void callEachGhFunction(TGraphBuilder &builder) {
+	builder.getGraph();
 	builder.getConvertedVertices();
-	builder.destroyGraph(uglyInstantiation<typename TGraphBuilder::GPType>());
+	builder.releaseGraph();
 }
 
 template <typename TGraphPartition>
@@ -71,10 +71,10 @@ void testBuildersAndGraphs() {
 	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
 	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
 
-	callEachGbFunction(*uglyInstantiation<ABCP_GB>());
-	callEachGbFunction(*uglyInstantiation<ALHP_GB>());
-	callEachGbFunction(*uglyInstantiation<ABCP_GB_U>());
-	callEachGbFunction(*uglyInstantiation<ALHP_GB_U>());
+	callEachGhFunction(*uglyInstantiation<ABCP_GB>());
+	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
+	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
+	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
 }
 
 /*
