@@ -11,7 +11,7 @@
 #include <glog/logging.h>
 #include <boost/pool/object_pool.hpp>
 #include <GraphPartition.h>
-#include <GraphBuilder.h>
+#include <GraphPartitionHandle.h>
 #include <utils/IndexPartitioner.h>
 #include <utils/AdjacencyListReader.h>
 #include <utils/MpiTypemap.h>
@@ -162,7 +162,7 @@ private:
 };
 
 template <typename TLocalId, typename TNumId>
-class ABCPGraphBuilder : public GraphBuilder<ArrayBackedChunkedPartition<TLocalId, TNumId>> {
+class ABCPGraphBuilder : public GraphPartitionHandle<ArrayBackedChunkedPartition<TLocalId, TNumId>> {
 private:
 	using G = ArrayBackedChunkedPartition<TLocalId, TNumId>;
 	IMPORT_ALIASES(G)

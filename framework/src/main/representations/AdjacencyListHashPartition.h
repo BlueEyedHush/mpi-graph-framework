@@ -8,7 +8,7 @@
 #include <vector>
 #include <sstream>
 #include <boost/pool/pool.hpp>
-#include <GraphBuilder.h>
+#include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/MpiTypemap.h>
 #include <utils/AdjacencyListReader.h>
@@ -182,7 +182,7 @@ private:
 };
 
 template <typename TLocalId, typename TNumId>
-class ALHPGraphBuilder : public GraphBuilder<ALHPGraphPartition<TLocalId, TNumId>> {
+class ALHPGraphBuilder : public GraphPartitionHandle<ALHPGraphPartition<TLocalId, TNumId>> {
 private:
 	using G = ALHPGraphPartition<TLocalId, TNumId>;
 	IMPORT_ALIASES(G)

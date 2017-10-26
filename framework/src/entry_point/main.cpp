@@ -75,7 +75,7 @@ int main(const int argc, const char** argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
 
-	GraphBuilder *graphBuilder = new ALHPGraphBuilder();
+	GraphPartitionHandle *graphBuilder = new ALHPGraphBuilder();
 	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath, {0L});
 	delete graphBuilder;
 
