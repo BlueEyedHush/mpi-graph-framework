@@ -16,8 +16,7 @@ struct AlgorithmExecutionResult {
 };
 
 template<class TGraphPartition, typename TAlgorithm, typename TValidator>
-AlgorithmExecutionResult runAndCheck(TGraphPartition* graph, TAlgorithm& algorithm, TValidator& validator)
-{
+AlgorithmExecutionResult runAndCheck(TGraphPartition* graph, TAlgorithm& algorithm, TValidator& validator) {
 	AlgorithmExecutionResult r;
 
 	r.algorithmStatus = algorithm.run(graph);

@@ -7,8 +7,8 @@
 #include "Runner.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
-#include "algorithms/GraphColouring.h"
-#include "algorithms/GraphColouringAsync.h"
+#include "algorithms/colouring/GraphColouringMp.h"
+#include "algorithms/colouring/GraphColouringMpAsync.h"
 #include "algorithms/bfs/Bfs1CommsRound.h"
 #include "validators/ColouringValidator.h"
 #include "validators/BfsValidator.h"
@@ -75,18 +75,20 @@ int main(const int argc, const char** argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
 
-	GraphPartitionHandle *graphBuilder = new ALHGraphHandle();
-	GraphPartition *g = graphBuilder->buildGraph(config.graphFilePath, {0L});
-	delete graphBuilder;
+	using THandle = ALHGraphHandle<int,int>;
+	using TGraph = THandle::GPType;
+	using TAlgo = Bfs_Mp_VarMsgLen_1D_1CommsTag<TGraph>;
+	using TValid = BfsValidator<TGraph>;
 
-	GlobalVertexId* bfsRoot = graphBuilder->getConvertedVertices()[0];
+	auto *graphHandle = new THandle(config.graphFilePath, {0L});
+	auto* g = &(graphHandle->getGraph());
 
-	auto* algorithm = new Bfs_Mp_VarMsgLen_1D_1CommsTag(*bfsRoot);
-	auto* validator = new BfsValidator(*bfsRoot);
+	auto bfsRoot = graphHandle->getConvertedVertices()[0];
 
-	AlgorithmExecutionResult r = runAndCheck<std::pair<GlobalVertexId**, int*>*>(g,
-	                                                                            [algorithm](){return algorithm;},
-	                                                                            [validator](){return validator;});
+	auto* algorithm = new TAlgo(bfsRoot);
+	auto* validator = new TValid(bfsRoot);
+
+	AlgorithmExecutionResult r = runAndCheck(g, *algorithm, *validator);
 
 	if (!r.algorithmStatus) {
 		LOG(ERROR) << "Error occured while executing algorithm";
@@ -103,7 +105,8 @@ int main(const int argc, const char** argv) {
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
 	delete algorithm;
 	delete validator;
-	graphBuilder->destroyGraph(g);
+	graphHandle->releaseGraph();
+	delete graphHandle;
 	MPI_Finalize();
 
 	return 0;
