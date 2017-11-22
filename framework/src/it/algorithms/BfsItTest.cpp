@@ -8,16 +8,13 @@
 #include <algorithms/bfs/BfsVarMessage.h>
 #include <assemblies/BfsAssembly.h>
 
-template <typename T1, typename T2> using GH = ALHGraphHandle<T1, T2>;
-using GHFull = GH<int, int>;
+using GH = ALHGraphHandle<int, int>;
 
-template <
-		template<typename, typename> class TGraphBuilder,
-		template<typename> class TBfsAlgo>
+template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath, ull originalRootId)
 {
-	auto *graphHandle = new GHFull(graphPath, {originalRootId});
-	BfsAssembly<TBfsAlgo, GHFull> assembly(*graphHandle);
+	auto *graphHandle = new TGraphBuilder(graphPath, {originalRootId});
+	BfsAssembly<TAlgo, TGraphBuilder> assembly(*graphHandle);
 	assembly.run();
 
 	ASSERT_TRUE(assembly.algorithmSucceeded);
