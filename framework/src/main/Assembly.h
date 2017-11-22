@@ -6,6 +6,7 @@
 #define FRAMEWORK_RUNNER_H
 
 #include <mpi.h>
+#include <glog/logging.h>
 #include "GraphPartition.h"
 #include "Algorithm.h"
 #include "Validator.h"
@@ -30,7 +31,7 @@ template <
 		template <typename> class TAlgorithm,
 		template <typename> class TValidator
 		>
-class AlgorithmAssembly : Assembly {
+class AlgorithmAssembly : public Assembly {
 	using G = typename TGHandle::GPType;
 
 public:

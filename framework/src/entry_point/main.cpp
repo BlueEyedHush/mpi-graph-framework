@@ -1,10 +1,10 @@
 #include <cstdio>
 #include <iostream>
-#include <mpi.h>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <glog/logging.h>
 #include "Assembly.h"
+#include "Executor.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/colouring/GraphColouringMp.h"
@@ -52,8 +52,6 @@ int main(const int argc, const char** argv) {
 	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
 
-	MPI_Init(NULL, NULL);
-
 	#if WAIT_FOR_DEBUGGER == 1
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -70,29 +68,18 @@ int main(const int argc, const char** argv) {
 		return 1;
 	}
 
-	int currentNodeId;
-	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
-	int worldSize;
-	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
-	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
+	Executor executor;
 
 	using THandle = ALHGraphHandle<int,int>;
-	using TGraph = THandle::GPType;
-	using TAlgo = Bfs_Mp_VarMsgLen_1D_1CommsTag<TGraph>;
-	using TValid = BfsValidator<TGraph>;
-
 	auto *graphHandle = new THandle(config.graphFilePath, {0L});
+	executor.registerAssembly("bfs", new BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle>(*graphHandle));
 
-	/* to force lifetime of assembly, which must be destroyed before MPI_Finalize */
-	{
-		BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle> assembly(*graphHandle);
-		assembly.run();
-	}
+	executor.executeAssembly("bfs");
 
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
 	graphHandle->releaseGraph();
 	delete graphHandle;
-	MPI_Finalize();
+
 
 	return 0;
 }
