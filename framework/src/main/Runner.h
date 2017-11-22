@@ -30,6 +30,7 @@ AlgorithmExecutionResult runAndCheck(TGraphPartition* graph, TAlgorithm& algorit
 }
 
 class Assembly {
+public:
 	virtual void run() = 0;
 	virtual ~Assembly() {};
 };
@@ -43,24 +44,28 @@ class Assembly {
  * @tparam TAlgorithm
  * @tparam TValidator
  */
-template <typename TGHandle, template <typename> class TAlgorithm, template <typename> class TValidator>
+template <
+		class TGHandle,
+		template <typename> class TAlgorithm,
+		template <typename> class TValidator
+		>
 class AlgorithmAssembly : Assembly {
 	using G = typename TGHandle::GPType;
 
 public:
 	virtual void run() override {
 		TGHandle& handle = getHandle();
-		auto graph = handle->getGraph();
+		auto& graph = handle.getGraph();
 
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
-		bool algorithmStatus = algorithm.run(graph);
+		bool algorithmStatus = algorithm.run(&graph);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		auto solution = algorithm.getResult();
 
 		TValidator<G>& validator = getValidator(handle, algorithm);
-		bool validationStatus = validator.validate(graph, solution);
+		bool validationStatus = validator.validate(&graph, solution);
 
 		if (!algorithmStatus) {
 			LOG(ERROR) << "Error occured while executing algorithm";
@@ -74,7 +79,7 @@ public:
 			LOG(INFO) << "Validation success";
 		}
 
-		handle->releaseGraph();
+		handle.releaseGraph();
 	}
 
 protected:

@@ -9,8 +9,10 @@
 #include <validators/BfsValidator.h>
 
 
-template <typename TGHandle, template <typename> class TBfs>
+template <template <typename> class TBfs, typename TGHandle>
 class BfsAssembly : public AlgorithmAssembly<TGHandle, TBfs, BfsValidator> {
+	using G = typename TGHandle::GPType;
+
 public:
 	BfsAssembly(TGHandle& graphHandle) : h(graphHandle), bfs(nullptr), validator(nullptr) {}
 
