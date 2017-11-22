@@ -76,7 +76,7 @@ public:
 				return ITER_PROGRESS::CONTINUE;
 			});
 
-			LOG(INFO) << "Waiting for %d nodes to establish colouring";
+			LOG(INFO) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " vertices to establish colouring";
 
 			return ITER_PROGRESS::CONTINUE;
 		});
@@ -84,7 +84,8 @@ public:
 		LOG(INFO) << "Finished gathering information about neighbours";
 
 		int coloured_count = 0;
-		while(coloured_count < g->masterVerticesCount()) {
+		size_t all_count = g->masterVerticesCount();
+		while(coloured_count < all_count) {
 			/* process vertices with count == 0 */
 			g->foreachMasterVertex([&, nodeId, this](const LocalId v_id) {
 				if(vertexDataMap[v_id]->wait_counter == 0) {
@@ -140,7 +141,8 @@ public:
 					return ITER_PROGRESS::CONTINUE;
 				}
 			});
-			LOG(INFO) << "Finished processing of 0-wait-count vertices";
+			LOG(INFO) << "Finished processing of 0-wait-count vertices ("
+			          << coloured_count << "/" << all_count << " done)";
 
 			/* check if any outstanding receive request completed */
 			int receive_result;
