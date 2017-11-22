@@ -88,7 +88,10 @@ public:
 		while(coloured_count < all_count) {
 			/* process vertices with count == 0 */
 			g->foreachMasterVertex([&, nodeId, this](const LocalId v_id) {
-				if(vertexDataMap[v_id]->wait_counter == 0) {
+				auto wc = vertexDataMap[v_id]->wait_counter;
+				LOG(INFO) << g->idToString(v_id) << " current wait_counter: " << wc;
+
+				if(wc == 0) {
 					auto v_id_num = g->toNumeric(v_id);
 
 					/* lets find smallest unused colour */
@@ -140,6 +143,8 @@ public:
 
 					return ITER_PROGRESS::CONTINUE;
 				}
+
+				return ITER_PROGRESS::CONTINUE;
 			});
 			LOG(INFO) << "Finished processing of 0-wait-count vertices ("
 			          << coloured_count << "/" << all_count << " done)";
