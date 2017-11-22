@@ -4,7 +4,7 @@
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <glog/logging.h>
-#include "Runner.h"
+#include "Assembly.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/colouring/GraphColouringMp.h"

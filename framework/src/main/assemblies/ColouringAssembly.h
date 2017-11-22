@@ -5,7 +5,7 @@
 #ifndef FRAMEWORK_COLOURINGASSEMBLY_H
 #define FRAMEWORK_COLOURINGASSEMBLY_H
 
-#include <Runner.h>
+#include <Assembly.h>
 #include <validators/ColouringValidator.h>
 
 

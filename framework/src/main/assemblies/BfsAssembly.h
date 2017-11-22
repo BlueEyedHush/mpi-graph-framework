@@ -5,7 +5,7 @@
 #ifndef FRAMEWORK_BFSASSEMBLY_H
 #define FRAMEWORK_BFSASSEMBLY_H
 
-#include <Runner.h>
+#include <Assembly.h>
 #include <validators/BfsValidator.h>
 
 
