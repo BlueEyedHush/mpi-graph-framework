@@ -25,6 +25,7 @@ void Executor::registerAssembly(const std::string key, Assembly* assembly) {
 
 bool Executor::executeAssembly(const std::string key) {
 	if (assemblies.find(key) != assemblies.end()) {
+		LOG(INFO) << "Executing assembly: " << key;
 		auto* assembly = assemblies.at(key);
 		assembly->run();
 		return true;
