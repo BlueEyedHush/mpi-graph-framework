@@ -34,26 +34,32 @@ class Assembly {
 	virtual ~Assembly() {};
 };
 
-template <typename TGHandle, typename TAlgorithm, typename TValidator>
+/**
+ *
+ * This class doesn't perform any cleanup of resources that were passed it - however, you can
+ * assume that as soon as run returns, they can be cleaned up
+ *
+ * @tparam TGHandle
+ * @tparam TAlgorithm
+ * @tparam TValidator
+ */
+template <typename TGHandle, template <typename> class TAlgorithm, template <typename> class TValidator>
 class AlgorithmAssembly : Assembly {
-public:
-	AlgorithmAssembly(std::function<TGHandle&()> ghProvider,
-	                  std::function<TAlgorithm&(TGHandle&)> algorithmProvider,
-	                  std::function<TValidator&(TAlgorithm&)> validatorProvider)
-			: ghp(ghProvider), ap(algorithmProvider), vp(validatorProvider) {}
+	using G = typename TGHandle::GPType;
 
+public:
 	virtual void run() override {
-		TGHandle& handle = ghp();
+		TGHandle& handle = getHandle();
 		auto graph = handle->getGraph();
 
-		TAlgorithm& algorithm = ap(handle);
+		TAlgorithm<G>& algorithm = getAlgorithm(handle);
 		bool algorithmStatus = algorithm.run(graph);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		auto solution = algorithm.getResult();
 
-		TValidator& validator = vp(algorithm);
+		TValidator<G>& validator = getValidator(handle, algorithm);
 		bool validationStatus = validator.validate(graph, solution);
 
 		if (!algorithmStatus) {
@@ -71,10 +77,10 @@ public:
 		handle->releaseGraph();
 	}
 
-private:
-	std::function<TGHandle&()> ghp;
-	std::function<TAlgorithm&(TGHandle&)> ap;
-	std::function<TValidator&(TAlgorithm&)> vp;
+protected:
+	virtual TGHandle& getHandle() = 0;
+	virtual TAlgorithm<G>& getAlgorithm(TGHandle&) = 0;
+	virtual TValidator<G>& getValidator(TGHandle&, TAlgorithm<G>&) = 0;
 };
 
 #endif //FRAMEWORK_RUNNER_H

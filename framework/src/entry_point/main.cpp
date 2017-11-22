@@ -11,6 +11,7 @@
 #include "algorithms/colouring/GraphColouringMpAsync.h"
 #include "algorithms/bfs/Bfs1CommsRound.h"
 #include "validators/ColouringValidator.h"
+#include "assemblies/BfsAssembly.h"
 #include "validators/BfsValidator.h"
 
 namespace po = boost::program_options;
