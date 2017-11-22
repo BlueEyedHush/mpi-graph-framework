@@ -53,27 +53,30 @@ class AlgorithmAssembly : Assembly {
 	using G = typename TGHandle::GPType;
 
 public:
+	bool algorithmSucceeded = false;
+	bool validationSucceeded = false;
+
 	virtual void run() override {
 		TGHandle& handle = getHandle();
 		auto& graph = handle.getGraph();
 
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
-		bool algorithmStatus = algorithm.run(&graph);
+		algorithmSucceeded = algorithm.run(&graph);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		auto solution = algorithm.getResult();
 
 		TValidator<G>& validator = getValidator(handle, algorithm);
-		bool validationStatus = validator.validate(&graph, solution);
+		validationSucceeded = validator.validate(&graph, solution);
 
-		if (!algorithmStatus) {
+		if (!algorithmSucceeded) {
 			LOG(ERROR) << "Error occured while executing algorithm";
 		} else {
 			LOG(INFO) << "Algorithm terminated successfully";
 		}
 
-		if(!validationStatus) {
+		if(!validationSucceeded) {
 			LOG(ERROR) << "Validation failure";
 		} else {
 			LOG(INFO) << "Validation success";
