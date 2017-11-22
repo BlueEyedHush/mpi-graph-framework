@@ -3,6 +3,7 @@
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <glog/logging.h>
+#include <assemblies/ColouringAssembly.h>
 #include "Assembly.h"
 #include "Executor.h"
 #include "representations/ArrayBackedChunkedPartition.h"
@@ -25,12 +26,14 @@ namespace po = boost::program_options;
 
 struct Configuration {
 	std::string graphFilePath;
+	std::string assemblyName;
 };
 
 boost::optional<Configuration> parse_cli_args(const int argc, const char** argv) {
 	po::options_description desc("Usage");
 	desc.add_options()
-			("graph,g", po::value<std::string>(), "name of graph file to load")
+			("graph,g", po::value<std::string>(), "graph file to load (mandatory)")
+			("assembly,a", po::value<std::string>(), "assembly to execute (mandatory)")
 			;
 
 	po::variables_map vm;
@@ -38,8 +41,16 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 	po::notify(vm);
 
 	Configuration config;
+
 	if (vm.count("graph")) {
 		config.graphFilePath = vm["graph"].as<std::string>();
+	} else {
+		std::cout << desc << std::endl;
+		return boost::none;
+	}
+
+	if (vm.count("assembly")) {
+		config.assemblyName = vm["assembly"].as<std::string>();
 	} else {
 		std::cout << desc << std::endl;
 		return boost::none;
@@ -72,14 +83,14 @@ int main(const int argc, const char** argv) {
 
 	using THandle = ALHGraphHandle<int,int>;
 	auto *graphHandle = new THandle(config.graphFilePath, {0L});
+	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
 	executor.registerAssembly("bfs", new BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle>(*graphHandle));
 
-	executor.executeAssembly("bfs");
+	auto an = config.assemblyName;
+	if(an.empty() || !executor.executeAssembly(an)) {
+		std::cout << "Assembly with name '" << config.assemblyName << "' not found!" << std::endl;
+	}
 
-	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
-	graphHandle->releaseGraph();
 	delete graphHandle;
-
-
 	return 0;
 }
