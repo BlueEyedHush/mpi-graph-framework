@@ -109,8 +109,8 @@ public:
 	}
 
 	NumericId toNumeric(const GlobalId id) {
-		unsigned int halfBitsInUll = (sizeof(unsigned long long)*CHAR_BIT)/2;
-		unsigned long long numerical = ((unsigned long long) id.localId) << halfBitsInUll;
+		unsigned short halfBitsInUll = (sizeof(NumericId)*CHAR_BIT)/2;
+		NumericId numerical = ((NumericId) id.localId) << halfBitsInUll;
 		numerical |= ((unsigned int) id.nodeId);
 		return numerical;
 	}
