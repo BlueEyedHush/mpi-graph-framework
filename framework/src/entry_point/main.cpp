@@ -11,6 +11,7 @@
 #include "algorithms/colouring/GraphColouringMpAsync.h"
 #include "algorithms/bfs/Bfs1CommsRound.h"
 #include "validators/ColouringValidator.h"
+#include "assemblies/BfsAssembly.h"
 #include "validators/BfsValidator.h"
 
 namespace po = boost::program_options;
@@ -81,30 +82,14 @@ int main(const int argc, const char** argv) {
 	using TValid = BfsValidator<TGraph>;
 
 	auto *graphHandle = new THandle(config.graphFilePath, {0L});
-	auto* g = &(graphHandle->getGraph());
 
-	auto bfsRoot = graphHandle->getConvertedVertices()[0];
-
-	auto* algorithm = new TAlgo(bfsRoot);
-	auto* validator = new TValid(bfsRoot);
-
-	AlgorithmExecutionResult r = runAndCheck(g, *algorithm, *validator);
-
-	if (!r.algorithmStatus) {
-		LOG(ERROR) << "Error occured while executing algorithm";
-	} else {
-		LOG(INFO) << "Algorithm terminated successfully";
-	}
-
-	if(!r.validatorStatus) {
-		LOG(ERROR) << "Validation failure";
-	} else {
-		LOG(INFO) << "Validation success";
+	/* to force lifetime of assembly, which must be destroyed before MPI_Finalize */
+	{
+		BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle> assembly(*graphHandle);
+		assembly.run();
 	}
 
 	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
-	delete algorithm;
-	delete validator;
 	graphHandle->releaseGraph();
 	delete graphHandle;
 	MPI_Finalize();

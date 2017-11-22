@@ -109,8 +109,8 @@ public:
 	}
 
 	NumericId toNumeric(const GlobalId id) {
-		unsigned int halfBitsInUll = (sizeof(unsigned long long)*CHAR_BIT)/2;
-		unsigned long long numerical = ((unsigned long long) id.localId) << halfBitsInUll;
+		unsigned short halfBitsInUll = (sizeof(NumericId)*CHAR_BIT)/2;
+		NumericId numerical = ((NumericId) id.localId) << halfBitsInUll;
 		numerical |= ((unsigned int) id.nodeId);
 		return numerical;
 	}
@@ -390,18 +390,21 @@ private:
 			LocalIdPool.purge_memory();
 
 			/* save remapping info requested by user */
-			for(size_t i = 0; i < verticesToConvert.size(); i++) {
-				auto originalId = verticesToConvert[i];
-				auto *buffer = reinterpret_cast<GlobalId*>(adjListPool.malloc());
-				*buffer = remappingTable.at(originalId);
+			if (verticesToConvert.size() > 0) {
+				for(size_t i = 0; i < verticesToConvert.size(); i++) {
+					auto originalId = verticesToConvert[i];
+					auto *buffer = reinterpret_cast<GlobalId*>(adjListPool.malloc());
+					*buffer = remappingTable.at(originalId);
 
-				// mirror this information across all nodes
-				for(int nodeId = 0; nodeId < world_size; nodeId++) {
-					MPI_Put(buffer, 1, d.gIdDatatype, nodeId, i, 1, d.gIdDatatype, convertedVerticesW);
+					// mirror this information across all nodes
+					for(int nodeId = 0; nodeId < world_size; nodeId++) {
+						MPI_Put(buffer, 1, d.gIdDatatype, nodeId, i, 1, d.gIdDatatype, convertedVerticesW);
+					}
 				}
+
+				MPI_Win_flush_all(convertedVerticesW);
 			}
 
-			MPI_Win_flush_all(convertedVerticesW);
 			adjListPool.purge_memory();
 
 			MPI_Barrier(MPI_COMM_WORLD);

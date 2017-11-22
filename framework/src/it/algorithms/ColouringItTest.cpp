@@ -6,47 +6,35 @@
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/colouring/GraphColouringMp.h>
 #include <algorithms/colouring/GraphColouringMpAsync.h>
-#include <validators/ColouringValidator.h>
+#include <assemblies/ColouringAssembly.h>
 
-template <
-		template<typename, typename> class TGraphBuilder,
-		template<typename> class TAlgo,
-		template<typename> class TValidator>
+using GH = ALHGraphHandle<int, int>;
+
+template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath)
 {
-	auto *graphBuilder = new TGraphBuilder<int,int>();
-	auto *g = graphBuilder->buildGraph(graphPath);
-	delete graphBuilder;
+	auto *graphHandle = new TGraphBuilder(graphPath, {});
+	ColouringAssembly<TAlgo, TGraphBuilder> assembly(*graphHandle);
+	assembly.run();
 
-	using TGP = typename TGraphBuilder<int,int>::GPType;
-	using TResult = typename TAlgo<TGP>::ResultType;
+	ASSERT_TRUE(assembly.algorithmSucceeded);
+	ASSERT_TRUE(assembly.validationSucceeded);
 
-	auto* algo = new TAlgo<TGP>();
-	auto* validator = new TValidator<TGP>();
-	AlgorithmExecutionResult r = runAndCheck(g, *algo, *validator);
-
-	delete validator;
-	delete algo;
-	graphBuilder->destroyGraph(g);
-	ASSERT_TRUE(r.algorithmStatus);
-	ASSERT_TRUE(r.validatorStatus);
+	delete graphHandle;
 }
 
-template <template<typename> class TAlgo>
-using executeColouringTest = decltype(executeTest<ALHGraphHandle, TAlgo, ColouringValidator>(""));
-
 TEST(ColouringMPAsync, FindsCorrectSolutionForSTG) {
-	executeColouringTest<GraphColouringMPAsync>("resources/test/SimpleTestGraph.adjl");
+	executeTest<GH, GraphColouringMPAsync>("resources/test/SimpleTestGraph.adjl");
 }
 
 TEST(ColouringMPAsync, FindsCorrectSolutionForComplete50) {
-	executeColouringTest<GraphColouringMPAsync>("resources/test/complete50.adjl");
+	executeTest<GH, GraphColouringMPAsync>("resources/test/complete50.adjl");
 }
 
 TEST(ColouringMP, FindsCorrectSolutionForSTG) {
-	executeColouringTest<GraphColouringMp>("resources/test/SimpleTestGraph.adjl");
+	executeTest<GH, GraphColouringMp>("resources/test/SimpleTestGraph.adjl");
 }
 
 TEST(ColouringMP, FindsCorrectSolutionForComplete50) {
-	executeColouringTest<GraphColouringMp>("resources/test/complete50.adjl");
+	executeTest<GH, GraphColouringMp>("resources/test/complete50.adjl");
 }
