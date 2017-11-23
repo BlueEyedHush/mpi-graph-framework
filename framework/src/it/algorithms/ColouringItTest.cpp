@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <utils/TestUtils.h>
-#include <Runner.h>
+#include <Assembly.h>
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/colouring/GraphColouringMp.h>
 #include <algorithms/colouring/GraphColouringMpAsync.h>

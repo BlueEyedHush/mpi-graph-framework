@@ -7,7 +7,7 @@
 #include <validators/ColouringValidator.h>
 #include <representations/ArrayBackedChunkedPartition.h>
 #include <utils/TestUtils.h>
-#include <Runner.h>
+#include <Assembly.h>
 
 static void executeTest(std::string graphPath, std::string solutionPath, bool expectedValidationOutcome) {
 	int rank = -1;

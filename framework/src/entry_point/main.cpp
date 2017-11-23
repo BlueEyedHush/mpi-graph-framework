@@ -1,10 +1,11 @@
 #include <cstdio>
 #include <iostream>
-#include <mpi.h>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <glog/logging.h>
-#include "Runner.h"
+#include <assemblies/ColouringAssembly.h>
+#include "Assembly.h"
+#include "Executor.h"
 #include "representations/ArrayBackedChunkedPartition.h"
 #include "representations/AdjacencyListHashPartition.h"
 #include "algorithms/colouring/GraphColouringMp.h"
@@ -25,12 +26,14 @@ namespace po = boost::program_options;
 
 struct Configuration {
 	std::string graphFilePath;
+	std::string assemblyName;
 };
 
 boost::optional<Configuration> parse_cli_args(const int argc, const char** argv) {
 	po::options_description desc("Usage");
 	desc.add_options()
-			("graph,g", po::value<std::string>(), "name of graph file to load")
+			("graph,g", po::value<std::string>(), "graph file to load (mandatory)")
+			("assembly,a", po::value<std::string>(), "assembly to execute (mandatory)")
 			;
 
 	po::variables_map vm;
@@ -38,8 +41,16 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 	po::notify(vm);
 
 	Configuration config;
+
 	if (vm.count("graph")) {
 		config.graphFilePath = vm["graph"].as<std::string>();
+	} else {
+		std::cout << desc << std::endl;
+		return boost::none;
+	}
+
+	if (vm.count("assembly")) {
+		config.assemblyName = vm["assembly"].as<std::string>();
 	} else {
 		std::cout << desc << std::endl;
 		return boost::none;
@@ -51,8 +62,6 @@ boost::optional<Configuration> parse_cli_args(const int argc, const char** argv)
 int main(const int argc, const char** argv) {
 	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
-
-	MPI_Init(NULL, NULL);
 
 	#if WAIT_FOR_DEBUGGER == 1
 	int world_rank;
@@ -70,29 +79,18 @@ int main(const int argc, const char** argv) {
 		return 1;
 	}
 
-	int currentNodeId;
-	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
-	int worldSize;
-	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
-	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
+	Executor executor;
 
 	using THandle = ALHGraphHandle<int,int>;
-	using TGraph = THandle::GPType;
-	using TAlgo = Bfs_Mp_VarMsgLen_1D_1CommsTag<TGraph>;
-	using TValid = BfsValidator<TGraph>;
-
 	auto *graphHandle = new THandle(config.graphFilePath, {0L});
+	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
+	executor.registerAssembly("bfs", new BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle>(*graphHandle));
 
-	/* to force lifetime of assembly, which must be destroyed before MPI_Finalize */
-	{
-		BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle> assembly(*graphHandle);
-		assembly.run();
+	auto an = config.assemblyName;
+	if(an.empty() || !executor.executeAssembly(an)) {
+		std::cout << "Assembly with name '" << config.assemblyName << "' not found!" << std::endl;
 	}
 
-	/* representation & algorithm might use MPI routines in destructor, so need to clean it up before finalizing */
-	graphHandle->releaseGraph();
 	delete graphHandle;
-	MPI_Finalize();
-
 	return 0;
 }

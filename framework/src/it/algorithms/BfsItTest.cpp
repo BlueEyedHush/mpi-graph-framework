@@ -1,7 +1,7 @@
 
 #include <gtest/gtest.h>
 #include <utils/TestUtils.h>
-#include <Runner.h>
+#include <Assembly.h>
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/bfs/Bfs1CommsRound.h>
 #include <algorithms/bfs/BfsFixedMessage.h>
