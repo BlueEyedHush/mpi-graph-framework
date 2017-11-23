@@ -80,6 +80,14 @@ public:
 	}
 };
 
+namespace details {
+	class WindowManager {
+	public:
+		registerVertexWith(nodeId)
+		registerNeighbourOf(GlobalId vid, )
+	};
+}
+
 /**
  * This class is a handle to a graph data, but it's main purpose is loading and partitioning of the graph.
  * High-level overview of the process:
@@ -114,6 +122,35 @@ public:
  * we can try to estimate it, but knowing for sure would require vertex count and edge count. At one point
  * some resizing scheme probably needs to be developed, but for now let's keep it configurable and throw error if
  * it is not enough.
+ *
+ * Components:
+ * - Parser - loads data from file. How does it manage memory?
+ * - WindowManager
+ * 	- initializes all windows,
+ * 	- keeps track of the offsets,
+ * 	- gives appending semantics (saving to window, returns offset) and random access
+ * 	 (for fixing placeholders)
+ * 	- batches provided updates and sends them
+ * 	- also wraps flushing
+ * - RemappingTable - holds OriginalVertexId -> GlobalId data
+ * - PlaceholderCache - holds information about holes that must be filled after we remap
+ * - Partitioner - which vertex should go to whom. Could be coupled wth GlobalId generator?
+ * To avoid passing multitude of parameters, we have struct GraphBuildingContext.
+
+ * Algorithm:
+ * - data read from file by Parser, which returns vector containing whole lines
+ * - GlobalId for processed vertex is not really stored, but neighbours are - we retrieve them from
+ * 	Partitioner
+ * 	- even though it's not stored, it must be created - we assign node as a master on an round-robin
+ * 	 manner, independently from edges (which means we might end up with pretty stupid partitioning
+ * 	 where master doesn't store any edges)
+ * - we read mapping for neighbours from RemappingTable (or use placeholder) and submit it to WindowManager
+ * 	- It can reorder vertices so that placeholders are at the end of the list (and don't really have
+ * 	  to be transfered)
+ * - after we finish with current vertex, WindowManager is ready to send message
+ * - we also need to replace placeholders
+ * 	- wait at the end of processing and then replace all
+ * 	- replace as soon as mapping becomes available - helps reduce size of the mapping
  *
  */
 
