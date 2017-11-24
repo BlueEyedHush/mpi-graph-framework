@@ -99,9 +99,13 @@ namespace details {
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
 	 */
 	template <typename TLocalId>
-	class WindowManager {
+	class CommunicationWrapper {
 	public:
+		/* called by both master and slaves */
 		void initialize();
+		/* called by master */
+		void finishAllTransfers();
+		/* called by slaves */
 		void ensureAllTransfersCompleted();
 
 		/* for sequential operation */
@@ -179,7 +183,7 @@ namespace details {
  *
  * Components:
  * - Parser - loads data from file. How does it manage memory?
- * - WindowManager
+ * - CommunicationWrapper
  * 	- initializes all windows,
  * 	- keeps track of the offsets,
  * 	- gives appending semantics (saving to window, returns offset) and random access
@@ -199,10 +203,10 @@ namespace details {
  * 	- even though it's not stored, it must be created - we assign node as a master on an round-robin
  * 	 manner, independently from edges (which means we might end up with pretty stupid partitioning
  * 	 where master doesn't store any edges)
- * - we read mapping for neighbours from RemappingTable (or use placeholder) and submit it to WindowManager
+ * - we read mapping for neighbours from RemappingTable (or use placeholder) and submit it to CommunicationWrapper
  * 	- It can reorder vertices so that placeholders are at the end of the list (and don't really have
  * 	  to be transfered)
- * - after we finish with current vertex, WindowManager is ready to send message
+ * - after we finish with current vertex, CommunicationWrapper is ready to send message
  * - we also need to replace placeholders
  * 	- wait at the end of processing and then replace all
  * 	- replace as soon as mapping becomes available - helps reduce size of the mapping
@@ -231,8 +235,8 @@ protected:
 		MPI_Comm_size(MPI_COMM_WORLD, &nodeCount);
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
-		WindowManager<LocalId> wm;
-		wm.initialize();
+		CommunicationWrapper<LocalId> cm;
+		cm.initialize();
 
 		if (nodeId == 0) {
 			AdjacencyListReader<OriginalVertexId> reader(path);
@@ -248,17 +252,17 @@ protected:
 				remappingTable.registerMapping(vspec.vertexId, mappedId);
 
 				/* remap neighbours we can (or use placeholders) and distribute to target nodes */
-				wm.startAndAssignVertexTo(mappedId.nodeId);
+				cm.startAndAssignVertexTo(mappedId.nodeId);
 				for(auto neighbour: vspec.neighbours) {
 					LocalId nodeIdForNeigh = partitioner.nextNodeIdForNeighbour();
 
 					if (auto optionalGid = remappingTable.toGlobalId(neighbour)) {
-						wm.registerNeighbour(optionalGid.get(), nodeIdForNeigh);
+						cm.registerNeighbour(optionalGid.get(), nodeIdForNeigh);
 					} else {
-						wm.registerPlaceholderFor(neighbour, nodeIdForNeigh);
+						cm.registerPlaceholderFor(neighbour, nodeIdForNeigh);
 					}
 				}
-				auto placeholders = wm.finishVertex();
+				auto placeholders = cm.finishVertex();
 
 				/* remember placeholders for further replacement */
 				for(auto p: placeholders) {
@@ -270,17 +274,18 @@ protected:
 
 				/* remap placeholders that refered to node we just remapped */
 				for(auto offset: placeholderCache.getAllPlaceholdersFor(vspec.vertexId)) {
-					wm.replacePlaceholder(offset, mappedId);
+					cm.replacePlaceholder(offset, mappedId);
 				}
 			}
 
+			cm.finishAllTransfers();
 			/* signal other nodes that graph data distribution has been finisheds */
 			MPI_Barrier(MPI_COMM_WORLD);
 
 		} else {
 			/* let master do her stuff */
 			MPI_Barrier(MPI_COMM_WORLD);
-			wm.ensureAllTransfersCompleted();
+			cm.ensureAllTransfersCompleted();
 		}
 	};
 
