@@ -10,6 +10,7 @@
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
+#include <utils/NonCopyable.h>
 #include "shared.h"
 
 template <typename TLocalId> using RR2DGlobalId = ALHPGlobalVertexId<TLocalId>;
@@ -83,7 +84,7 @@ public:
 	}
 };
 
-namespace details {
+namespace details::RR2D {
 	using EdgeCount = unsigned int;
 	using VertexHandle = unsigned int;
 
@@ -94,9 +95,44 @@ namespace details {
 		EdgeCount offset;
 	};
 
+	template <typename V, typename O>
+	struct OffsetArray : NonCopyable {
+		MPI_Win values;
+		MPI_Win offsets;
+		V* valuesData;
+		O* offsetsData;
+		size_t valueCount;
+		size_t offsetCount;
+
+		OffsetArray() = default;
+		OffsetArray(OffsetArray&&) = default;
+		OffsetArray& operator=(OffsetArray&&) = default;
+	};
+
+	template <typename V, typename O>
+	OffsetArray<V,O> allocateOffsetArray(size_t valuesCount, size_t offsetsCount) {
+		OffsetArray<V,O> oa;
+		oa.valueCount = valuesCount;
+		oa.offsetCount = offsetsCount;
+		MPI_Win_allocate(oa.valueCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.valuesData, &oa.values);
+		MPI_Win_allocate(oa.offsetCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.offsetsData, &oa.offsets);
+		return oa;
+	};
+
+	template
+
+	struct ShadowDescriptor {
+		RR2DGlobalId id;
+		size_t offset;
+	};
+
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
+	 *
+	 * After distributing data we don't expect any more communication. For efficiency, we let MPI allocate
+	 * memory for windows, which means that lifetime of the window is tied to the lifetime of it's memory.
+	 * This means that windows can be freed only after whole graph is released.
 	 */
 	template <typename TLocalId>
 	class CommunicationWrapper {
@@ -117,6 +153,17 @@ namespace details {
 
 		/* for placeholder replacement */
 		void replacePlaceholder(EdgeTableOffset, RR2DGlobalId<TLocalId>);
+
+	private:
+		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
+		typedef TLocalId LocalVerticesCount;
+		typedef NodeId NodeCount;
+
+		OffsetArray<RR2DGlobalId, LocalVerticesCount> masters;
+		OffsetArray<RR2DGlobalId, ShadowDescriptor> shadows;
+		OffsetArray<NodeId, NodeCount> coOwners;
+
+
 	};
 
 	template <typename TLocalId>
@@ -161,7 +208,7 @@ namespace details {
  * 	to be assigned to given node, so we don't know what local ids we should assign to shadows. Therefore, for shadows,
  * 	we only write pairs (GlobalId, neighbours). After master finishes distributing vertices, each node assigns LocalId
  * 	to each shadow and builds map GlobalId -> LocalId
- * - after distribution is finished, master discards GlobalId -> LocalId mapping, except from values, that were
+ * - after distribution is finished, ma]ster discards GlobalId -> LocalId mapping, except from values, that were
  * 	user requested to be kept (verticesToConv constructor parameter)
  *
  * 	Datastructures needed:
@@ -169,7 +216,7 @@ namespace details {
  * 	- Win: offset table - masters
  * 	- Win: edge data - shadows
  * 	- Win: index (offset + corresponding GlobalId) - shadows
- * 	- Win: counts - vertices (masters, shadows), edges,
+ * 	- Win: counts - master vertices, master edges, shadow vertices, shadow edges, owners table size
  * 	- Win: GlobalId -> LocalId mapping for vertices for which it has been requested
  * 	- Win: NodeIds - where are stored neighbours (list of nodes)
  * 	- Win: offsets for the above table
@@ -229,7 +276,7 @@ public:
 protected:
 	virtual std::pair<RoundRobin2DPartition*, std::vector<GlobalId>>
 	buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
-		using namespace details;
+		using namespace details::RR2D;
 
 		int nodeCount, nodeId;
 		MPI_Comm_size(MPI_COMM_WORLD, &nodeCount);
