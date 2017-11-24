@@ -107,19 +107,21 @@ namespace details::RR2D {
 		OffsetArray() = default;
 		OffsetArray(OffsetArray&&) = default;
 		OffsetArray& operator=(OffsetArray&&) = default;
-	};
 
-	template <typename V, typename O>
-	OffsetArray<V,O> allocateOffsetArray(size_t valuesCount, size_t offsetsCount) {
-		OffsetArray<V,O> oa;
-		oa.valueCount = valuesCount;
-		oa.offsetCount = offsetsCount;
-		MPI_Win_allocate(oa.valueCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.valuesData, &oa.values);
-		MPI_Win_allocate(oa.offsetCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.offsetsData, &oa.offsets);
-		return oa;
-	};
+		static OffsetArray<V,O> allocate(size_t valuesCount, size_t offsetsCount) {
+			OffsetArray<V,O> oa;
+			oa.valueCount = valuesCount;
+			oa.offsetCount = offsetsCount;
+			MPI_Win_allocate(oa.valueCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.valuesData, &oa.values);
+			MPI_Win_allocate(oa.offsetCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.offsetsData, &oa.offsets);
+			return oa;
+		};
 
-	template
+		static void cleanup(OffsetArray<V,O>& oa) {
+			MPI_Win_free(&oa.offsets);
+			MPI_Win_free(&oa.values);
+		}
+	};
 
 	struct ShadowDescriptor {
 		RR2DGlobalId id;
