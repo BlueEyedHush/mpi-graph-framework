@@ -87,6 +87,8 @@ public:
 namespace details::RR2D {
 	using EdgeCount = unsigned int;
 	using VertexHandle = unsigned int;
+	using ElementCount = unsigned long long;
+	const auto ElementCountDt = MPI_UNSIGNED_LONG_LONG;
 
 	struct EdgeTableOffset {
 		EdgeTableOffset(NodeId nodeId, EdgeCount offset) : nodeId(nodeId), offset(offset) {}
@@ -95,37 +97,84 @@ namespace details::RR2D {
 		EdgeCount offset;
 	};
 
+	template <typename T>
+	struct MpiWindowDesc : NonCopyable {
+		MPI_Win win;
+		T* data;
+
+		MpiWindowDesc() = default;
+		MpiWindowDesc(MpiWindowDesc&&) = default;
+		MpiWindowDesc& operator=(MpiWindowDesc&&) = default;
+
+		static MpiWindowDesc allocate(ElementCount size) {
+			auto elSize = sizeof(T);
+			MpiWindowDesc wd;
+			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
+			return wd;
+		}
+
+		static void destroy(MpiWindowDesc &d) {
+			MPI_Win_free(&d.win);
+		}
+	};
+
+	struct OffsetArraySizeSpec {
+		ElementCount valueCount;
+		ElementCount offsetCount;
+
+		static MPI_Datatype mpiDatatype() {
+			MPI_Datatype dt;
+			MPI_Type_contiguous(2, ElementCountDt, &dt);
+			return dt;
+		}
+	};
+
 	template <typename V, typename O>
-	struct OffsetArray : NonCopyable {
-		MPI_Win values;
-		MPI_Win offsets;
-		V* valuesData;
-		O* offsetsData;
-		size_t valueCount;
-		size_t offsetCount;
+	struct OffsetArray {
+		MpiWindowDesc<V> values;
+		MpiWindowDesc<O> offsets;
+		OffsetArraySizeSpec sizes;
 
-		OffsetArray() = default;
-		OffsetArray(OffsetArray&&) = default;
-		OffsetArray& operator=(OffsetArray&&) = default;
-
-		static OffsetArray<V,O> allocate(size_t valuesCount, size_t offsetsCount) {
+		static OffsetArray<V,O> allocate(ElementCount valuesCount, ElementCount offsetsCount) {
 			OffsetArray<V,O> oa;
-			oa.valueCount = valuesCount;
-			oa.offsetCount = offsetsCount;
-			MPI_Win_allocate(oa.valueCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.valuesData, &oa.values);
-			MPI_Win_allocate(oa.offsetCount, 1, MPI_INFO_NULL, MPI_COMM_WORLD, &oa.offsetsData, &oa.offsets);
+			oa.sizes.valueCount = valuesCount;
+			oa.sizes.offsetCount = offsetsCount;
+			oa.values = MpiWindowDesc<V>::allocate(oa.sizes.valueCount);
+			oa.offsets = MpiWindowDesc<O>::allocate(oa.sizes.offsetCount);
 			return oa;
 		};
 
 		static void cleanup(OffsetArray<V,O>& oa) {
-			MPI_Win_free(&oa.offsets);
-			MPI_Win_free(&oa.values);
+			MpiWindowDesc<V>::destroy(oa.offsets);
+			MpiWindowDesc<O>::destroy(oa.values);
+		}
+	};
+
+
+	struct Counts {
+		OffsetArraySizeSpec masters;
+		OffsetArraySizeSpec shadows;
+		OffsetArraySizeSpec coOwners;
+
+		static MpiWindowDesc allocate() {
+			return MpiWindowDesc<Counts>::allocate(1);
+		}
+
+		static void cleanup(MpiWindowDesc& wd) {
+			MpiWindowDesc<Counts>::destroy(wd);
+		}
+
+		static MPI_Datatype mpiDatatype() {
+			auto oascDt = OffsetArraySizeSpec::mpiDatatype();
+			MPI_Datatype dt;
+			MPI_Type_contiguous(3, oascDt, &dt);
+			return dt;
 		}
 	};
 
 	struct ShadowDescriptor {
 		RR2DGlobalId id;
-		size_t offset;
+		ElementCount offset;
 	};
 
 	/**
