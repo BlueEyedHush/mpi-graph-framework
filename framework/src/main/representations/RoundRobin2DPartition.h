@@ -81,10 +81,56 @@ public:
 };
 
 namespace details {
+	using EdgeCount = unsigned int;
+	using VertexHandle = unsigned int;
+
+	struct EdgeTableOffset {
+		EdgeTableOffset(NodeId nodeId, EdgeCount offset) : nodeId(nodeId), offset(offset) {}
+
+		NodeId nodeId;
+		EdgeCount offset;
+	};
+
+	/**
+	 * Assumes we process one vertex at a time (start, register, finish)
+	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
+	 */
+	template <typename TGlobalId>
 	class WindowManager {
 	public:
-		registerVertexWith(nodeId)
-		registerNeighbourOf(GlobalId vid, )
+		/* for sequential operation */
+		void startAndAssignVertexTo(NodeId nodeId);
+		void registerNeighbour(TGlobalId neighbour);
+		void registerPlaceholder();
+		/* returns offset under which placeholders were stored */
+		std::vector<EdgeTableOffset> finishVertex();
+
+		/* for placeholder replacement */
+		void replacePlaceholder(EdgeTableOffset, TGlobalId);
+	};
+
+	template <typename TGlobalId>
+	class RemappingTable {
+	public:
+		void registerMapping(OriginalVertexId, TGlobalId);
+		TGlobalId toGlobalId(OriginalVertexId);
+		void releaseMapping(OriginalVertexId);
+	};
+
+	class PlaceholderCache {
+	public:
+		/* access pattern - after remapping vertex we want to replace all occurences */
+		void rememberPlaceholder(OriginalVertexId, EdgeTableOffset);
+		std::vector<EdgeTableOffset> getAllPlaceholdersFor(OriginalVertexId);
+	};
+
+	template <typename TGlobalId>
+	class Partitioner {
+	public:
+		Partitioner(NodeId nodeCount);
+
+		TGlobalId nextMasterId();
+		TGlobalId nextNeighbourId();
 	};
 }
 
@@ -115,6 +161,8 @@ namespace details {
  * 	- Win: index (offset + corresponding GlobalId) - shadows
  * 	- Win: counts - vertices (masters, shadows), edges,
  * 	- Win: GlobalId -> LocalId mapping for vertices for which it has been requested
+ * 	- Win: NodeIds - where are stored neighbours (list of nodes)
+ * 	- Win: offsets for the above table
  * 	- master: GlobalId -> LocalId map
  * 	- master: NodeId -> (OriginalVertexId, offset) map - placeholders that need replacing
  *
@@ -132,10 +180,10 @@ namespace details {
  * 	 (for fixing placeholders)
  * 	- batches provided updates and sends them
  * 	- also wraps flushing
+ * 	- and setting on master node for vertex where are neighbours stored
  * - RemappingTable - holds OriginalVertexId -> GlobalId data
  * - PlaceholderCache - holds information about holes that must be filled after we remap
  * - Partitioner - which vertex should go to whom. Could be coupled wth GlobalId generator?
- * To avoid passing multitude of parameters, we have struct GraphBuildingContext.
 
  * Algorithm:
  * - data read from file by Parser, which returns vector containing whole lines
@@ -170,6 +218,8 @@ public:
 protected:
 	virtual std::pair<RoundRobin2DPartition*, std::vector<GlobalId>>
 	buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
+		using namespace details;
+
 
 	};
 
