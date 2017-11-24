@@ -136,14 +136,35 @@ namespace details::RR2D {
 		}
 	};
 
-	template <typename V, typename O>
-	struct OffsetArray {
-		MpiWindowDesc<V> values;
-		MpiWindowDesc<O> offsets;
-		OffsetArraySizeSpec sizes;
+	template <typename V, typename O, MPI_Datatype vDatatype, MPI_Datatype oDatatype>
+	class OffsetArray {
+	public:
+		/**
+		 * Neither offsetPtr nor valuesPtr can be freed before you call flush on OffsetArray
+		 *
+		 * @param nodeId
+		 * @param offsetPtr
+		 * @param valuesPtr
+		 * @param valuesCount
+		 */
+		void put(NodeId nodeId, O* offsetPtr, V* valuesPtr, ElementCount valuesCount) {
+			assert(sizes.offsetCount > offsetsNextFree);
+			assert(sizes.valueCount > valuesNextFree + valuesCount);
 
-		static OffsetArray<V,O> allocate(ElementCount valuesCount, ElementCount offsetsCount) {
-			OffsetArray<V,O> oa;
+			MPI_Put(offsetPtr, 1, oDatatype, nodeId, offsetsNextFree, 1, oDatatype, offsets.win);
+			MPI_Put(valuesPtr, valuesCount, vDatatype, nodeId, valuesNextFree, valuesCount, vDatatype, values.win);
+
+			offsetsNextFree += 1;
+			valuesNextFree += valuesCount;
+		}
+
+		void flush() {
+			MPI_Win_flush_all(offsets.win);
+			MPI_Win_flush_all(values.win);
+		}
+
+		static OffsetArray<V,O,vDatatype,oDatatype> allocate(ElementCount valuesCount, ElementCount offsetsCount) {
+			OffsetArray<V,O,vDatatype,oDatatype> oa;
 			oa.sizes.valueCount = valuesCount;
 			oa.sizes.offsetCount = offsetsCount;
 			oa.values = MpiWindowDesc<V>::allocate(oa.sizes.valueCount);
@@ -151,10 +172,18 @@ namespace details::RR2D {
 			return oa;
 		};
 
-		static void cleanup(OffsetArray<V,O>& oa) {
+		static void cleanup(OffsetArray<V,O,vDatatype,oDatatype>& oa) {
 			MpiWindowDesc<V>::destroy(oa.offsets);
 			MpiWindowDesc<O>::destroy(oa.values);
 		}
+
+	private:
+		MpiWindowDesc<V> values;
+		MpiWindowDesc<O> offsets;
+		OffsetArraySizeSpec sizes;
+
+		ElementCount valuesNextFree = 0;
+		ElementCount offsetsNextFree = 0;
 	};
 
 
@@ -249,6 +278,7 @@ namespace details::RR2D {
 		/* called by master */
 		void finishAllTransfers();
 		/* called by slaves */
+		// @todo we should probaably synchronize public&private window views
 		void ensureAllTransfersCompleted();
 
 		/* for sequential operation */
