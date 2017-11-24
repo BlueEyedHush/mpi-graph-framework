@@ -86,9 +86,14 @@ public:
 
 namespace details::RR2D {
 	using EdgeCount = unsigned int;
+	using NodeCount = NodeId;
 	using VertexHandle = unsigned int;
 	using ElementCount = unsigned long long;
 	const auto ElementCountDt = MPI_UNSIGNED_LONG_LONG;
+
+	const ElementCount EDGES_MAX_COUNT = 1000;
+	const ElementCount VERTEX_MAX_COUNT = 100;
+	const ElementCount COOWNERS_MAX_COUNT = 20;
 
 	struct EdgeTableOffset {
 		EdgeTableOffset(NodeId nodeId, EdgeCount offset) : nodeId(nodeId), offset(offset) {}
@@ -110,10 +115,12 @@ namespace details::RR2D {
 			auto elSize = sizeof(T);
 			MpiWindowDesc wd;
 			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
+			MPI_Win_lock_all(0, wd.win);
 			return wd;
 		}
 
 		static void destroy(MpiWindowDesc &d) {
+			MPI_Win_unlock_all(d.win);
 			MPI_Win_free(&d.win);
 		}
 	};
@@ -177,6 +184,41 @@ namespace details::RR2D {
 		ElementCount offset;
 	};
 
+	template <typename T>
+	class SendBufferManager {
+	public:
+		SendBufferManager(NodeCount nodeCount) : nc(nodeCount) {
+			buffers = new std::vector<T>[nc];
+		}
+
+		~SendBufferManager() {
+			delete[] buffers;
+		}
+
+		void append(NodeId id, T value) {
+			buffers[id].push_back(value);
+		}
+
+		void foreachNonEmpty(std::function<void(NodeId, T*, ElementCount)> f) {
+			for(NodeId i = 0; i < nc; i++) {
+				auto& b = buffers[i];
+				if (!b.empty()) {
+					f(i, b.data(), b.size());
+				}
+			}
+		}
+
+		void clearBuffers() {
+			for(NodeId i = 0; i < nc; i++) {
+				buffers[i].clear();
+			}
+		}
+
+	private:
+		NodeCount nc;
+		std::vector<T> *buffers;
+	};
+
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
@@ -189,7 +231,21 @@ namespace details::RR2D {
 	class CommunicationWrapper {
 	public:
 		/* called by both master and slaves */
-		void initialize();
+		void initialize() {
+			/* first commit datatypes */
+			oaSizeSpecDt = OffsetArraySizeSpec::mpiDatatype();
+			countsDt = Counts::mpiDatatype();
+			MPI_Type_commit(&oaSizeSpecDt);
+			MPI_Type_commit(&countsDt);
+
+			/* build all required windows */
+			counts = Counts::allocate();
+			// @todo remove this stiff limits
+			masters = OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT);
+			shadows = OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT);
+			coOwners = OffsetArray::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT);
+		}
+
 		/* called by master */
 		void finishAllTransfers();
 		/* called by slaves */
@@ -210,9 +266,13 @@ namespace details::RR2D {
 		typedef TLocalId LocalVerticesCount;
 		typedef NodeId NodeCount;
 
+		MPI_Datatype oaSizeSpecDt;
+		MPI_Datatype countsDt;
+
 		OffsetArray<RR2DGlobalId, LocalVerticesCount> masters;
 		OffsetArray<RR2DGlobalId, ShadowDescriptor> shadows;
 		OffsetArray<NodeId, NodeCount> coOwners;
+		MpiWindowDesc counts;
 
 
 	};
