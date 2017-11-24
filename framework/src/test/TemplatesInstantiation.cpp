@@ -30,6 +30,12 @@ using ALHP_GP = ALHPGraphPartition<int,int>;
 using ALHP_GB_U = ALHGraphHandle<size_t,size_t>;
 using ALHP_GP_U = ALHPGraphPartition<size_t,size_t>;
 
+#include <representations/RoundRobin2DPartition.h>
+using RR2D_GB = RR2DHandle<int,int>;
+using RR2D_GP = RoundRobin2DPartition<int,int>;
+using RR2D_GB_U = RR2DHandle<size_t,size_t>;
+using RR2D_GP_U = RoundRobin2DPartition<size_t,size_t>;
+
 template <typename TGraphBuilder>
 void callEachGhFunction(TGraphBuilder &builder) {
 	builder.getGraph();
@@ -75,6 +81,11 @@ void testBuildersAndGraphs() {
 	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
 	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
 	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
+
+	callEachGhFunction(*uglyInstantiation<RR2D_GB>());
+	callEachGhFunction(*uglyInstantiation<RR2D_GP>());
+	callEachGhFunction(*uglyInstantiation<RR2D_GB_U>());
+	callEachGhFunction(*uglyInstantiation<RR2D_GP_U>());
 }
 
 /*
