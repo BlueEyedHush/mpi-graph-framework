@@ -9,11 +9,14 @@
 #include <vector>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
+#include <utils/AdjacencyListReader.h>
 #include "shared.h"
 
+template <typename TLocalId> using RR2DGlobalId = ALHPGlobalVertexId<TLocalId>;
+
 template <typename TLocalId, typename TNumId>
-class RoundRobin2DPartition : public GraphPartition<ALHPGlobalVertexId<TLocalId>, TLocalId, TNumId> {
-	using P = GraphPartition<ALHPGlobalVertexId<TLocalId>, TLocalId, TNumId>;
+class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId> {
+	using P = GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId>;
 	IMPORT_ALIASES(P)
 
 public:
@@ -95,25 +98,28 @@ namespace details {
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
 	 */
-	template <typename TGlobalId>
+	template <typename TLocalId>
 	class WindowManager {
 	public:
+		void initialize();
+		void ensureAllTransfersCompleted();
+
 		/* for sequential operation */
 		void startAndAssignVertexTo(NodeId nodeId);
-		void registerNeighbour(TGlobalId neighbour);
-		void registerPlaceholder();
+		void registerNeighbour(RR2DGlobalId<TLocalId> neighbour, NodeId storeOn);
+		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn);
 		/* returns offset under which placeholders were stored */
-		std::vector<EdgeTableOffset> finishVertex();
+		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
 
 		/* for placeholder replacement */
-		void replacePlaceholder(EdgeTableOffset, TGlobalId);
+		void replacePlaceholder(EdgeTableOffset, RR2DGlobalId<TLocalId>);
 	};
 
-	template <typename TGlobalId>
+	template <typename TLocalId>
 	class RemappingTable {
 	public:
-		void registerMapping(OriginalVertexId, TGlobalId);
-		TGlobalId toGlobalId(OriginalVertexId);
+		void registerMapping(OriginalVertexId, RR2DGlobalId<TLocalId>);
+		boost::optional<RR2DGlobalId<TLocalId>> toGlobalId(OriginalVertexId);
 		void releaseMapping(OriginalVertexId);
 	};
 
@@ -124,13 +130,13 @@ namespace details {
 		std::vector<EdgeTableOffset> getAllPlaceholdersFor(OriginalVertexId);
 	};
 
-	template <typename TGlobalId>
+	template <typename TLocalId>
 	class Partitioner {
 	public:
 		Partitioner(NodeId nodeCount);
 
-		TGlobalId nextMasterId();
-		TGlobalId nextNeighbourId();
+		RR2DGlobalId<TLocalId> nextMasterId();
+		TLocalId nextNodeIdForNeighbour();
 	};
 }
 
@@ -181,7 +187,8 @@ namespace details {
  * 	- batches provided updates and sends them
  * 	- also wraps flushing
  * 	- and setting on master node for vertex where are neighbours stored
- * - RemappingTable - holds OriginalVertexId -> GlobalId data
+ * - RemappingTable - holds OriginalVertexId -> GlobalId data. Even if we remap immediatelly, we still needs this mapping
+ * 	for following edges we load.
  * - PlaceholderCache - holds information about holes that must be filled after we remap
  * - Partitioner - which vertex should go to whom. Could be coupled wth GlobalId generator?
 
@@ -210,7 +217,7 @@ class RR2DHandle : public GraphPartitionHandle<RoundRobin2DPartition<TLocalId, T
 
 public:
 	RR2DHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: GraphPartitionHandle(verticesToConv, destroyGraph)
+			: GraphPartitionHandle(verticesToConv, destroyGraph), path(path)
 	{
 
 	}
@@ -220,10 +227,66 @@ protected:
 	buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
 		using namespace details;
 
+		int nodeCount, nodeId;
+		MPI_Comm_size(MPI_COMM_WORLD, &nodeCount);
+		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
+		WindowManager<LocalId> wm;
+		wm.initialize();
+
+		if (nodeId == 0) {
+			AdjacencyListReader<OriginalVertexId> reader(path);
+			Partitioner<LocalId> partitioner(nodeCount);
+			RemappingTable<LocalId> remappingTable;
+			PlaceholderCache placeholderCache;
+
+			while(auto optionalVertexSpec = reader.getNextVertex()) {
+				auto vspec = optionalVertexSpec.get();
+
+				/* get mapping and register it */
+				GlobalId mappedId = partitioner.nextMasterId();
+				remappingTable.registerMapping(vspec.vertexId, mappedId);
+
+				/* remap neighbours we can (or use placeholders) and distribute to target nodes */
+				wm.startAndAssignVertexTo(mappedId.nodeId);
+				for(auto neighbour: vspec.neighbours) {
+					LocalId nodeIdForNeigh = partitioner.nextNodeIdForNeighbour();
+
+					if (auto optionalGid = remappingTable.toGlobalId(neighbour)) {
+						wm.registerNeighbour(optionalGid.get(), nodeIdForNeigh);
+					} else {
+						wm.registerPlaceholderFor(neighbour, nodeIdForNeigh);
+					}
+				}
+				auto placeholders = wm.finishVertex();
+
+				/* remember placeholders for further replacement */
+				for(auto p: placeholders) {
+					auto originalId = p.first;
+					auto offset = p.second;
+
+					placeholderCache.rememberPlaceholder(originalId, offset);
+				}
+
+				/* remap placeholders that refered to node we just remapped */
+				for(auto offset: placeholderCache.getAllPlaceholdersFor(vspec.vertexId)) {
+					wm.replacePlaceholder(offset, mappedId);
+				}
+			}
+
+			/* signal other nodes that graph data distribution has been finisheds */
+			MPI_Barrier(MPI_COMM_WORLD);
+
+		} else {
+			/* let master do her stuff */
+			MPI_Barrier(MPI_COMM_WORLD);
+			wm.ensureAllTransfersCompleted();
+		}
 	};
 
 private:
+	std::string path;
+
 	static void destroyGraph(G* g) {
 		// don't forget to free type!
 	}
