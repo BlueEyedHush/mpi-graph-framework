@@ -148,7 +148,7 @@ namespace details::RR2D {
 	template <typename V, typename O, MPI_Datatype vDatatype, MPI_Datatype oDatatype>
 	class OffsetArray {
 	public:
-		OffsetArray(NodeCount nodeCount) : currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]) {}
+		OffsetArray(NodeCount nodeCount) : nc(nodeCount), currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]) {}
 		~OffsetArray() {delete[] currentWriteOffsets;}
 
 		/**
@@ -160,6 +160,7 @@ namespace details::RR2D {
 		 * @param valuesCount
 		 */
 		void put(NodeId nodeId, O* offsetPtr, V* valuesPtr, ElementCount valuesCount) {
+			assert(nodeId < nc);
 			auto& writeOffsets = currentWriteOffsets[nodeId];
 
 			assert(capacity.offsetCount > writeOffsets.offsetCount);
@@ -199,6 +200,7 @@ namespace details::RR2D {
 		MpiWindowDesc<O, oDatatype> offsets;
 		OffsetArraySizeSpec capacity;
 
+		NodeCount nc;
 		OffsetArraySizeSpec *currentWriteOffsets;
 	};
 
@@ -208,20 +210,47 @@ namespace details::RR2D {
 		OffsetArraySizeSpec shadows;
 		OffsetArraySizeSpec coOwners;
 
-		static MpiWindowDesc allocate() {
-			return MpiWindowDesc<Counts>::allocate(1);
-		}
-
-		static void cleanup(MpiWindowDesc& wd) {
-			MpiWindowDesc<Counts>::destroy(wd);
-		}
-
 		static MPI_Datatype mpiDatatype() {
 			auto oascDt = OffsetArraySizeSpec::mpiDatatype();
 			MPI_Datatype dt;
 			MPI_Type_contiguous(3, oascDt, &dt);
 			return dt;
 		}
+	};
+
+	class CountsForCluster {
+	public:
+		CountsForCluster(NodeCount nc) : nc(nc), counts(new Counts[nc]) {
+			countDt = Counts::mpiDatatype();
+			MPI_Type_commit(&countDt);
+			winDesc = MpiWindowDesc<Counts, countDt>::allocate(1);
+		}
+
+		~CountsForCluster() {
+			MpiWindowDesc<Counts, countDt>::destroy(winDesc);
+			MPI_Type_free(&countDt);
+			delete[] counts;
+		}
+
+		Counts& get(NodeId nid) {
+			return counts[nid];
+		}
+
+		void send() {
+			for(NodeId nid = 0; nid < nc; nid++) {
+				winDesc.put(nid, 0, counts + nid, 1);
+			}
+		}
+
+		void flush() {
+			winDesc.flush();
+		}
+
+	private:
+		NodeCount nc;
+		Counts *counts;
+		MPI_Datatype countDt;
+		MpiWindowDesc winDesc;
 	};
 
 	struct ShadowDescriptor {
