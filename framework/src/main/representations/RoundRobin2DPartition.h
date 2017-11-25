@@ -103,26 +103,24 @@ namespace details::RR2D {
 	};
 
 	// @todo rename to MpiWindow
-	template <typename T, MPI_Datatype tDt>
-	struct MpiWindowDesc : NonCopyable {
-		MPI_Win win;
-		T* data;
-
-		MpiWindowDesc() = default;
+	template <typename T>
+	class MpiWindowDesc : NonCopyable {
+	public:
+		MpiWindowDesc(MPI_Datatype datatype) : dt(datatype) {};
 		MpiWindowDesc(MpiWindowDesc&&) = default;
 		MpiWindowDesc& operator=(MpiWindowDesc&&) = default;
 
 		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
-			MPI_Put(data + offset, dataLen, tDt, nodeId, offset, dataLen, tDt, win);
+			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
 		}
 
 		void flush() {
 			MPI_Win_flush_all(win);
 		}
 
-		static MpiWindowDesc allocate(ElementCount size) {
+		static MpiWindowDesc allocate(ElementCount size, MPI_Datatype dt) {
 			auto elSize = sizeof(T);
-			MpiWindowDesc wd;
+			MpiWindowDesc wd(dt);
 			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
 			MPI_Win_lock_all(0, wd.win);
 			return wd;
@@ -132,6 +130,11 @@ namespace details::RR2D {
 			MPI_Win_unlock_all(d.win);
 			MPI_Win_free(&d.win);
 		}
+
+	private:
+		MPI_Win win;
+		T* data;
+		MPI_Datatype dt;
 	};
 
 	struct OffsetArraySizeSpec {
@@ -145,10 +148,16 @@ namespace details::RR2D {
 		}
 	};
 
-	template <typename V, typename O, MPI_Datatype vDatatype, MPI_Datatype oDatatype>
+	template <typename V, typename O>
 	class OffsetArray {
 	public:
-		OffsetArray(NodeCount nodeCount) : nc(nodeCount), currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]) {}
+		OffsetArray(NodeCount nodeCount, MPI_Datatype vDatatype, MPI_Datatype oDatatype)
+				: nc(nodeCount),
+				  currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]),
+				  offsets(oDatatype),
+				  values(vDatatype)
+		{}
+
 		~OffsetArray() {delete[] currentWriteOffsets;}
 
 		/**
@@ -178,26 +187,28 @@ namespace details::RR2D {
 			values.flush();
 		}
 
-		static OffsetArray<V,O,vDatatype,oDatatype> allocate(ElementCount valuesCount,
-		                                                     ElementCount offsetsCount,
-		                                                     NodeCount nc)
+		static OffsetArray<V,O> allocate(ElementCount valuesCount,
+		                                 ElementCount offsetsCount,
+		                                 MPI_Datatype vDt,
+		                                 MPI_Datatype oDt,
+		                                 NodeCount nc)
 		{
-			OffsetArray<V,O,vDatatype,oDatatype> oa(nc);
+			OffsetArray<V,O> oa(nc, vDt, oDt);
 			oa.capacity.valueCount = valuesCount;
 			oa.capacity.offsetCount = offsetsCount;
-			oa.values = MpiWindowDesc<V, vDatatype>::allocate(oa.capacity.valueCount);
-			oa.offsets = MpiWindowDesc<O, oDatatype>::allocate(oa.capacity.offsetCount);
+			oa.values = MpiWindowDesc<V>::allocate(oa.capacity.valueCount, vDt);
+			oa.offsets = MpiWindowDesc<O>::allocate(oa.capacity.offsetCount, oDt);
 			return oa;
 		};
 
-		static void cleanup(OffsetArray<V,O,vDatatype,oDatatype>& oa) {
-			MpiWindowDesc<V, vDatatype>::destroy(oa.offsets);
-			MpiWindowDesc<O, oDatatype>::destroy(oa.values);
+		static void cleanup(OffsetArray<V,O>& oa) {
+			MpiWindowDesc<V>::destroy(oa.offsets);
+			MpiWindowDesc<O>::destroy(oa.values);
 		}
 
 	private:
-		MpiWindowDesc<V, vDatatype> values;
-		MpiWindowDesc<O, oDatatype> offsets;
+		MpiWindowDesc<V> values;
+		MpiWindowDesc<O> offsets;
 		OffsetArraySizeSpec capacity;
 
 		NodeCount nc;
@@ -220,15 +231,14 @@ namespace details::RR2D {
 
 	class CountsForCluster {
 	public:
-		CountsForCluster(NodeCount nc) : nc(nc), counts(new Counts[nc]) {
-			countDt = Counts::mpiDatatype();
-			MPI_Type_commit(&countDt);
-			winDesc = MpiWindowDesc<Counts, countDt>::allocate(1);
-		}
+		CountsForCluster(NodeCount nc, MPI_Datatype countDt)
+				: nc(nc),
+				  counts(new Counts[nc]),
+				  winDesc(MpiWindowDesc<Counts>::allocate(1, countDt))
+		{}
 
 		~CountsForCluster() {
-			MpiWindowDesc<Counts, countDt>::destroy(winDesc);
-			MPI_Type_free(&countDt);
+			MpiWindowDesc<Counts>::destroy(winDesc);
 			delete[] counts;
 		}
 
@@ -249,8 +259,7 @@ namespace details::RR2D {
 	private:
 		NodeCount nc;
 		Counts *counts;
-		MPI_Datatype countDt;
-		MpiWindowDesc winDesc;
+		MpiWindowDesc<Counts> winDesc;
 	};
 
 	struct ShadowDescriptor {
@@ -293,6 +302,15 @@ namespace details::RR2D {
 		std::vector<T> *buffers;
 	};
 
+	// @todo what to do with MPI typemap?
+	struct MpiTypes {
+		MPI_Datatype globalId;
+		MPI_Datatype localId;
+		MPI_Datatype shadowDescriptor;
+		MPI_Datatype nodeId;
+		MPI_Datatype count;
+	};
+
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
@@ -305,20 +323,12 @@ namespace details::RR2D {
 	class CommunicationWrapper {
 	public:
 		/* called by both master and slaves */
-		void initialize() {
-			/* first commit datatypes */
-			oaSizeSpecDt = OffsetArraySizeSpec::mpiDatatype();
-			countsDt = Counts::mpiDatatype();
-			MPI_Type_commit(&oaSizeSpecDt);
-			MPI_Type_commit(&countsDt);
-
-			/* build all required windows */
-			counts = Counts::allocate();
-			// @todo remove this stiff limits
-			masters = OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT);
-			shadows = OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT);
-			coOwners = OffsetArray::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT);
-		}
+		CommunicationWrapper(NodeCount nc, MpiTypes dts)
+			: counts(CountsForCluster(nc, dts.count)),
+	          masters(OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.localId, nc)),
+	          shadows(OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.shadowDescriptor, nc)),
+	          coOwners(OffsetArray::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc))
+		{}
 
 		/* called by master */
 		void finishAllTransfers();
@@ -341,15 +351,10 @@ namespace details::RR2D {
 		typedef TLocalId LocalVerticesCount;
 		typedef NodeId NodeCount;
 
-		MPI_Datatype oaSizeSpecDt;
-		MPI_Datatype countsDt;
-
 		OffsetArray<RR2DGlobalId, LocalVerticesCount> masters;
 		OffsetArray<RR2DGlobalId, ShadowDescriptor> shadows;
 		OffsetArray<NodeId, NodeCount> coOwners;
-		MpiWindowDesc counts;
-
-
+		CountsForCluster counts;
 	};
 
 	template <typename TLocalId>
@@ -469,7 +474,6 @@ protected:
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
 		CommunicationWrapper<LocalId> cm;
-		cm.initialize();
 
 		if (nodeId == 0) {
 			AdjacencyListReader<OriginalVertexId> reader(path);
