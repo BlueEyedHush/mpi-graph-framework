@@ -139,6 +139,9 @@ namespace details::RR2D {
 	template <typename V, typename O, MPI_Datatype vDatatype, MPI_Datatype oDatatype>
 	class OffsetArray {
 	public:
+		OffsetArray(NodeCount nodeCount) : currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]) {}
+		~OffsetArray() {delete[] currentWriteOffsets;}
+
 		/**
 		 * Neither offsetPtr nor valuesPtr can be freed before you call flush on OffsetArray
 		 *
@@ -148,14 +151,16 @@ namespace details::RR2D {
 		 * @param valuesCount
 		 */
 		void put(NodeId nodeId, O* offsetPtr, V* valuesPtr, ElementCount valuesCount) {
-			assert(sizes.offsetCount > offsetsNextFree);
-			assert(sizes.valueCount > valuesNextFree + valuesCount);
+			auto& writeOffsets = currentWriteOffsets[nodeId];
 
-			MPI_Put(offsetPtr, 1, oDatatype, nodeId, offsetsNextFree, 1, oDatatype, offsets.win);
-			MPI_Put(valuesPtr, valuesCount, vDatatype, nodeId, valuesNextFree, valuesCount, vDatatype, values.win);
+			assert(capacity.offsetCount > writeOffsets.offsetCount);
+			assert(capacity.valueCount > writeOffsets.valueCount + valuesCount);
 
-			offsetsNextFree += 1;
-			valuesNextFree += valuesCount;
+			MPI_Put(offsetPtr, 1, oDatatype, nodeId, writeOffsets.offsetCount, 1, oDatatype, offsets.win);
+			MPI_Put(valuesPtr, valuesCount, vDatatype, nodeId, writeOffsets.valueCount, valuesCount, vDatatype, values.win);
+
+			writeOffsets.offsetCount += 1;
+			writeOffsets.valueCount += valuesCount;
 		}
 
 		void flush() {
@@ -163,12 +168,15 @@ namespace details::RR2D {
 			MPI_Win_flush_all(values.win);
 		}
 
-		static OffsetArray<V,O,vDatatype,oDatatype> allocate(ElementCount valuesCount, ElementCount offsetsCount) {
-			OffsetArray<V,O,vDatatype,oDatatype> oa;
-			oa.sizes.valueCount = valuesCount;
-			oa.sizes.offsetCount = offsetsCount;
-			oa.values = MpiWindowDesc<V>::allocate(oa.sizes.valueCount);
-			oa.offsets = MpiWindowDesc<O>::allocate(oa.sizes.offsetCount);
+		static OffsetArray<V,O,vDatatype,oDatatype> allocate(ElementCount valuesCount,
+		                                                     ElementCount offsetsCount,
+		                                                     NodeCount nc)
+		{
+			OffsetArray<V,O,vDatatype,oDatatype> oa(nc);
+			oa.capacity.valueCount = valuesCount;
+			oa.capacity.offsetCount = offsetsCount;
+			oa.values = MpiWindowDesc<V>::allocate(oa.capacity.valueCount);
+			oa.offsets = MpiWindowDesc<O>::allocate(oa.capacity.offsetCount);
 			return oa;
 		};
 
@@ -180,13 +188,12 @@ namespace details::RR2D {
 	private:
 		MpiWindowDesc<V> values;
 		MpiWindowDesc<O> offsets;
-		OffsetArraySizeSpec sizes;
+		OffsetArraySizeSpec capacity;
 
-		ElementCount valuesNextFree = 0;
-		ElementCount offsetsNextFree = 0;
+		OffsetArraySizeSpec *currentWriteOffsets;
 	};
 
-
+	/* master must keep track of counts for each node separatelly */
 	struct Counts {
 		OffsetArraySizeSpec masters;
 		OffsetArraySizeSpec shadows;
