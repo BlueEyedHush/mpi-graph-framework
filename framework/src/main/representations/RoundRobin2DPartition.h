@@ -102,7 +102,8 @@ namespace details::RR2D {
 		EdgeCount offset;
 	};
 
-	template <typename T>
+	// @todo rename to MpiWindow
+	template <typename T, MPI_Datatype tDt>
 	struct MpiWindowDesc : NonCopyable {
 		MPI_Win win;
 		T* data;
@@ -110,6 +111,14 @@ namespace details::RR2D {
 		MpiWindowDesc() = default;
 		MpiWindowDesc(MpiWindowDesc&&) = default;
 		MpiWindowDesc& operator=(MpiWindowDesc&&) = default;
+
+		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
+			MPI_Put(data + offset, dataLen, tDt, nodeId, offset, dataLen, tDt, win);
+		}
+
+		void flush() {
+			MPI_Win_flush_all(win);
+		}
 
 		static MpiWindowDesc allocate(ElementCount size) {
 			auto elSize = sizeof(T);
@@ -156,16 +165,16 @@ namespace details::RR2D {
 			assert(capacity.offsetCount > writeOffsets.offsetCount);
 			assert(capacity.valueCount > writeOffsets.valueCount + valuesCount);
 
-			MPI_Put(offsetPtr, 1, oDatatype, nodeId, writeOffsets.offsetCount, 1, oDatatype, offsets.win);
-			MPI_Put(valuesPtr, valuesCount, vDatatype, nodeId, writeOffsets.valueCount, valuesCount, vDatatype, values.win);
+			offsets.put(nodeId, writeOffsets.offsetCount, offsetPtr, 1);
+			values.put(nodeId, writeOffsets.valueCount, valuesPtr, valuesCount);
 
 			writeOffsets.offsetCount += 1;
 			writeOffsets.valueCount += valuesCount;
 		}
 
 		void flush() {
-			MPI_Win_flush_all(offsets.win);
-			MPI_Win_flush_all(values.win);
+			offsets.flush();
+			values.flush();
 		}
 
 		static OffsetArray<V,O,vDatatype,oDatatype> allocate(ElementCount valuesCount,
@@ -175,19 +184,19 @@ namespace details::RR2D {
 			OffsetArray<V,O,vDatatype,oDatatype> oa(nc);
 			oa.capacity.valueCount = valuesCount;
 			oa.capacity.offsetCount = offsetsCount;
-			oa.values = MpiWindowDesc<V>::allocate(oa.capacity.valueCount);
-			oa.offsets = MpiWindowDesc<O>::allocate(oa.capacity.offsetCount);
+			oa.values = MpiWindowDesc<V, vDatatype>::allocate(oa.capacity.valueCount);
+			oa.offsets = MpiWindowDesc<O, oDatatype>::allocate(oa.capacity.offsetCount);
 			return oa;
 		};
 
 		static void cleanup(OffsetArray<V,O,vDatatype,oDatatype>& oa) {
-			MpiWindowDesc<V>::destroy(oa.offsets);
-			MpiWindowDesc<O>::destroy(oa.values);
+			MpiWindowDesc<V, vDatatype>::destroy(oa.offsets);
+			MpiWindowDesc<O, oDatatype>::destroy(oa.values);
 		}
 
 	private:
-		MpiWindowDesc<V> values;
-		MpiWindowDesc<O> offsets;
+		MpiWindowDesc<V, vDatatype> values;
+		MpiWindowDesc<O, oDatatype> offsets;
 		OffsetArraySizeSpec capacity;
 
 		OffsetArraySizeSpec *currentWriteOffsets;
