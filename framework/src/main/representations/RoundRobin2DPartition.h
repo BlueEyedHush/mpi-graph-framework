@@ -114,9 +114,8 @@ namespace details::RR2D {
 			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
 		}
 
-		void flush() {
-			MPI_Win_flush_all(win);
-		}
+		void flush() { MPI_Win_flush_all(win); }
+		void sync() { MPI_Win_sync(win); }
 
 		static MpiWindowDesc allocate(ElementCount size, MPI_Datatype dt) {
 			auto elSize = sizeof(T);
@@ -187,6 +186,11 @@ namespace details::RR2D {
 			values.flush();
 		}
 
+		void sync() {
+			offsets.sync();
+			values.sync();
+		}
+
 		static OffsetArray<V,O> allocate(ElementCount valuesCount,
 		                                 ElementCount offsetsCount,
 		                                 MPI_Datatype vDt,
@@ -252,9 +256,8 @@ namespace details::RR2D {
 			}
 		}
 
-		void flush() {
-			winDesc.flush();
-		}
+		void flush() { winDesc.flush(); }
+		void sync() { winDesc.sync(); }
 
 	private:
 		NodeCount nc;
@@ -331,10 +334,20 @@ namespace details::RR2D {
 		{}
 
 		/* called by master */
-		void finishAllTransfers();
+		void finishAllTransfers() {
+			masters.flush();
+			shadows.flush();
+			coOwners.flush();
+			counts.flush();
+		}
+
 		/* called by slaves */
-		// @todo we should probaably synchronize public&private window views
-		void ensureAllTransfersCompleted();
+		void ensureTransfersVisibility() {
+			masters.sync();
+			shadows.sync();
+			coOwners.sync();
+			counts.sync();
+		}
 
 		/* for sequential operation */
 		void startAndAssignVertexTo(NodeId nodeId);
@@ -522,7 +535,7 @@ protected:
 		} else {
 			/* let master do her stuff */
 			MPI_Barrier(MPI_COMM_WORLD);
-			cm.ensureAllTransfersCompleted();
+			cm.ensureTransfersVisibility();
 		}
 	};
 
