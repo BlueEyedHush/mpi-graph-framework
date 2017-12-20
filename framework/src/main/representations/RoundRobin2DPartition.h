@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_set>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
@@ -393,7 +394,20 @@ namespace details { namespace RR2D {
 		}
 
 		void registerNeighbour(GlobalId neighbour, NodeId storeOn) {
+			/*
+			 * We need to:
+			 * - check if storeOn is master; if not it needs to be added to coOwners (provided it's not yet there)
+			 * - if master: append entry to masters, otherwise: append entry to shadows (and update counts accordingly)
+			 */
 
+			if(storeOn != currentNodeOwner) {
+				currentNodeCoOwners.insert(storeOn);
+				shadowsV.append(storeOn, neighbour);
+				counts.get(storeOn).shadows.valueCount += 1;
+			} else {
+				mastersV.append(storeOn, neighbour);
+				counts.get(storeOn).masters.valueCount += 1;
+			}
 		}
 
 		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn);
@@ -412,13 +426,15 @@ namespace details { namespace RR2D {
 		OffsetArray<NodeId, NodeCount> coOwners;
 		CountsForCluster counts;
 
-		NodeId currentNodeOwner;
 		SendBufferManager<GlobalId> mastersV;
 		SendBufferManager<LocalVerticesCount> mastersO;
 		SendBufferManager<GlobalId> shadowsV;
 		SendBufferManager<ShadowDesc> shadowsO;
 		SendBufferManager<NodeId> coOwnersV;
 		SendBufferManager<NodeCount> coOwnersO;
+
+		NodeId currentNodeOwner;
+		std::unordered_set<NodeId> currentNodeCoOwners;
 	};
 
 	template <typename TLocalId>
