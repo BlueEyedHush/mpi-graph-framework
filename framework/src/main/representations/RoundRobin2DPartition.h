@@ -234,6 +234,8 @@ namespace details { namespace RR2D {
 	struct Counts {
 		OffsetArraySizeSpec masters;
 		OffsetArraySizeSpec shadows;
+		/* offsetCount for coOwners should be identical to that of masters, but we keep it here for to keep design
+		 * consistent */
 		OffsetArraySizeSpec coOwners;
 
 		static MPI_Datatype mpiDatatype() {
@@ -257,6 +259,7 @@ namespace details { namespace RR2D {
 			delete[] counts;
 		}
 
+		/* meant to be used for both reading and _writing_ */
 		Counts& get(NodeId nid) {
 			return counts[nid];
 		}
@@ -348,7 +351,8 @@ namespace details { namespace RR2D {
 	          shadows(OffsetArray<GlobalId, ShadowDesc>
 	                  ::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.shadowDescriptor, nc)),
 	          coOwners(OffsetArray<NodeId, NodeId>
-	                   ::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc))
+	                   ::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc)),
+	          mastersV(nc), mastersO(nc), shadowsV(nc), shadowsO(nc), coOwnersV(nc), coOwnersO(nc)
 		{}
 
 		/* called by master */
@@ -368,8 +372,30 @@ namespace details { namespace RR2D {
 		}
 
 		/* for sequential operation */
-		void startAndAssignVertexTo(NodeId nodeId);
-		void registerNeighbour(GlobalId neighbour, NodeId storeOn);
+		void startAndAssignVertexTo(NodeId masterNodeId) {
+			currentNodeOwner = masterNodeId;
+
+			/* we need to add marker entries to masterNodeId's masters & coOwners offset tables so
+			 * that node know that such vertex was assigned to it
+			 * this is necessary even if there won't be any neighbour/coOwning nodeId assigned - in that case
+			 * next in offset tables'll share the same ID
+			 */
+
+			auto& mastersCounts = counts.get(masterNodeId).masters;
+			/* put into offset table id of first unused cell in values table, then update offset table length */
+			mastersO.append(masterNodeId, mastersCounts.valueCount);
+			mastersCounts.offsetCount += 1;
+
+			auto& coOwnersCounts = counts.get(masterNodeId).coOwners;
+			/* same story as above */
+			coOwnersO.append(masterNodeId, coOwnersCounts.valueCount);
+			/* in this case we skip updaing coOwnersCounts.offsetCounts since it must match mastersCounts.offsetCount */
+		}
+
+		void registerNeighbour(GlobalId neighbour, NodeId storeOn) {
+
+		}
+
 		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn);
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
@@ -385,6 +411,14 @@ namespace details { namespace RR2D {
 		OffsetArray<GlobalId, ShadowDesc> shadows;
 		OffsetArray<NodeId, NodeCount> coOwners;
 		CountsForCluster counts;
+
+		NodeId currentNodeOwner;
+		SendBufferManager<GlobalId> mastersV;
+		SendBufferManager<LocalVerticesCount> mastersO;
+		SendBufferManager<GlobalId> shadowsV;
+		SendBufferManager<ShadowDesc> shadowsO;
+		SendBufferManager<NodeId> coOwnersV;
+		SendBufferManager<NodeCount> coOwnersO;
 	};
 
 	template <typename TLocalId>
