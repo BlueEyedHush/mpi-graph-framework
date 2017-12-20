@@ -289,6 +289,8 @@ namespace details { namespace RR2D {
 
 	template <typename TLocalId>
 	struct ShadowDescriptor {
+		ShadowDescriptor(RR2DGlobalId<TLocalId> id, ElementCount offset) : id(id), offset(offset) {}
+
 		RR2DGlobalId<TLocalId> id;
 		ElementCount offset;
 	};
@@ -382,8 +384,8 @@ namespace details { namespace RR2D {
 		}
 
 		/* for sequential operation */
-		void startAndAssignVertexTo(NodeId masterNodeId) {
-			currentNodeOwner = masterNodeId;
+		void startAndAssignVertexTo(GlobalId gid) {
+			currentVertexGid = gid;
 
 			/* we need to add marker entries to masterNodeId's masters & coOwners offset tables so
 			 * that node know that such vertex was assigned to it
@@ -391,14 +393,14 @@ namespace details { namespace RR2D {
 			 * next in offset tables'll share the same ID
 			 */
 
-			auto& mastersCounts = counts.get(masterNodeId).masters;
+			auto& mastersCounts = counts.get(gid.nodeId).masters;
 			/* put into offset table id of first unused cell in values table, then update offset table length */
-			mastersO.append(masterNodeId, mastersCounts.valueCount);
+			mastersO.append(gid.nodeId, mastersCounts.valueCount);
 			mastersCounts.offsetCount += 1;
 
-			auto& coOwnersCounts = counts.get(masterNodeId).coOwners;
+			auto& coOwnersCounts = counts.get(gid.nodeId).coOwners;
 			/* same story as above */
-			coOwnersO.append(masterNodeId, coOwnersCounts.valueCount);
+			coOwnersO.append(gid.nodeId, coOwnersCounts.valueCount);
 			/* in this case we skip updaing coOwnersCounts.offsetCounts since it must match mastersCounts.offsetCount */
 		}
 
@@ -406,13 +408,23 @@ namespace details { namespace RR2D {
 			/*
 			 * We need to:
 			 * - check if storeOn is master; if not it needs to be added to coOwners (provided it's not yet there)
+			 * - if it's a first shadow for this vertex assigned to storeOn, we have to create entry
 			 * - if master: append entry to masters, otherwise: append entry to shadows (and update counts accordingly)
+			 *  in shadows::offset table
 			 */
 
-			if(storeOn != currentNodeOwner) {
-				currentNodeCoOwners.insert(storeOn);
+			if(storeOn != currentVertexGid.nodeId) {
+				auto& c = counts.get(storeOn).shadows;
+
+				if(currentVertexCoOwners.count(storeOn) == 0) {
+					currentVertexCoOwners.insert(storeOn);
+					
+					shadowsO.append(storeOn, ShadowDescriptor(currentVertexGid, c.valueCount));
+					c.offsetCount += 1;
+				}
+
 				shadowsV.append(storeOn, neighbour);
-				counts.get(storeOn).shadows.valueCount += 1;
+				c.valueCount += 1;
 			} else {
 				mastersV.append(storeOn, neighbour);
 				counts.get(storeOn).masters.valueCount += 1;
@@ -426,7 +438,7 @@ namespace details { namespace RR2D {
 			 * Placeholders replacement is performed after vertex is written, so we also must modify coOwners here
 			 */
 
-			bool master = storeOn == currentNodeOwner;
+			bool master = storeOn == currentVertexGid.nodeId;
 
 			ElementCount placeholderOffset;
 			if (master) {
@@ -434,7 +446,7 @@ namespace details { namespace RR2D {
 				placeholderOffset= c.valueCount;
 				c.valueCount += 1;
 			} else {
-				currentNodeCoOwners.insert(storeOn);
+				currentVertexCoOwners.insert(storeOn);
 
 				auto& c = counts.get(storeOn).shadows;
 				placeholderOffset= c.valueCount;
@@ -479,8 +491,8 @@ namespace details { namespace RR2D {
 		SendBufferManager<NodeCount> coOwnersO;
 
 		/* per-vertex members, reset when new vertex is started */
-		NodeId currentNodeOwner;
-		std::unordered_set<NodeId> currentNodeCoOwners;
+		GlobalId currentVertexGid;
+		std::unordered_set<NodeId> currentVertexCoOwners;
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
 		boost::object_pool placeholderReplacementBuffers;
 	};
@@ -523,10 +535,12 @@ namespace details { namespace RR2D {
  * 	separate datastructure, and write to that node a placeholder value.
  * - for each vertex we process, we split neighbours into chunks which are assigned to different nodes
  * - we write to master (for our vertex) information about all nodes which store it's neighbours
- * - master vertices and shadows are written to different windows - we don't know how many vertices are going
- * 	to be assigned to given node, so we don't know what local ids we should assign to shadows. Therefore, for shadows,
- * 	we only write pairs (GlobalId, neighbours). After master finishes distributing vertices, each node assigns LocalId
- * 	to each shadow and builds map GlobalId -> LocalId
+ * - master vertices and shadows are written to different windows due to requirement that shadows must be stored after
+ * 	masters, and we don't know how many vertices are going to be assigned to given node.
+ * - nodes must have GlobalId -> LocalId mapping. This is easy for masters since their GlobalId = (nodeId, localId). But
+ * 	for shadows we need to know original GlobalId - it must be distributed to the node, alongside assigned neighbours.
+ * 	Therefore, for shadows, value table consists only from neighbours (just like for masters), but each position in
+ * 	offset table contains pair (offset, originalGlobalId)
  * - after distribution is finished, ma]ster discards GlobalId -> LocalId mapping, except from values, that were
  * 	user requested to be kept (verticesToConv constructor parameter)
  *
@@ -618,7 +632,7 @@ protected:
 				remappingTable.registerMapping(vspec.vertexId, mappedId);
 
 				/* remap neighbours we can (or use placeholders) and distribute to target nodes */
-				cm.startAndAssignVertexTo(mappedId.nodeId);
+				cm.startAndAssignVertexTo(mappedId);
 				for(auto neighbour: vspec.neighbours) {
 					LocalId nodeIdForNeigh = partitioner.nextNodeIdForNeighbour();
 
