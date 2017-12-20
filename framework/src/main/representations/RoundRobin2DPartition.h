@@ -276,8 +276,9 @@ namespace details { namespace RR2D {
 		MpiWindowDesc<Counts> winDesc;
 	};
 
+	template <typename TLocalId>
 	struct ShadowDescriptor {
-		RR2DGlobalId id;
+		RR2DGlobalId<TLocalId> id;
 		ElementCount offset;
 	};
 
@@ -335,13 +336,19 @@ namespace details { namespace RR2D {
 	 */
 	template <typename TLocalId>
 	class CommunicationWrapper {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+		using ShadowDesc = ShadowDescriptor<TLocalId>;
+
 	public:
 		/* called by both master and slaves */
 		CommunicationWrapper(NodeCount nc, MpiTypes dts)
 			: counts(CountsForCluster(nc, dts.count)),
-	          masters(OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.localId, nc)),
-	          shadows(OffsetArray::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.shadowDescriptor, nc)),
-	          coOwners(OffsetArray::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc))
+	          masters(OffsetArray<GlobalId, TLocalId>
+	                  ::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.localId, nc)),
+	          shadows(OffsetArray<GlobalId, ShadowDesc>
+	                  ::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.shadowDescriptor, nc)),
+	          coOwners(OffsetArray<NodeId, NodeId>
+	                   ::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc))
 		{}
 
 		/* called by master */
@@ -362,21 +369,20 @@ namespace details { namespace RR2D {
 
 		/* for sequential operation */
 		void startAndAssignVertexTo(NodeId nodeId);
-		void registerNeighbour(RR2DGlobalId<TLocalId> neighbour, NodeId storeOn);
+		void registerNeighbour(GlobalId neighbour, NodeId storeOn);
 		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn);
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
 
 		/* for placeholder replacement */
-		void replacePlaceholder(EdgeTableOffset, RR2DGlobalId<TLocalId>);
+		void replacePlaceholder(EdgeTableOffset, GlobalId);
 
 	private:
 		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
 		typedef TLocalId LocalVerticesCount;
-		typedef NodeId NodeCount;
 
-		OffsetArray<RR2DGlobalId, LocalVerticesCount> masters;
-		OffsetArray<RR2DGlobalId, ShadowDescriptor> shadows;
+		OffsetArray<GlobalId, LocalVerticesCount> masters;
+		OffsetArray<GlobalId, ShadowDesc> shadows;
 		OffsetArray<NodeId, NodeCount> coOwners;
 		CountsForCluster counts;
 	};
@@ -483,13 +489,13 @@ class RR2DHandle : public GraphPartitionHandle<RoundRobin2DPartition<TLocalId, T
 
 public:
 	RR2DHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: GraphPartitionHandle(verticesToConv, destroyGraph), path(path)
+			: G(verticesToConv, destroyGraph), path(path)
 	{
 
 	}
 
 protected:
-	virtual std::pair<RoundRobin2DPartition*, std::vector<GlobalId>>
+	virtual std::pair<G*, std::vector<GlobalId>>
 	buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
 		using namespace details::RR2D;
 

@@ -76,16 +76,15 @@ void testBuildersAndGraphs() {
 	callEachGpFunction(*uglyInstantiation<ABCP_GP_U>());
 	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
 	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
+	callEachGpFunction(*uglyInstantiation<RR2D_GP>());
+	callEachGpFunction(*uglyInstantiation<RR2D_GP_U>());
 
 	callEachGhFunction(*uglyInstantiation<ABCP_GB>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
 	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
+	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
 	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
-
 	callEachGhFunction(*uglyInstantiation<RR2D_GB>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GP>());
 	callEachGhFunction(*uglyInstantiation<RR2D_GB_U>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GP_U>());
 }
 
 /*
