@@ -175,6 +175,7 @@ namespace details { namespace RR2D {
 
 		/**
 		 * Neither offsetPtr nor valuesPtr can be freed before you call flush on OffsetArray
+		 * Offset is always singular, but muliple values can corresopnd to single offset
 		 *
 		 * @param nodeId
 		 * @param offsetPtr
@@ -182,20 +183,16 @@ namespace details { namespace RR2D {
 		 * @param valuesCount
 		 */
 		void put(NodeId nodeId, O* offsetPtr, V* valuesPtr, ElementCount valuesCount) {
-			assert(nodeId < nc);
-			auto& writeOffsets = currentWriteOffsets[nodeId];
-
-			assert(capacity.offsetCount > writeOffsets.offsetCount);
-			assert(capacity.valueCount > writeOffsets.valueCount + valuesCount);
-
+			auto writeOffsets = getCheckAndUpdateOffsets(nodeId, valuesCount, 1);
 			offsets.put(nodeId, writeOffsets.offsetCount, offsetPtr, 1);
 			values.put(nodeId, writeOffsets.valueCount, valuesPtr, valuesCount);
-
-			writeOffsets.offsetCount += 1;
-			writeOffsets.valueCount += valuesCount;
 		}
 
-		void putValueAtOffset(NodeId nodeId, V* valuePtr, ElementCount offset) {
+		void advanceValueOffset(NodeId nodeId, ElementCount increment) {
+			getCheckAndUpdateOffsets(nodeId, increment, 0);
+		}
+
+		void replaceValueAtOffset(NodeId nodeId, V *valuePtr, ElementCount offset) {
 			assert(nodeId < nc);
 			values.put(nodeId, offset, valuePtr, 1);
 		}
@@ -236,6 +233,22 @@ namespace details { namespace RR2D {
 
 		NodeCount nc;
 		OffsetArraySizeSpec *currentWriteOffsets;
+
+		/**
+		 * Returns value before modification
+		 */
+		OffsetArraySizeSpec getCheckAndUpdateOffsets(NodeId nodeId, ElementCount valInc, ElementCount offInc) {
+			assert(nodeId < nc);
+			OffsetArraySizeSpec offsets = currentWriteOffsets[nodeId];
+			
+			assert(capacity.offsetCount >= offsets.offsetCount + offInc);
+			assert(capacity.valueCount > offsets.valueCount + valInc);
+
+			offsets.offsetCount += offInc;
+			offsets.valueCount += valInc;
+			
+			return offsets;
+		}
 	};
 
 	/* master must keep track of counts for each node separatelly */
@@ -436,6 +449,9 @@ namespace details { namespace RR2D {
 			 * To lessen network utilization, we don't transfer placeholders, only reserve free space for them
 			 * after actual data. But we still have to assign it to the node here.
 			 * Placeholders replacement is performed after vertex is written, so we also must modify coOwners here
+			 * We also increase valueCounts - we can do it safely, because:
+			 * 1. SendBufferManager tracks independently how many elements were inserted (and it's that counter we use)
+			 * 2. OffsetTable idependently tracks next offset to insert... //@todo which might be a problem, we have to advance it manually...
 			 */
 
 			bool master = storeOn == currentVertexGid.nodeId;
@@ -457,7 +473,16 @@ namespace details { namespace RR2D {
 		}
 
 		/* returns offset under which placeholders were stored */
-		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
+		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex() {
+			/* handler placeholder gaps */
+			// adding placeholder also means need to insert shadow offset...
+			// placeholder - just increment counter, without inserting; trakced by different counters...
+			// write ccounter - sendbuffermanager, counter used by us - counters
+			/* send stuff */
+			/* sync & rest SendBufferManagers */
+
+			return placeholders;
+		};
 
 		/* for placeholder replacement */
 		void replacePlaceholder(EdgeTableOffset eto, GlobalId gid) {
@@ -465,7 +490,7 @@ namespace details { namespace RR2D {
 			*buffer = gid;
 
 			auto& oa = eto.master ? masters : shadows;
-			oa.putValueAtOffset(eto.nodeId, buffer, eto.offset);
+			oa.replaceValueAtOffset(eto.nodeId, buffer, eto.offset);
 
 			/*
 			 * Thanks to the fact that we don't actually write placeholders, we don't need flush() between
