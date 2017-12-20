@@ -97,10 +97,11 @@ namespace details { namespace RR2D {
 	const ElementCount COOWNERS_MAX_COUNT = 20;
 
 	struct EdgeTableOffset {
-		EdgeTableOffset(NodeId nodeId, EdgeCount offset) : nodeId(nodeId), offset(offset) {}
+		EdgeTableOffset(NodeId nodeId, EdgeCount offset, bool master) : nodeId(nodeId), offset(offset), master(master) {}
 
 		NodeId nodeId;
 		EdgeCount offset;
+		bool master;
 	};
 
 	// @todo rename to MpiWindow
@@ -410,7 +411,23 @@ namespace details { namespace RR2D {
 			}
 		}
 
-		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn);
+		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn) {
+			bool master = storedOn == currentNodeOwner;
+
+			ElementCount placeholderOffset;
+			if (master) {
+				auto& c = counts.get(storedOn).masters;
+				placeholderOffset= c.valueCount;
+				c.valueCount += 1;
+			} else {
+				auto& c = counts.get(storedOn).shadows;
+				placeholderOffset= c.valueCount;
+				c.valueCount += 1;
+			}
+
+			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storedOn, placeholderOffset, master)));
+		}
+
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
 
@@ -421,6 +438,7 @@ namespace details { namespace RR2D {
 		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
 		typedef TLocalId LocalVerticesCount;
 
+		/* 'global' members, shared across all vertices and nodes */
 		OffsetArray<GlobalId, LocalVerticesCount> masters;
 		OffsetArray<GlobalId, ShadowDesc> shadows;
 		OffsetArray<NodeId, NodeCount> coOwners;
@@ -433,8 +451,10 @@ namespace details { namespace RR2D {
 		SendBufferManager<NodeId> coOwnersV;
 		SendBufferManager<NodeCount> coOwnersO;
 
+		/* per-vertex members, reset when new vertex is started */
 		NodeId currentNodeOwner;
 		std::unordered_set<NodeId> currentNodeCoOwners;
+		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
 	};
 
 	template <typename TLocalId>
