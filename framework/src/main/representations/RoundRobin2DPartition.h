@@ -427,17 +427,11 @@ namespace details { namespace RR2D {
 			 */
 
 			if(storeOn != currentVertexGid.nodeId) {
-				auto& c = counts.get(storeOn).shadows;
-
-				if(currentVertexCoOwners.count(storeOn) == 0) {
-					currentVertexCoOwners.insert(storeOn);
-					
-					shadowsO.append(storeOn, ShadowDescriptor(currentVertexGid, c.valueCount));
-					c.offsetCount += 1;
-				}
+				currentVertexCoOwners.insert(storeOn);
+				insertOffsetDescriptorOnShadowIfNeeded(storeOn);
 
 				shadowsV.append(storeOn, neighbour);
-				c.valueCount += 1;
+				counts.get(storeOn).shadows.valueCount += 1;
 			} else {
 				mastersV.append(storeOn, neighbour);
 				counts.get(storeOn).masters.valueCount += 1;
@@ -447,37 +441,41 @@ namespace details { namespace RR2D {
 		void registerPlaceholderFor(OriginalVertexId oid, NodeId storeOn) {
 			/*
 			 * To lessen network utilization, we don't transfer placeholders, only reserve free space for them
-			 * after actual data. But we still have to assign it to the node here.
-			 * Placeholders replacement is performed after vertex is written, so we also must modify coOwners here
-			 * We also increase valueCounts - we can do it safely, because:
-			 * 1. SendBufferManager tracks independently how many elements were inserted (and it's that counter we use)
-			 * 2. OffsetTable idependently tracks next offset to insert... //@todo which might be a problem, we have to advance it manually...
+			 * after actual data. This means we have to defer actual processing until all 'concrete' neighbours
+			 * of current vertex are processed
 			 */
 
 			bool master = storeOn == currentVertexGid.nodeId;
+			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storeOn, 0, master)));
 
-			ElementCount placeholderOffset;
-			if (master) {
-				auto& c = counts.get(storeOn).masters;
-				placeholderOffset= c.valueCount;
-				c.valueCount += 1;
-			} else {
-				currentVertexCoOwners.insert(storeOn);
 
-				auto& c = counts.get(storeOn).shadows;
-				placeholderOffset= c.valueCount;
-				c.valueCount += 1;
-			}
 
-			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storeOn, placeholderOffset, master)));
+
+
 		}
 
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex() {
-			/* handler placeholder gaps */
-			// adding placeholder also means need to insert shadow offset...
-			// placeholder - just increment counter, without inserting; trakced by different counters...
-			// write ccounter - sendbuffermanager, counter used by us - counters
+			/*
+			 * Frist we need to process placeholders - give them offsets and create offset entries for shadows
+			 * if necessary
+			 */
+			for(auto& p: placeholders) {
+				auto& desc = p.second;
+				if (desc.master) {
+					auto& c = counts.get(desc.nodeId).masters;
+					desc.offset = c.valueCount;
+					c.valueCount += 1;
+				} else {
+					currentVertexCoOwners.insert(desc.nodeId);
+					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
+
+					auto& c = counts.get(desc.nodeId).shadows;
+					desc.offset = c.valueCount;
+					c.valueCount += 1;
+				}
+			}
+
 			/* send stuff */
 			/* sync & rest SendBufferManagers */
 
@@ -496,6 +494,15 @@ namespace details { namespace RR2D {
 			 * Thanks to the fact that we don't actually write placeholders, we don't need flush() between
 			 * writing placeholder and writing actual value
 			 */
+		}
+
+	private:
+		void insertOffsetDescriptorOnShadowIfNeeded(NodeId storeOn) {
+			auto& c = counts.get(storeOn).shadows;
+			if(currentVertexCoOwners.count(storeOn) == 0) {
+				shadowsO.append(storeOn, ShadowDescriptor(currentVertexGid, c.valueCount));
+				c.offsetCount += 1;
+			}
 		}
 
 	private:
