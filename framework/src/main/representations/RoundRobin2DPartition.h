@@ -161,94 +161,19 @@ namespace details { namespace RR2D {
 		}
 	};
 
-	template <typename V, typename O>
-	class OffsetArray {
+	class OffsetTracker {
 	public:
-		OffsetArray(NodeCount nodeCount, MPI_Datatype vDatatype, MPI_Datatype oDatatype)
-				: nc(nodeCount),
-				  currentWriteOffsets(new OffsetArraySizeSpec[nodeCount]),
-				  offsets(oDatatype),
-				  values(vDatatype)
-		{}
+		OffsetTracker(ElementCount count) : offset(0), count(count) {}
 
-		~OffsetArray() {delete[] currentWriteOffsets;}
+		ElementCount get() {return offset;}
 
-		/**
-		 * Neither offsetPtr nor valuesPtr can be freed before you call flush on OffsetArray
-		 * Offset is always singular, but muliple values can corresopnd to single offset
-		 *
-		 * @param nodeId
-		 * @param offsetPtr
-		 * @param valuesPtr
-		 * @param valuesCount
-		 */
-		void put(NodeId nodeId, O* offsetPtr, V* valuesPtr, ElementCount valuesCount) {
-			auto writeOffsets = getCheckAndUpdateOffsets(nodeId, valuesCount, 1);
-			offsets.put(nodeId, writeOffsets.offsetCount, offsetPtr, 1);
-			values.put(nodeId, writeOffsets.valueCount, valuesPtr, valuesCount);
-		}
-
-		void advanceValueOffset(NodeId nodeId, ElementCount increment) {
-			getCheckAndUpdateOffsets(nodeId, increment, 0);
-		}
-
-		void replaceValueAtOffset(NodeId nodeId, V *valuePtr, ElementCount offset) {
-			assert(nodeId < nc);
-			values.put(nodeId, offset, valuePtr, 1);
-		}
-
-		void flush() {
-			offsets.flush();
-			values.flush();
-		}
-
-		void sync() {
-			offsets.sync();
-			values.sync();
-		}
-
-		static OffsetArray<V,O> allocate(ElementCount valuesCount,
-		                                 ElementCount offsetsCount,
-		                                 MPI_Datatype vDt,
-		                                 MPI_Datatype oDt,
-		                                 NodeCount nc)
-		{
-			OffsetArray<V,O> oa(nc, vDt, oDt);
-			oa.capacity.valueCount = valuesCount;
-			oa.capacity.offsetCount = offsetsCount;
-			oa.values = MpiWindowDesc<V>::allocate(oa.capacity.valueCount, vDt);
-			oa.offsets = MpiWindowDesc<O>::allocate(oa.capacity.offsetCount, oDt);
-			return oa;
-		};
-
-		static void cleanup(OffsetArray<V,O>& oa) {
-			MpiWindowDesc<V>::destroy(oa.offsets);
-			MpiWindowDesc<O>::destroy(oa.values);
+		void tryAdvance(ElementCount increment) {
+			assert(offset + increment < count);
 		}
 
 	private:
-		MpiWindowDesc<V> values;
-		MpiWindowDesc<O> offsets;
-		OffsetArraySizeSpec capacity;
-
-		NodeCount nc;
-		OffsetArraySizeSpec *currentWriteOffsets;
-
-		/**
-		 * Returns value before modification
-		 */
-		OffsetArraySizeSpec getCheckAndUpdateOffsets(NodeId nodeId, ElementCount valInc, ElementCount offInc) {
-			assert(nodeId < nc);
-			OffsetArraySizeSpec offsets = currentWriteOffsets[nodeId];
-			
-			assert(capacity.offsetCount >= offsets.offsetCount + offInc);
-			assert(capacity.valueCount > offsets.valueCount + valInc);
-
-			offsets.offsetCount += offInc;
-			offsets.valueCount += valInc;
-			
-			return offsets;
-		}
+		ElementCount offset;
+		ElementCount count;
 	};
 
 	/* master must keep track of counts for each node separatelly */
@@ -364,17 +289,19 @@ namespace details { namespace RR2D {
 	class CommunicationWrapper {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
+		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
+		using LocalVerticesCount = TLocalId;
 
 	public:
 		/* called by both master and slaves */
 		CommunicationWrapper(NodeCount nc, MpiTypes dts)
 			: counts(CountsForCluster(nc, dts.count)),
-	          masters(OffsetArray<GlobalId, TLocalId>
-	                  ::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.localId, nc)),
-	          shadows(OffsetArray<GlobalId, ShadowDesc>
-	                  ::allocate(EDGES_MAX_COUNT, VERTEX_MAX_COUNT, dts.globalId, dts.shadowDescriptor, nc)),
-	          coOwners(OffsetArray<NodeId, NodeId>
-	                   ::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, COOWNERS_MAX_COUNT, dts.nodeId, dts.nodeId, nc)),
+			  mastersVwin(MpiWindowDesc<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
+			  mastersOwin(MpiWindowDesc<LocalVerticesCount>::allocate(VERTEX_MAX_COUNT, dts.localId)),
+			  shadowsVwin(MpiWindowDesc<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
+			  shadowsOwin(MpiWindowDesc<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor)),
+			  coOwnersVwin(MpiWindowDesc<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId)),
+			  coOwnersOwin(MpiWindowDesc<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId)),
 	          mastersV(nc), mastersO(nc), shadowsV(nc), shadowsO(nc), coOwnersV(nc), coOwnersO(nc)
 		{}
 
@@ -447,11 +374,6 @@ namespace details { namespace RR2D {
 
 			bool master = storeOn == currentVertexGid.nodeId;
 			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storeOn, 0, master)));
-
-
-
-
-
 		}
 
 		/* returns offset under which placeholders were stored */
@@ -477,6 +399,7 @@ namespace details { namespace RR2D {
 			}
 
 			/* send stuff */
+
 			/* sync & rest SendBufferManagers */
 
 			return placeholders;
@@ -487,8 +410,8 @@ namespace details { namespace RR2D {
 			auto* buffer = placeholderReplacementBuffers.malloc();
 			*buffer = gid;
 
-			auto& oa = eto.master ? masters : shadows;
-			oa.replaceValueAtOffset(eto.nodeId, buffer, eto.offset);
+			auto& oa = eto.master ? mastersVwin : mastersOwin;
+			oa.put(eto.nodeId, eto.offset, buffer, 1);
 
 			/*
 			 * Thanks to the fact that we don't actually write placeholders, we don't need flush() between
@@ -506,14 +429,14 @@ namespace details { namespace RR2D {
 		}
 
 	private:
-		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
-		typedef TLocalId LocalVerticesCount;
-
 		/* 'global' members, shared across all vertices and nodes */
-		OffsetArray<GlobalId, LocalVerticesCount> masters;
-		OffsetArray<GlobalId, ShadowDesc> shadows;
-		OffsetArray<NodeId, NodeCount> coOwners;
 		CountsForCluster counts;
+		MpiWindowDesc<GlobalId> mastersVwin;
+		MpiWindowDesc<LocalVerticesCount> mastersOwin;
+		MpiWindowDesc<GlobalId> shadowsVwin;
+		MpiWindowDesc<ShadowDesc> shadowsOwin;
+		MpiWindowDesc<NodeId> coOwnersVwin;
+		MpiWindowDesc<NodeCount> coOwnersOwin;
 
 		SendBufferManager<GlobalId> mastersV;
 		SendBufferManager<LocalVerticesCount> mastersO;
