@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <boost/pool/object_pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
@@ -194,6 +195,11 @@ namespace details { namespace RR2D {
 			writeOffsets.valueCount += valuesCount;
 		}
 
+		void putValueAtOffset(NodeId nodeId, V* valuePtr, ElementCount offset) {
+			assert(nodeId < nc);
+			values.put(nodeId, offset, valuePtr, 1);
+		}
+
 		void flush() {
 			offsets.flush();
 			values.flush();
@@ -363,6 +369,8 @@ namespace details { namespace RR2D {
 			shadows.flush();
 			coOwners.flush();
 			counts.flush();
+
+			placeholderReplacementBuffers.release_memory();
 		}
 
 		/* called by slaves */
@@ -411,28 +419,47 @@ namespace details { namespace RR2D {
 			}
 		}
 
-		void registerPlaceholderFor(OriginalVertexId oid, NodeId storedOn) {
-			bool master = storedOn == currentNodeOwner;
+		void registerPlaceholderFor(OriginalVertexId oid, NodeId storeOn) {
+			/*
+			 * To lessen network utilization, we don't transfer placeholders, only reserve free space for them
+			 * after actual data. But we still have to assign it to the node here.
+			 * Placeholders replacement is performed after vertex is written, so we also must modify coOwners here
+			 */
+
+			bool master = storeOn == currentNodeOwner;
 
 			ElementCount placeholderOffset;
 			if (master) {
-				auto& c = counts.get(storedOn).masters;
+				auto& c = counts.get(storeOn).masters;
 				placeholderOffset= c.valueCount;
 				c.valueCount += 1;
 			} else {
-				auto& c = counts.get(storedOn).shadows;
+				currentNodeCoOwners.insert(storeOn);
+
+				auto& c = counts.get(storeOn).shadows;
 				placeholderOffset= c.valueCount;
 				c.valueCount += 1;
 			}
 
-			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storedOn, placeholderOffset, master)));
+			placeholders.push_back(std::make_pair(oid, EdgeTableOffset(storeOn, placeholderOffset, master)));
 		}
 
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex();
 
 		/* for placeholder replacement */
-		void replacePlaceholder(EdgeTableOffset, GlobalId);
+		void replacePlaceholder(EdgeTableOffset eto, GlobalId gid) {
+			auto* buffer = placeholderReplacementBuffers.malloc();
+			*buffer = gid;
+
+			auto& oa = eto.master ? masters : shadows;
+			oa.putValueAtOffset(eto.nodeId, buffer, eto.offset);
+
+			/*
+			 * Thanks to the fact that we don't actually write placeholders, we don't need flush() between
+			 * writing placeholder and writing actual value
+			 */
+		}
 
 	private:
 		/* using IDs for counts is rather unnatural (even if justified), so typedefing */
@@ -455,6 +482,7 @@ namespace details { namespace RR2D {
 		NodeId currentNodeOwner;
 		std::unordered_set<NodeId> currentNodeCoOwners;
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
+		boost::object_pool placeholderReplacementBuffers;
 	};
 
 	template <typename TLocalId>
