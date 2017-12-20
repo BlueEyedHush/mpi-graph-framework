@@ -84,7 +84,7 @@ public:
 	}
 };
 
-namespace details::RR2D {
+namespace details { namespace RR2D {
 	using EdgeCount = unsigned int;
 	using NodeCount = NodeId;
 	using VertexHandle = unsigned int;
@@ -107,8 +107,17 @@ namespace details::RR2D {
 	class MpiWindowDesc : NonCopyable {
 	public:
 		MpiWindowDesc(MPI_Datatype datatype) : dt(datatype) {};
-		MpiWindowDesc(MpiWindowDesc&&) = default;
-		MpiWindowDesc& operator=(MpiWindowDesc&&) = default;
+
+		MpiWindowDesc(MpiWindowDesc&& o): dt(o.dt), win(o.win), data(o.data) {
+			o.win = MPI_WIN_NULL;
+		};
+
+		MpiWindowDesc& operator=(MpiWindowDesc&& o) {
+			win = o.win;
+			data = o.data;
+			dt = o.dt;
+			return *this;
+		};
 
 		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
 			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
@@ -126,8 +135,10 @@ namespace details::RR2D {
 		}
 
 		static void destroy(MpiWindowDesc &d) {
-			MPI_Win_unlock_all(d.win);
-			MPI_Win_free(&d.win);
+			if (d.win != MPI_WIN_NULL) {
+				MPI_Win_unlock_all(d.win);
+				MPI_Win_free(&d.win);
+			}
 		}
 
 	private:
@@ -393,7 +404,7 @@ namespace details::RR2D {
 		RR2DGlobalId<TLocalId> nextMasterId();
 		TLocalId nextNodeIdForNeighbour();
 	};
-}
+} }
 
 /**
  * This class is a handle to a graph data, but it's main purpose is loading and partitioning of the graph.
@@ -486,6 +497,7 @@ protected:
 		MPI_Comm_size(MPI_COMM_WORLD, &nodeCount);
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
+		// @todo commit all required types
 		CommunicationWrapper<LocalId> cm;
 
 		if (nodeId == 0) {
