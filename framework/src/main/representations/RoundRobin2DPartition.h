@@ -106,11 +106,14 @@ namespace details { namespace RR2D {
 	};
 
 	template <typename T>
-	class SendBufferManager {
+	class SendBufferManager : NonCopyable {
 	public:
 		SendBufferManager(NodeCount nodeCount) : nc(nodeCount) {
 			buffers = new std::vector<T>[nc];
 		}
+
+		SendBufferManager(SendBufferManager&&) = default;
+		SendBufferManager& operator=(SendBufferManager&&) = default;
 
 		~SendBufferManager() {
 			delete[] buffers;
