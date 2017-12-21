@@ -622,10 +622,40 @@ namespace details { namespace RR2D {
 	template <typename TLocalId>
 	class Partitioner {
 	public:
-		Partitioner(NodeId nodeCount);
+		Partitioner(NodeCount nodeCount)
+				: nodeCount(nodeCount), nextMasterNodeId(0), nextLocalId(new TLocalId[nodeCount]), nextNeighbourNodeId(0)
+		{}
 
-		RR2DGlobalId<TLocalId> nextMasterId();
-		TLocalId nextNodeIdForNeighbour();
+		~Partitioner() {
+			if(nextLocalId != nullptr) delete[] nextLocalId;
+		}
+
+		RR2DGlobalId<TLocalId> nextMasterId() {
+			NodeId nid = nextMasterNodeId;
+			nextMasterNodeId += 1;
+
+			TLocalId& nextLid = nextLocalId[nid];
+			TLocalId lid = nextLid;
+			nextLid += 1;
+
+			/* assuming that user makes series of calls to nextNodeIdForNeighbour right after calling nextMasterId,
+			 * starting neighbourNodeIds with masterNodeId guarnatees that master won't be empty (which'd be legal, but
+			 * a waste)
+			 */
+			nextNeighbourNodeId = nid;
+
+			return RR2DGlobalId<TLocalId>(nid, lid);
+		}
+
+		NodeId nextNodeIdForNeighbour() {
+			return nextNeighbourNodeId++;
+		}
+
+	private:
+		NodeCount nodeCount;
+		NodeId nextMasterNodeId;
+		TLocalId *nextLocalId;
+		NodeId nextNeighbourNodeId;
 	};
 } }
 
@@ -741,7 +771,7 @@ protected:
 				/* remap neighbours we can (or use placeholders) and distribute to target nodes */
 				cm.startAndAssignVertexTo(mappedId);
 				for(auto neighbour: vspec.neighbours) {
-					LocalId nodeIdForNeigh = partitioner.nextNodeIdForNeighbour();
+					NodeId nodeIdForNeigh = partitioner.nextNodeIdForNeighbour();
 
 					if (auto optionalGid = remappingTable.toGlobalId(neighbour)) {
 						cm.registerNeighbour(optionalGid.get(), nodeIdForNeigh);
