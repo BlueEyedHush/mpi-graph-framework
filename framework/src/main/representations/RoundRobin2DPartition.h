@@ -585,8 +585,8 @@ namespace details { namespace RR2D {
 		}
 
 		boost::optional<GlobalId> toGlobalId(OriginalVertexId oid) {
-			auto fresult = remappingTable.find(oid);
-			return (fresult != remappingTable.end()) ? (*fresult) : boost::none;
+			const auto fresult = remappingTable.find(oid);
+			return (fresult != remappingTable.end()) ? (*fresult).second : boost::none;
 		}
 
 		void releaseMapping(OriginalVertexId oid) {
@@ -600,8 +600,23 @@ namespace details { namespace RR2D {
 	class PlaceholderCache {
 	public:
 		/* access pattern - after remapping vertex we want to replace all occurences */
-		void rememberPlaceholder(OriginalVertexId, EdgeTableOffset);
-		std::vector<EdgeTableOffset> getAllPlaceholdersFor(OriginalVertexId);
+		void rememberPlaceholder(OriginalVertexId oid, EdgeTableOffset eto) {
+			/* exploiting the fact that, when the key is absent, map::operator[] inserts key with
+			 * default-constructed value */
+			cache[oid].push_back(eto);
+		}
+
+		void foreachPlaceholderFor(OriginalVertexId oid, std::function<void(EdgeTableOffset)> f) {
+			const auto fresult = cache.find(oid);
+			if(fresult != cache.end()) {
+				for(auto eto: (*fresult).second) {
+					f(eto);
+				}
+			}
+		}
+
+	private:
+		std::unordered_map<OriginalVertexId, std::vector<EdgeTableOffset>> cache;
 	};
 
 	template <typename TLocalId>
@@ -745,9 +760,9 @@ protected:
 				}
 
 				/* remap placeholders that refered to node we just remapped */
-				for(auto offset: placeholderCache.getAllPlaceholdersFor(vspec.vertexId)) {
-					cm.replacePlaceholder(offset, mappedId);
-				}
+				placeholderCache.foreachPlaceholderFor(vspec.vertexId, [&cm, &mappedId](EdgeTableOffset eto) {
+					cm.replacePlaceholder(eto, mappedId);
+				});
 			}
 
 			cm.finishAllTransfers();
