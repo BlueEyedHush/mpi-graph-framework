@@ -257,6 +257,7 @@ namespace details { namespace RR2D {
 				window.put(nid, currentWriteOffset, buffer, count);
 			});
 
+			window.flush();
 			bufferManager.clearBuffers();
 		}
 	private:
@@ -363,7 +364,9 @@ namespace details { namespace RR2D {
 			  shadowsV(shadowsVwin, nc),
 			  shadowsO(shadowsOwin, nc),
 			  coOwnersV(coOwnersVwin, nc),
-			  coOwnersO(coOwnersOwin, nc)
+			  coOwnersO(coOwnersOwin, nc),
+
+		      placeholdersPending(0)
 		{}
 
 		/* called by master */
@@ -376,7 +379,7 @@ namespace details { namespace RR2D {
 			coOwnersOwin.flush();
 			counts.flush();
 
-			placeholderReplacementBuffers.release_memory();
+			placeholdersFreed();
 		}
 
 		/* called by slaves */
@@ -472,6 +475,7 @@ namespace details { namespace RR2D {
 			shadowsO.writeBuffers();
 			coOwnersV.writeBuffers();
 			coOwnersO.writeBuffers();
+			placeholdersFreed();
 
 			/* cleanup */
 			currentVertexCoOwners.clear();
@@ -489,10 +493,18 @@ namespace details { namespace RR2D {
 			auto& oa = eto.master ? mastersVwin : mastersOwin;
 			oa.put(eto.nodeId, eto.offset, buffer, 1);
 
+			placeholdersPending += 1;
 			/*
 			 * Thanks to the fact that we don't actually write placeholders, we don't need flush() between
 			 * writing placeholder and writing actual value
 			 */
+
+			/* However, if the buffer grew too big, we want to flush it and release memory */
+			if (placeholdersPending > maxPlaceholdersPending) {
+				mastersVwin.flush();
+				shadowsOwin.flush();
+				placeholdersFreed();
+			}
 		}
 
 	private:
@@ -504,7 +516,15 @@ namespace details { namespace RR2D {
 			}
 		}
 
+		void placeholdersFreed() {
+			placeholderReplacementBuffers.release_memory();
+			placeholdersPending = 0;
+		}
+
 	private:
+		const static size_t maxPlaceholdersPending = 100;
+		size_t placeholdersPending;
+
 		/* 'global' members, shared across all vertices and nodes */
 		CountsForCluster counts;
 		MpiWindow<GlobalId> mastersVwin;
