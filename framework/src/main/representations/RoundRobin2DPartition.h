@@ -105,17 +105,51 @@ namespace details { namespace RR2D {
 		bool master;
 	};
 
-	// @todo rename to MpiWindow
 	template <typename T>
-	class MpiWindowDesc : NonCopyable {
+	class SendBufferManager {
 	public:
-		MpiWindowDesc(MPI_Datatype datatype) : dt(datatype) {};
+		SendBufferManager(NodeCount nodeCount) : nc(nodeCount) {
+			buffers = new std::vector<T>[nc];
+		}
 
-		MpiWindowDesc(MpiWindowDesc&& o): dt(o.dt), win(o.win), data(o.data) {
+		~SendBufferManager() {
+			delete[] buffers;
+		}
+
+		void append(NodeId id, T value) {
+			buffers[id].push_back(value);
+		}
+
+		void foreachNonEmpty(std::function<void(NodeId, T*, ElementCount)> f) {
+			for(NodeId i = 0; i < nc; i++) {
+				auto& b = buffers[i];
+				if (!b.empty()) {
+					f(i, b.data(), b.size());
+				}
+			}
+		}
+
+		void clearBuffers() {
+			for(NodeId i = 0; i < nc; i++) {
+				buffers[i].clear();
+			}
+		}
+
+	private:
+		NodeCount nc;
+		std::vector<T> *buffers;
+	};
+
+	template <typename T>
+	class MpiWindow : NonCopyable {
+	public:
+		MpiWindow(MPI_Datatype datatype) : dt(datatype) {};
+
+		MpiWindow(MpiWindow&& o): dt(o.dt), win(o.win), data(o.data) {
 			o.win = MPI_WIN_NULL;
 		};
 
-		MpiWindowDesc& operator=(MpiWindowDesc&& o) {
+		MpiWindow& operator=(MpiWindow&& o) {
 			win = o.win;
 			data = o.data;
 			dt = o.dt;
@@ -129,15 +163,15 @@ namespace details { namespace RR2D {
 		void flush() { MPI_Win_flush_all(win); }
 		void sync() { MPI_Win_sync(win); }
 
-		static MpiWindowDesc allocate(ElementCount size, MPI_Datatype dt) {
+		static MpiWindow allocate(ElementCount size, MPI_Datatype dt) {
 			auto elSize = sizeof(T);
-			MpiWindowDesc wd(dt);
+			MpiWindow wd(dt);
 			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
 			MPI_Win_lock_all(0, wd.win);
 			return wd;
 		}
 
-		static void destroy(MpiWindowDesc &d) {
+		static void destroy(MpiWindow &d) {
 			if (d.win != MPI_WIN_NULL) {
 				MPI_Win_unlock_all(d.win);
 				MPI_Win_free(&d.win);
@@ -197,11 +231,11 @@ namespace details { namespace RR2D {
 		CountsForCluster(NodeCount nc, MPI_Datatype countDt)
 				: nc(nc),
 				  counts(new Counts[nc]),
-				  winDesc(MpiWindowDesc<Counts>::allocate(1, countDt))
+				  winDesc(MpiWindow<Counts>::allocate(1, countDt))
 		{}
 
 		~CountsForCluster() {
-			MpiWindowDesc<Counts>::destroy(winDesc);
+			MpiWindow<Counts>::destroy(winDesc);
 			delete[] counts;
 		}
 
@@ -222,7 +256,7 @@ namespace details { namespace RR2D {
 	private:
 		NodeCount nc;
 		Counts *counts;
-		MpiWindowDesc<Counts> winDesc;
+		MpiWindow<Counts> winDesc;
 	};
 
 	template <typename TLocalId>
@@ -233,40 +267,6 @@ namespace details { namespace RR2D {
 		ElementCount offset;
 	};
 
-	template <typename T>
-	class SendBufferManager {
-	public:
-		SendBufferManager(NodeCount nodeCount) : nc(nodeCount) {
-			buffers = new std::vector<T>[nc];
-		}
-
-		~SendBufferManager() {
-			delete[] buffers;
-		}
-
-		void append(NodeId id, T value) {
-			buffers[id].push_back(value);
-		}
-
-		void foreachNonEmpty(std::function<void(NodeId, T*, ElementCount)> f) {
-			for(NodeId i = 0; i < nc; i++) {
-				auto& b = buffers[i];
-				if (!b.empty()) {
-					f(i, b.data(), b.size());
-				}
-			}
-		}
-
-		void clearBuffers() {
-			for(NodeId i = 0; i < nc; i++) {
-				buffers[i].clear();
-			}
-		}
-
-	private:
-		NodeCount nc;
-		std::vector<T> *buffers;
-	};
 
 	// @todo what to do with MPI typemap?
 	struct MpiTypes {
@@ -296,12 +296,12 @@ namespace details { namespace RR2D {
 		/* called by both master and slaves */
 		CommunicationWrapper(NodeCount nc, MpiTypes dts)
 			: counts(CountsForCluster(nc, dts.count)),
-			  mastersVwin(MpiWindowDesc<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
-			  mastersOwin(MpiWindowDesc<LocalVerticesCount>::allocate(VERTEX_MAX_COUNT, dts.localId)),
-			  shadowsVwin(MpiWindowDesc<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
-			  shadowsOwin(MpiWindowDesc<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor)),
-			  coOwnersVwin(MpiWindowDesc<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId)),
-			  coOwnersOwin(MpiWindowDesc<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId)),
+			  mastersVwin(MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
+			  mastersOwin(MpiWindow<LocalVerticesCount>::allocate(VERTEX_MAX_COUNT, dts.localId)),
+			  shadowsVwin(MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
+			  shadowsOwin(MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor)),
+			  coOwnersVwin(MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId)),
+			  coOwnersOwin(MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId)),
 	          mastersV(nc), mastersO(nc), shadowsV(nc), shadowsO(nc), coOwnersV(nc), coOwnersO(nc)
 		{}
 
@@ -431,12 +431,12 @@ namespace details { namespace RR2D {
 	private:
 		/* 'global' members, shared across all vertices and nodes */
 		CountsForCluster counts;
-		MpiWindowDesc<GlobalId> mastersVwin;
-		MpiWindowDesc<LocalVerticesCount> mastersOwin;
-		MpiWindowDesc<GlobalId> shadowsVwin;
-		MpiWindowDesc<ShadowDesc> shadowsOwin;
-		MpiWindowDesc<NodeId> coOwnersVwin;
-		MpiWindowDesc<NodeCount> coOwnersOwin;
+		MpiWindow<GlobalId> mastersVwin;
+		MpiWindow<LocalVerticesCount> mastersOwin;
+		MpiWindow<GlobalId> shadowsVwin;
+		MpiWindow<ShadowDesc> shadowsOwin;
+		MpiWindow<NodeId> coOwnersVwin;
+		MpiWindow<NodeCount> coOwnersOwin;
 
 		SendBufferManager<GlobalId> mastersV;
 		SendBufferManager<LocalVerticesCount> mastersO;
