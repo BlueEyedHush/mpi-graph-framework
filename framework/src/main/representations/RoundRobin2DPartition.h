@@ -146,16 +146,18 @@ namespace details { namespace RR2D {
 	template <typename T>
 	class MpiWindow : NonCopyable {
 	public:
-		MpiWindow(MPI_Datatype datatype) : dt(datatype) {};
+		MpiWindow(MPI_Datatype datatype, size_t size) : dt(datatype), size(size) {};
 
-		MpiWindow(MpiWindow&& o): dt(o.dt), win(o.win), data(o.data) {
+		MpiWindow(MpiWindow&& o): dt(o.dt), win(o.win), data(o.data), size(o.size) {
 			o.win = MPI_WIN_NULL;
+			o.size = 0;
 		};
 
 		MpiWindow& operator=(MpiWindow&& o) {
 			win = o.win;
 			data = o.data;
 			dt = o.dt;
+			size = o.size;
 			return *this;
 		};
 
@@ -166,9 +168,11 @@ namespace details { namespace RR2D {
 		void flush() { MPI_Win_flush_all(win); }
 		void sync() { MPI_Win_sync(win); }
 
+		size_t getSize() {return size;}
+
 		static MpiWindow allocate(ElementCount size, MPI_Datatype dt) {
 			auto elSize = sizeof(T);
-			MpiWindow wd(dt);
+			MpiWindow wd(dt, size);
 			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
 			MPI_Win_lock_all(0, wd.win);
 			return wd;
@@ -185,6 +189,7 @@ namespace details { namespace RR2D {
 		MPI_Win win;
 		T* data;
 		MPI_Datatype dt;
+		size_t size;
 	};
 
 	struct OffsetArraySizeSpec {
@@ -198,19 +203,66 @@ namespace details { namespace RR2D {
 		}
 	};
 
-	class OffsetTracker {
+	class OffsetTracker : NonCopyable {
 	public:
-		OffsetTracker(ElementCount count) : offset(0), count(count) {}
+		/* special members */
+		OffsetTracker(ElementCount maxCount, NodeCount nodeCount)
+				: nc(nodeCount),
+				  offsets(new ElementCount[nc]),
+				  maxCount(maxCount) {}
 
-		ElementCount get() {return offset;}
+		OffsetTracker(OffsetTracker&& o) : maxCount(o.maxCount), offsets(o.offsets), nc(o.nc) {
+			o.offsets = nullptr;
+		}
 
-		void tryAdvance(ElementCount increment) {
-			assert(offset + increment < count);
+		OffsetTracker& operator=(OffsetTracker&&) = delete;
+
+		~OffsetTracker() {
+			if(offsets != nullptr) delete[] offsets;
+		}
+
+		/* non-special members */
+
+		ElementCount get(NodeId nid) {
+			assert(nid < nc);
+			return offsets[nid];
+		}
+
+		void tryAdvance(NodeId nid, ElementCount increment) {
+			auto& offset = offsets[nid];
+			assert(offset + increment < maxCount);
+			offset += increment;
 		}
 
 	private:
-		ElementCount offset;
-		ElementCount count;
+		NodeCount nc;
+		ElementCount* offsets;
+		ElementCount maxCount;
+	};
+
+	template<typename T>
+	class MpiWindowAppender : NonCopyable {
+	public:
+		MpiWindowAppender(MpiWindow& win, NodeCount nodeCount)
+				: window(win), bufferManager(SendBufferManager(nodeCount)), offsetTracker(nodeCount, win.getSize()) {}
+
+		void append(NodeId nid, T value) {
+			bufferManager.append(nid, value);
+		}
+
+		void flushAll() {
+			bufferManager.foreachNonEmpty([&window, &offsetTracker](NodeId nid, T* buffer, ElementCount count) {
+				auto currentWriteOffset = offsetTracker.get(nid);
+				offsetTracker.tryAdvance(nid, count);
+				window.put(nid, currentWriteOffset, buffer, count);
+			});
+
+			bufferManager.clearBuffers();
+		}
+	private:
+		MpiWindow& window;
+		SendBufferManager<T> bufferManager;
+		OffsetTracker offsetTracker;
 	};
 
 	/* master must keep track of counts for each node separatelly */
