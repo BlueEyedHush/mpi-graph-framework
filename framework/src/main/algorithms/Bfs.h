@@ -75,7 +75,7 @@ namespace details {
 						offsetof(VertexMessage, distances),
 						sizeof(VertexMessage),
 				};
-				auto localIdMpiType = datatypeMap.at(typeid(TLocalId));
+				auto localIdMpiType = getDatatypeFor<TLocalId>();
 				const MPI_Datatype types[] = {MPI_LB, MPI_INT, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 				MPI_Type_create_struct(6, blocklens, disparray, types, memory);
@@ -109,7 +109,7 @@ namespace details {
 						offsetof(VertexMessage, distance),
 						sizeof(VertexMessage),
 				};
-				auto localIdMpiType = datatypeMap.at(typeid(TLocalId));
+				auto localIdMpiType = getDatatypeFor<TLocalId>();
 				const MPI_Datatype types[] = {MPI_LB, localIdMpiType, gidDatatype, GRAPH_DIST_MPI_TYPE, MPI_UB};
 
 				MPI_Type_create_struct(5, blocklens, disparray, types, memory);

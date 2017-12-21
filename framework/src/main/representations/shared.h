@@ -20,7 +20,7 @@ struct ALHPGlobalVertexId {
 				offsetof(ALHPGlobalVertexId, nodeId),
 				offsetof(ALHPGlobalVertexId, localId)
 		};
-		MPI_Datatype building_types[] = {NODE_ID_MPI_TYPE, datatypeMap.at(typeid(TLocalId))};
+		MPI_Datatype building_types[] = {NODE_ID_MPI_TYPE, getDatatypeFor<TLocalId>()};
 		MPI_Type_create_struct(2, blocklengths, displacements, building_types, &dt);
 		return dt;
 	}

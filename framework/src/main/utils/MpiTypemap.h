@@ -15,4 +15,14 @@
  */
 extern std::unordered_map<std::type_index, int> datatypeMap;
 
+template <typename T>
+void registerDatatypeFor(MPI_Datatype dt) {
+	datatypeMap.emplace(typeid(T), dt);
+}
+
+template <typename T>
+MPI_Datatype getDatatypeFor() {
+	return datatypeMap.at(typeid(T));
+}
+
 #endif //MPI_TYPEMAP_H

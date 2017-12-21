@@ -29,7 +29,7 @@ struct ABCPGlobalVertexId {
 
 		int blocklengths[] = {1, 1};
 		MPI_Aint displacements[] = {offsetof(ABCPGlobalVertexId, nodeId), offsetof(ABCPGlobalVertexId, localId)};
-		MPI_Datatype tMpiDatatype = datatypeMap.at(typeid(T));
+		MPI_Datatype tMpiDatatype = getDatatypeFor<T>();
 		MPI_Datatype building_types[] = {NODE_ID_MPI_TYPE, tMpiDatatype};
 		MPI_Type_create_struct(2, blocklengths, displacements, building_types, &d);
 
