@@ -250,7 +250,7 @@ namespace details { namespace RR2D {
 			bufferManager.append(nid, value);
 		}
 
-		void flushAll() {
+		void writeBuffers() {
 			bufferManager.foreachNonEmpty([&window, &offsetTracker](NodeId nid, T* buffer, ElementCount count) {
 				auto currentWriteOffset = offsetTracker.get(nid);
 				offsetTracker.tryAdvance(nid, count);
@@ -357,14 +357,23 @@ namespace details { namespace RR2D {
 			  shadowsOwin(MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor)),
 			  coOwnersVwin(MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId)),
 			  coOwnersOwin(MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId)),
-	          mastersV(nc), mastersO(nc), shadowsV(nc), shadowsO(nc), coOwnersV(nc), coOwnersO(nc)
+
+			  mastersV(mastersVwin, nc),
+			  mastersO(mastersOwin, nc),
+			  shadowsV(shadowsVwin, nc),
+			  shadowsO(shadowsOwin, nc),
+			  coOwnersV(coOwnersVwin, nc),
+			  coOwnersO(coOwnersOwin, nc)
 		{}
 
 		/* called by master */
 		void finishAllTransfers() {
-			masters.flush();
-			shadows.flush();
-			coOwners.flush();
+			mastersVwin.flush();
+			mastersOwin.flush();
+			shadowsVwin.flush();
+			shadowsOwin.flush();
+			coOwnersVwin.flush();
+			coOwnersOwin.flush();
 			counts.flush();
 
 			placeholderReplacementBuffers.release_memory();
@@ -372,9 +381,12 @@ namespace details { namespace RR2D {
 
 		/* called by slaves */
 		void ensureTransfersVisibility() {
-			masters.sync();
-			shadows.sync();
-			coOwners.sync();
+			mastersVwin.sync();
+			mastersOwin.sync();
+			shadowsVwin.sync();
+			shadowsOwin.sync();
+			coOwnersVwin.sync();
+			coOwnersOwin.sync();
 			counts.sync();
 		}
 
@@ -454,10 +466,19 @@ namespace details { namespace RR2D {
 			}
 
 			/* send stuff */
+			mastersV.writeBuffers();
+			mastersO.writeBuffers();
+			shadowsV.writeBuffers();
+			shadowsO.writeBuffers();
+			coOwnersV.writeBuffers();
+			coOwnersO.writeBuffers();
 
-			/* sync & rest SendBufferManagers */
+			/* cleanup */
+			currentVertexCoOwners.clear();
+			auto placehodersRet(placeholders);
+			placeholders.clear();
 
-			return placeholders;
+			return placehodersRet;
 		};
 
 		/* for placeholder replacement */
@@ -493,12 +514,12 @@ namespace details { namespace RR2D {
 		MpiWindow<NodeId> coOwnersVwin;
 		MpiWindow<NodeCount> coOwnersOwin;
 
-		SendBufferManager<GlobalId> mastersV;
-		SendBufferManager<LocalVerticesCount> mastersO;
-		SendBufferManager<GlobalId> shadowsV;
-		SendBufferManager<ShadowDesc> shadowsO;
-		SendBufferManager<NodeId> coOwnersV;
-		SendBufferManager<NodeCount> coOwnersO;
+		MpiWindowAppender<GlobalId> mastersV;
+		MpiWindowAppender<LocalVerticesCount> mastersO;
+		MpiWindowAppender<GlobalId> shadowsV;
+		MpiWindowAppender<ShadowDesc> shadowsO;
+		MpiWindowAppender<NodeId> coOwnersV;
+		MpiWindowAppender<NodeCount> coOwnersO;
 
 		/* per-vertex members, reset when new vertex is started */
 		GlobalId currentVertexGid;
