@@ -13,6 +13,7 @@
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
 #include <utils/NonCopyable.h>
+#include <utils/MpiTypemap.h>
 #include "shared.h"
 
 template <typename TLocalId> using RR2DGlobalId = ALHPGlobalVertexId<TLocalId>;
@@ -321,10 +322,12 @@ namespace details { namespace RR2D {
 
 		RR2DGlobalId<TLocalId> id;
 		ElementCount offset;
+
+		static MPI_Datatype mpiDatatype(MPI_Datatype gidDt, MPI_Datatype elCountDt) {
+			//@todo
+		}
 	};
 
-
-	// @todo what to do with MPI typemap?
 	struct MpiTypes {
 		MPI_Datatype globalId;
 		MPI_Datatype localId;
@@ -332,6 +335,29 @@ namespace details { namespace RR2D {
 		MPI_Datatype nodeId;
 		MPI_Datatype count;
 	};
+
+	template <typename TLocalId>
+	MpiTypes registerMpiTypes() {
+		MpiTypes t;
+		t.globalId = RR2DGlobalId<TLocalId>::mpiDatatype();
+		MPI_Type_commit(&t.globalId);
+		t.localId = getDatatypeFor<TLocalId>();
+		t.nodeId = getDatatypeFor<NodeId>();
+		t.count = getDatatypeFor<ElementCount>();
+		t.shadowDescriptor = ShadowDescriptor<TLocalId>::mpiDatatype(t.globalId, t.count);
+		MPI_Type_commit(&t.shadowDescriptor);
+
+		return t;
+	}
+
+	/**
+	 * t.globalId is not deregistered - after all algorithms are going to need it
+	 * It could be cleaned up on graph release
+	 * @param t
+	 */
+	void deregisterTypes(MpiTypes& t) {
+		MPI_Type_free(&t.shadowDescriptor);
+	}
 
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
@@ -350,7 +376,7 @@ namespace details { namespace RR2D {
 
 	public:
 		/* called by both master and slaves */
-		CommunicationWrapper(NodeCount nc, MpiTypes dts)
+		CommunicationWrapper(NodeCount nc, MpiTypes& dts)
 			: counts(CountsForCluster(nc, dts.count)),
 			  mastersVwin(MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
 			  mastersOwin(MpiWindow<LocalVerticesCount>::allocate(VERTEX_MAX_COUNT, dts.localId)),
@@ -666,8 +692,8 @@ protected:
 		MPI_Comm_size(MPI_COMM_WORLD, &nodeCount);
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
-		// @todo commit all required types
-		CommunicationWrapper<LocalId> cm;
+		MpiTypes types = registerMpiTypes<LocalId>();
+		CommunicationWrapper<LocalId> cm(nodeCount, types);
 
 		if (nodeId == 0) {
 			AdjacencyListReader<OriginalVertexId> reader(path);
@@ -718,6 +744,8 @@ protected:
 			MPI_Barrier(MPI_COMM_WORLD);
 			cm.ensureTransfersVisibility();
 		}
+
+		deregisterTypes(types);
 	};
 
 private:
