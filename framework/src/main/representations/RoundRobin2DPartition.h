@@ -243,25 +243,25 @@ namespace details { namespace RR2D {
 	template<typename T>
 	class MpiWindowAppender : NonCopyable {
 	public:
-		MpiWindowAppender(MpiWindow& win, NodeCount nodeCount)
-				: window(win), bufferManager(SendBufferManager(nodeCount)), offsetTracker(nodeCount, win.getSize()) {}
+		MpiWindowAppender(MpiWindow<T>& win, NodeCount nodeCount)
+				: window(win), bufferManager(SendBufferManager<T>(nodeCount)), offsetTracker(nodeCount, win.getSize()) {}
 
 		void append(NodeId nid, T value) {
 			bufferManager.append(nid, value);
 		}
 
 		void writeBuffers() {
-			bufferManager.foreachNonEmpty([&window, &offsetTracker](NodeId nid, T* buffer, ElementCount count) {
-				auto currentWriteOffset = offsetTracker.get(nid);
-				offsetTracker.tryAdvance(nid, count);
-				window.put(nid, currentWriteOffset, buffer, count);
+			bufferManager.foreachNonEmpty([this](NodeId nid, T* buffer, ElementCount count) {
+				auto currentWriteOffset = this->offsetTracker.get(nid);
+				this->offsetTracker.tryAdvance(nid, count);
+				this->window.put(nid, currentWriteOffset, buffer, count);
 			});
 
 			window.flush();
 			bufferManager.clearBuffers();
 		}
 	private:
-		MpiWindow& window;
+		MpiWindow<T>& window;
 		SendBufferManager<T> bufferManager;
 		OffsetTracker offsetTracker;
 	};
@@ -511,7 +511,7 @@ namespace details { namespace RR2D {
 		void insertOffsetDescriptorOnShadowIfNeeded(NodeId storeOn) {
 			auto& c = counts.get(storeOn).shadows;
 			if(currentVertexCoOwners.count(storeOn) == 0) {
-				shadowsO.append(storeOn, ShadowDescriptor(currentVertexGid, c.valueCount));
+				shadowsO.append(storeOn, ShadowDesc(currentVertexGid, c.valueCount));
 				c.offsetCount += 1;
 			}
 		}
@@ -545,7 +545,7 @@ namespace details { namespace RR2D {
 		GlobalId currentVertexGid;
 		std::unordered_set<NodeId> currentVertexCoOwners;
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
-		boost::object_pool placeholderReplacementBuffers;
+		boost::object_pool<GlobalId> placeholderReplacementBuffers;
 	};
 
 	template <typename TLocalId>
