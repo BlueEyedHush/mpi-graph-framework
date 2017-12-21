@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 #include <boost/pool/object_pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
@@ -576,10 +577,24 @@ namespace details { namespace RR2D {
 
 	template <typename TLocalId>
 	class RemappingTable {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+
 	public:
-		void registerMapping(OriginalVertexId, RR2DGlobalId<TLocalId>);
-		boost::optional<RR2DGlobalId<TLocalId>> toGlobalId(OriginalVertexId);
-		void releaseMapping(OriginalVertexId);
+		void registerMapping(OriginalVertexId oid, GlobalId gid) {
+			remappingTable.emplace(oid, gid);
+		}
+
+		boost::optional<GlobalId> toGlobalId(OriginalVertexId oid) {
+			auto fresult = remappingTable.find(oid);
+			return (fresult != remappingTable.end()) ? (*fresult) : boost::none;
+		}
+
+		void releaseMapping(OriginalVertexId oid) {
+			remappingTable.erase(oid);
+		}
+
+	private:
+		std::unordered_map<OriginalVertexId, GlobalId> remappingTable;
 	};
 
 	class PlaceholderCache {
