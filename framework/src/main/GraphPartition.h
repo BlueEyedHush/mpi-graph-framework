@@ -28,15 +28,81 @@ enum ITER_PROGRESS {
 /**
  * Any method of this class (including special members) is guaranteed to be executed while MPI is up-and-working
  *
+ * In a generic partitioning, both edge and vertex can span mulitple nodes. What does it mean?
+ * - edge - linked vertices stored on different nodes, so must be referenced twice (and so it's data)
+ * - vertex - information about neighbours spread across nodes
+ *	(C) Even with edge-centric approach to partitioning, storing them in edge based format might not be the best idea.
+ *		Since vertices ususally have more than one neighbour, by storing them in vertex oriented format we save more
+ *		space than when storing them in edge-orinted format.
+ *
+ * In vertex-centric approach we cut edges. In edge-centric we cut vertices (spread information across nodes).
+ *
+ * This is a vertex centric interface. Another one (edge-centric) should be provided at some point.
+ * However, to account for different partitionings, we assume that each vertex can be "split" - information
+ * about neighbours can be stored on more than one node.
+ * In vertex-centric interface edges does not have separate IDs - they can be only accessed by quering associated
+ * vertices.
+ *
+ * Each vertex/edge has one master copy and some arbitrary amount of slaves/shadows.
+ * 	(C) I haven't decide yet about what to do with data associated with vertices - but if I decide to add it to the
+ * 		interface:
+ * 		- we can expose read-only copies on slaves, but all writes should probably be directed to master
+ * 		and replicated from there.
+ * 		- modifier can simply broadcast change - master-master replication ususally discouraged in distributed systems,
+ * 		but here we are working with reliable network, so such an approach might work fine
+ *
+ *
+ * We need to know who stores the neighbourship information for given vertex. However, to reduce storage overhead,
+ * only master keeps track of that information, shadows don't know it.
+ * (of course representation can pick some regular partitioning, in which this can be determined in O(1) instead
+ * of consulting some kind of mapping).
+ *
+ * Each shadow should know where his master is stored (however, it's not required to know about other shadows).
+ *
+ * Each vertex is identified by GlobalId (valid across all nodes) and LocalId (valid only on local node). Shadows
+ * have identical GlobalId to master's, but LocalIDs can be different.
+ *  (C) LocalIDs introduced in order to make storage of metadata predictable - you can use simple array. This is
+ *  	especially important when using RMA - alternative would be to create distributed hash table, so that
+ *  	any node can compute hash (and thus expected location) of any key. If we add hashing conflicts to that mix, we
+ *  	may end up with a lot of RMA requests.
+ *
  * Each vertex stored on local machine must have LocalId assigned (masters and shadows from other nodes). However,
- * all shadows should have ids larger than any master (first masters, then shadows).
+ * all shadows should have ids larger than any master (first masters, then shadows). There can be a gap between
+ * IDs for masters and IDs for shadows.
+ * 	(C) This may seem problematic, because:
+ * 		- we have to know in advance how many master nodes'll be assigned to a given node, or
+ * 		- we need to reorganize data later on, or
+ * 		- we have to cache shadow data and write it at the end
+ * 		We use internal iteration, so we could probably waive it, at a cost of:
+ * 		- interspersing master nodes with shadow nodes, or
+ * 		- creating separate API to access shadows
+ * 		Note - we don't have to store masters and shadows in the same memory area. We can use two instead and
+ * 		only mimic single LocalId addressing space
+ *
+ * GlobalId is an opaque object (implementation dependent), LocalId is integer value.
+ * LocalIds occupy continous space.
+ * GlobalId can be converted into unique integer (but the range is not guaranteed to be continous) /look up pairing
+ * functions /
  *
  * Neither localId/nodeId pair nor numeric representation are required to be identical during different executions.
- * 
+ *
+ * Representation must be able to convert GlobalId of any node stored locally to it's corresponding LocalId or give
+ * information, that node is not stored locally.
+ * Any LocalId can be converted to corresponding GlobalId (both masters and shadows) (of course only on 'this' node).
+ * 	(C) Isn't this in direct contradiction to the desire to store mapping data only with master copy? Can we perform
+ * 		that conversion without mapping information?
+ *
  * TGlobalId type parameter is set by subclass (to force presence of proper typedef), rest is set by end-user
  *
  * Default constructor of TGlobalId should create invalid vertex - valid ones can be returned only
  * from the GraphPartition.
+ *
+ * Open questions:
+ * - does this representation work for both directed and undirected graphs?
+ * - some kind of capability system needed - otherwise even when writing simplest algorithms we have to assume that
+ * 	vertices can be spread and do forEachCoOwner...
+ *
+ *
  */
 template <typename TGlobalId, typename TLocalId, typename TNumericId>
 class GraphPartition {

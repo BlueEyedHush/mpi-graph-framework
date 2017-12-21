@@ -30,6 +30,12 @@ using ALHP_GP = ALHPGraphPartition<int,int>;
 using ALHP_GB_U = ALHGraphHandle<size_t,size_t>;
 using ALHP_GP_U = ALHPGraphPartition<size_t,size_t>;
 
+#include <representations/RoundRobin2DPartition.h>
+using RR2D_GB = RR2DHandle<int,int>;
+using RR2D_GP = RoundRobin2DPartition<int,int>;
+using RR2D_GB_U = RR2DHandle<size_t,size_t>;
+using RR2D_GP_U = RoundRobin2DPartition<size_t,size_t>;
+
 template <typename TGraphBuilder>
 void callEachGhFunction(TGraphBuilder &builder) {
 	builder.getGraph();
@@ -70,11 +76,15 @@ void testBuildersAndGraphs() {
 	callEachGpFunction(*uglyInstantiation<ABCP_GP_U>());
 	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
 	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
+	callEachGpFunction(*uglyInstantiation<RR2D_GP>());
+	callEachGpFunction(*uglyInstantiation<RR2D_GP_U>());
 
 	callEachGhFunction(*uglyInstantiation<ABCP_GB>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
 	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
+	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
 	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
+	callEachGhFunction(*uglyInstantiation<RR2D_GB>());
+	callEachGhFunction(*uglyInstantiation<RR2D_GB_U>());
 }
 
 /*
