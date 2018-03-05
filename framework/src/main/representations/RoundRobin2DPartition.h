@@ -864,6 +864,7 @@ protected:
 			/* let master do her stuff */
 			MPI_Barrier(MPI_COMM_WORLD);
 			cm.ensureTransfersVisibility();
+			gd->mappedIdsWin.sync();
 		}
 
 		deregisterTypes(types);
