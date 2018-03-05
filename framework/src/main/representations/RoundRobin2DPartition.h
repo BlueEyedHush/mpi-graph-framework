@@ -302,6 +302,7 @@ namespace details { namespace RR2D {
 		NodeCount nodeCount;
 
 		Counts counts;
+		ElementCount remappedCount;
 
 		MpiWindow<GlobalId> mastersVwin;
 		MpiWindow<LocalVerticesCount> mastersOwin;
@@ -309,6 +310,7 @@ namespace details { namespace RR2D {
 		MpiWindow<ShadowDesc> shadowsOwin;
 		MpiWindow<NodeId> coOwnersVwin;
 		MpiWindow<NodeCount> coOwnersOwin;
+		MpiWindow<GlobalId> mappedIdsWin;
 	};
 
 	template <typename TLocalId>
@@ -322,6 +324,7 @@ namespace details { namespace RR2D {
 		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
 		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
 		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
+		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
 	}
 
 	/**
@@ -791,6 +794,7 @@ protected:
 		auto gd = new details::RR2D::GraphData<LocalId>();
 		gd->nodeId = nodeId;
 		gd->nodeCount = nodeCount;
+		gd->remappedCount = verticesToConvert.size();
 		initializeWindows(*gd, types);
 
 		CommunicationWrapper<LocalId> cm(*gd, types);
@@ -836,6 +840,18 @@ protected:
 			}
 
 			cm.finishAllTransfers();
+
+			/* save requested remapping info */
+			MpiWindowAppender<GlobalId> remappingWinAppender(gd->mappedIdsWin, nodeCount);
+			for(auto oId: verticesToConvert) {
+				for(NodeId nid = 0; nid < nodeCount; nid++) {
+					auto correspondingGid = *remappingTable.toGlobalId(oId);
+					remappingWinAppender.append(nid, correspondingGid);
+				}
+			}
+			remappingWinAppender.writeBuffers();
+			gd->mappedIdsWin.flush();
+
 			/* signal other nodes that graph data distribution has been finisheds */
 			MPI_Barrier(MPI_COMM_WORLD);
 
