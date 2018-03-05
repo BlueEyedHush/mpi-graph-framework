@@ -312,6 +312,7 @@ namespace details { namespace RR2D {
 		MpiWindow<ShadowDesc> shadowsOwin;
 		MpiWindow<NodeId> coOwnersVwin;
 		MpiWindow<NodeCount> coOwnersOwin;
+		/* this is used temporarily during building process and becomes invalid during normal operations */
 		MpiWindow<GlobalId> mappedIdsWin;
 	};
 
@@ -886,7 +887,10 @@ protected:
 
 		deregisterTypes(types);
 
-		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), extractRemapedVerticesToVector(gd));
+		auto remappedVertices = extractRemapedVerticesToVector(gd);
+		MpiWindow::destroy(gd->mappedIdsWin);
+
+		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), remappedVertices);
 	};
 
 private:
