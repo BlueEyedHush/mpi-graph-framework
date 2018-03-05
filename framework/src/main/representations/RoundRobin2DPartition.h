@@ -306,6 +306,8 @@ namespace details { namespace RR2D {
 		Counts counts;
 		ElementCount remappedCount;
 
+		MPI_Datatype globalIdDt;
+
 		MpiWindow<GlobalId> mastersVwin;
 		MpiWindow<LocalVerticesCount> mastersOwin;
 		MpiWindow<GlobalId> shadowsVwin;
@@ -840,6 +842,8 @@ protected:
 		gd->nodeId = nodeId;
 		gd->nodeCount = nodeCount;
 		gd->remappedCount = verticesToConvert.size();
+		gd->globalIdDt = types.globalId;
+
 		initializeWindows(*gd, types);
 
 		CommunicationWrapper<LocalId> cm(*gd, types);
@@ -903,6 +907,7 @@ protected:
 
 		auto remappedVertices = extractRemapedVerticesToVector(gd);
 		MpiWindow<GlobalId>::destroy(gd->mappedIdsWin);
+		gd->remappedCount = 0;
 
 		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), remappedVertices);
 	};
@@ -912,6 +917,7 @@ private:
 
 	static void destroyGraph(G* g) {
 		details::RR2D::destroyWindows(*(g->graphData));
+		MPI_Type_free(&(g->graphData->globalIdDt));
 		delete g->graphData;
 	}
 };
