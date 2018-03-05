@@ -18,75 +18,7 @@
 #include "shared.h"
 
 template <typename TLocalId> using RR2DGlobalId = ALHPGlobalVertexId<TLocalId>;
-
-template <typename TLocalId, typename TNumId>
-class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId> {
-	using P = GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId>;
-	IMPORT_ALIASES(P)
-
-public:
-	MPI_Datatype getGlobalVertexIdDatatype() {
-
-	}
-	
-	LocalId toLocalId(const GlobalId, VERTEX_TYPE* vtype = nullptr) {
-
-	}
-
-	NodeId toMasterNodeId(const GlobalId) {
-
-	}
-
-	GlobalId toGlobalId(const LocalId) {
-
-	}
-
-	NumericId toNumeric(const GlobalId) {
-
-	}
-
-	NumericId toNumeric(const LocalId) {
-
-	}
-
-	std::string idToString(const GlobalId) {
-
-	}
-
-	std::string idToString(const LocalId) {
-
-	}
-
-	bool isSame(const GlobalId, const GlobalId) {
-
-	}
-
-	bool isValid(const GlobalId) {
-
-	}
-
-
-	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)>) {
-
-	}
-
-	size_t masterVerticesCount() {
-
-	}
-
-	size_t masterVerticesMaxCount() {
-
-	}
-
-	
-	void foreachCoOwner(LocalId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)>) {
-
-	}
-	
-	void foreachNeighbouringVertex(LocalId, std::function<ITER_PROGRESS (const GlobalId)>) {
-
-	}
-};
+template <typename TLocalId, typename TNumId> class RR2DHandle;
 
 namespace details { namespace RR2D {
 	using EdgeCount = unsigned int;
@@ -360,6 +292,38 @@ namespace details { namespace RR2D {
 		MPI_Type_free(&t.shadowDescriptor);
 	}
 
+	template <typename TLocalId>
+	struct GraphData {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+		using ShadowDesc = ShadowDescriptor<TLocalId>;
+		using LocalVerticesCount = TLocalId;
+
+		NodeId nodeId;
+		NodeCount nodeCount;
+
+		Counts counts;
+
+		MpiWindow<GlobalId> mastersVwin;
+		MpiWindow<LocalVerticesCount> mastersOwin;
+		MpiWindow<GlobalId> shadowsVwin;
+		MpiWindow<ShadowDesc> shadowsOwin;
+		MpiWindow<NodeId> coOwnersVwin;
+		MpiWindow<NodeCount> coOwnersOwin;
+	};
+
+	template <typename TLocalId>
+	void initializeWindows(GraphData<TLocalId>& data, MpiTypes& dts) {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+		using ShadowDesc = ShadowDescriptor<TLocalId>;
+		
+		data.mastersVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
+		data.mastersOwin = MpiWindow<TLocalId>::allocate(VERTEX_MAX_COUNT, dts.localId);
+		data.shadowsVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
+		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
+		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
+		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
+	}
+
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
@@ -377,33 +341,28 @@ namespace details { namespace RR2D {
 
 	public:
 		/* called by both master and slaves */
-		CommunicationWrapper(NodeCount nc, MpiTypes& dts)
-			: counts(CountsForCluster(nc, dts.count)),
-			  mastersVwin(MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
-			  mastersOwin(MpiWindow<LocalVerticesCount>::allocate(VERTEX_MAX_COUNT, dts.localId)),
-			  shadowsVwin(MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId)),
-			  shadowsOwin(MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor)),
-			  coOwnersVwin(MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId)),
-			  coOwnersOwin(MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId)),
+		CommunicationWrapper(GraphData<TLocalId>& gd, MpiTypes& dts)
+			: counts(CountsForCluster(gd.nodeCount, dts.count)),
+			  gd(gd),
 
-			  mastersV(mastersVwin, nc),
-			  mastersO(mastersOwin, nc),
-			  shadowsV(shadowsVwin, nc),
-			  shadowsO(shadowsOwin, nc),
-			  coOwnersV(coOwnersVwin, nc),
-			  coOwnersO(coOwnersOwin, nc),
+			  mastersV(gd.mastersVwin, gd.nodeCount),
+			  mastersO(gd.mastersOwin, gd.nodeCount),
+			  shadowsV(gd.shadowsVwin, gd.nodeCount),
+			  shadowsO(gd.shadowsOwin, gd.nodeCount),
+			  coOwnersV(gd.coOwnersVwin, gd.nodeCount),
+			  coOwnersO(gd.coOwnersOwin, gd.nodeCount),
 
 		      placeholdersPending(0)
 		{}
 
 		/* called by master */
 		void finishAllTransfers() {
-			mastersVwin.flush();
-			mastersOwin.flush();
-			shadowsVwin.flush();
-			shadowsOwin.flush();
-			coOwnersVwin.flush();
-			coOwnersOwin.flush();
+			gd.mastersVwin.flush();
+			gd.mastersOwin.flush();
+			gd.shadowsVwin.flush();
+			gd.shadowsOwin.flush();
+			gd.coOwnersVwin.flush();
+			gd.coOwnersOwin.flush();
 			counts.flush();
 
 			placeholdersFreed();
@@ -411,12 +370,12 @@ namespace details { namespace RR2D {
 
 		/* called by slaves */
 		void ensureTransfersVisibility() {
-			mastersVwin.sync();
-			mastersOwin.sync();
-			shadowsVwin.sync();
-			shadowsOwin.sync();
-			coOwnersVwin.sync();
-			coOwnersOwin.sync();
+			gd.mastersVwin.sync();
+			gd.mastersOwin.sync();
+			gd.shadowsVwin.sync();
+			gd.shadowsOwin.sync();
+			gd.coOwnersVwin.sync();
+			gd.coOwnersOwin.sync();
 			counts.sync();
 		}
 
@@ -517,7 +476,7 @@ namespace details { namespace RR2D {
 			auto* buffer = placeholderReplacementBuffers.malloc();
 			*buffer = gid;
 
-			auto& oa = eto.master ? mastersVwin : mastersOwin;
+			auto& oa = eto.master ? gd.mastersVwin : gd.mastersOwin;
 			oa.put(eto.nodeId, eto.offset, buffer, 1);
 
 			placeholdersPending += 1;
@@ -528,11 +487,13 @@ namespace details { namespace RR2D {
 
 			/* However, if the buffer grew too big, we want to flush it and release memory */
 			if (placeholdersPending > maxPlaceholdersPending) {
-				mastersVwin.flush();
-				shadowsOwin.flush();
+				gd.mastersVwin.flush();
+				gd.shadowsOwin.flush();
 				placeholdersFreed();
 			}
 		}
+
+		const Counts& getCountFor(NodeId nodeId) { return counts.get(nodeId); };
 
 	private:
 		void insertOffsetDescriptorOnShadowIfNeeded(NodeId storeOn) {
@@ -554,12 +515,7 @@ namespace details { namespace RR2D {
 
 		/* 'global' members, shared across all vertices and nodes */
 		CountsForCluster counts;
-		MpiWindow<GlobalId> mastersVwin;
-		MpiWindow<LocalVerticesCount> mastersOwin;
-		MpiWindow<GlobalId> shadowsVwin;
-		MpiWindow<ShadowDesc> shadowsOwin;
-		MpiWindow<NodeId> coOwnersVwin;
-		MpiWindow<NodeCount> coOwnersOwin;
+		GraphData<TLocalId>& gd;
 
 		MpiWindowAppender<GlobalId> mastersV;
 		MpiWindowAppender<LocalVerticesCount> mastersO;
@@ -659,6 +615,84 @@ namespace details { namespace RR2D {
 	};
 } }
 
+template <typename TLocalId, typename TNumId>
+class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId> {
+	using P = GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId>;
+	IMPORT_ALIASES(P)
+
+	RoundRobin2DPartition(details::RR2D::GraphData<LocalId> *graphData) : graphData(graphData) {}
+
+public:
+	MPI_Datatype getGlobalVertexIdDatatype() {
+
+	}
+
+	LocalId toLocalId(const GlobalId, VERTEX_TYPE* vtype = nullptr) {
+
+	}
+
+	NodeId toMasterNodeId(const GlobalId) {
+
+	}
+
+	GlobalId toGlobalId(const LocalId) {
+
+	}
+
+	NumericId toNumeric(const GlobalId) {
+
+	}
+
+	NumericId toNumeric(const LocalId) {
+
+	}
+
+	std::string idToString(const GlobalId) {
+
+	}
+
+	std::string idToString(const LocalId) {
+
+	}
+
+	bool isSame(const GlobalId, const GlobalId) {
+
+	}
+
+	bool isValid(const GlobalId) {
+
+	}
+
+
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)>) {
+
+	}
+
+	size_t masterVerticesCount() {
+
+	}
+
+	size_t masterVerticesMaxCount() {
+
+	}
+
+
+	void foreachCoOwner(LocalId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)>) {
+
+	}
+
+	void foreachNeighbouringVertex(LocalId, std::function<ITER_PROGRESS (const GlobalId)>) {
+
+	}
+
+private:
+	friend class RR2DHandle<LocalId, NumericId>;
+
+	details::RR2D::GraphData<LocalId> *graphData;
+};
+
+
+
 /**
  * This class is a handle to a graph data, but it's main purpose is loading and partitioning of the graph.
  * High-level overview of the process:
@@ -753,7 +787,13 @@ protected:
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
 
 		MpiTypes types = registerMpiTypes<LocalId>();
-		CommunicationWrapper<LocalId> cm(nodeCount, types);
+
+		auto gd = new details::RR2D::GraphData<LocalId>();
+		gd->nodeId = nodeId;
+		gd->nodeCount = nodeCount;
+		initializeWindows(*gd, types);
+
+		CommunicationWrapper<LocalId> cm(*gd, types);
 
 		if (nodeId == 0) {
 			AdjacencyListReader<OriginalVertexId> reader(path);
@@ -806,13 +846,15 @@ protected:
 		}
 
 		deregisterTypes(types);
+
+		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), std::vector<GlobalId>());
 	};
 
 private:
 	std::string path;
 
 	static void destroyGraph(G* g) {
-		// don't forget to free type!
+		// @todo
 	}
 };
 
