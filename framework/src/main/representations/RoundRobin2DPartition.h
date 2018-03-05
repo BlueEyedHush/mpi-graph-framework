@@ -259,7 +259,15 @@ namespace details { namespace RR2D {
 		ElementCount offset;
 
 		static MPI_Datatype mpiDatatype(MPI_Datatype gidDt, MPI_Datatype elCountDt) {
-			//@todo
+			MPI_Datatype dt;
+			int blocklengths[] = {1, 1};
+			MPI_Aint displacements[] = {
+					offsetof(ShadowDescriptor, id),
+					offsetof(ShadowDescriptor, offset)
+			};
+			MPI_Datatype building_types[] = {gidDt, elCountDt};
+			MPI_Type_create_struct(2, blocklengths, displacements, building_types, &dt);
+			return dt;
 		}
 	};
 
