@@ -327,6 +327,19 @@ namespace details { namespace RR2D {
 		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
 	}
 
+	template<typename TLocalId>
+	void handleRemapping(GraphData *gd, std::vector<OriginalVertexId> verticesToConvert, RemappingTable<TLocalId> rt) {
+		MpiWindowAppender<RR2DGlobalId> remappingWinAppender(gd->mappedIdsWin, gd->nodeCount);
+		for(auto oId: verticesToConvert) {
+			for(NodeId nid = 0; nid < gd->nodeCount; nid++) {
+				auto correspondingGid = *rt.toGlobalId(oId);
+				remappingWinAppender.append(nid, correspondingGid);
+			}
+		}
+		remappingWinAppender.writeBuffers();
+		gd->mappedIdsWin.flush();
+	}
+
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
 	 * If we want to process more, we need some kind of VertexHandle to know which one we are talking about.
@@ -842,15 +855,7 @@ protected:
 			cm.finishAllTransfers();
 
 			/* save requested remapping info */
-			MpiWindowAppender<GlobalId> remappingWinAppender(gd->mappedIdsWin, nodeCount);
-			for(auto oId: verticesToConvert) {
-				for(NodeId nid = 0; nid < nodeCount; nid++) {
-					auto correspondingGid = *remappingTable.toGlobalId(oId);
-					remappingWinAppender.append(nid, correspondingGid);
-				}
-			}
-			remappingWinAppender.writeBuffers();
-			gd->mappedIdsWin.flush();
+			handleRemapping(gd, verticesToConvert, remappingTable);
 
 			/* signal other nodes that graph data distribution has been finisheds */
 			MPI_Barrier(MPI_COMM_WORLD);
