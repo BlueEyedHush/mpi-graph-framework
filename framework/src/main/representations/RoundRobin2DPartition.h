@@ -99,10 +99,12 @@ namespace details { namespace RR2D {
 			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
 		}
 
+
 		void flush() { MPI_Win_flush_all(win); }
 		void sync() { MPI_Win_sync(win); }
 
 		size_t getSize() {return size;}
+		T* getData() { return data; }
 
 		static MpiWindow allocate(ElementCount size, MPI_Datatype dt) {
 			auto elSize = sizeof(T);
@@ -312,33 +314,6 @@ namespace details { namespace RR2D {
 		MpiWindow<NodeCount> coOwnersOwin;
 		MpiWindow<GlobalId> mappedIdsWin;
 	};
-
-	template <typename TLocalId>
-	void initializeWindows(GraphData<TLocalId>& data, MpiTypes& dts) {
-		using GlobalId = RR2DGlobalId<TLocalId>;
-		using ShadowDesc = ShadowDescriptor<TLocalId>;
-		
-		data.mastersVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.mastersOwin = MpiWindow<TLocalId>::allocate(VERTEX_MAX_COUNT, dts.localId);
-		data.shadowsVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
-		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
-		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
-		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
-	}
-
-	template<typename TLocalId>
-	void handleRemapping(GraphData *gd, std::vector<OriginalVertexId> verticesToConvert, RemappingTable<TLocalId> rt) {
-		MpiWindowAppender<RR2DGlobalId> remappingWinAppender(gd->mappedIdsWin, gd->nodeCount);
-		for(auto oId: verticesToConvert) {
-			for(NodeId nid = 0; nid < gd->nodeCount; nid++) {
-				auto correspondingGid = *rt.toGlobalId(oId);
-				remappingWinAppender.append(nid, correspondingGid);
-			}
-		}
-		remappingWinAppender.writeBuffers();
-		gd->mappedIdsWin.flush();
-	}
 
 	/**
 	 * Assumes we process one vertex at a time (start, register, finish)
@@ -629,6 +604,48 @@ namespace details { namespace RR2D {
 		TLocalId *nextLocalId;
 		NodeId nextNeighbourNodeId;
 	};
+
+	template <typename TLocalId>
+	void initializeWindows(GraphData<TLocalId>& data, MpiTypes& dts) {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+		using ShadowDesc = ShadowDescriptor<TLocalId>;
+
+		data.mastersVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
+		data.mastersOwin = MpiWindow<TLocalId>::allocate(VERTEX_MAX_COUNT, dts.localId);
+		data.shadowsVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
+		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
+		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
+		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
+		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
+	}
+
+	template<typename TLocalId>
+	void handleRemapping(GraphData<TLocalId> *gd,
+	                     std::vector<OriginalVertexId> verticesToConvert,
+	                     RemappingTable<TLocalId> rt) {
+		MpiWindowAppender<RR2DGlobalId<TLocalId>> remappingWinAppender(gd->mappedIdsWin, gd->nodeCount);
+		for(auto oId: verticesToConvert) {
+			for(NodeId nid = 0; nid < gd->nodeCount; nid++) {
+				auto correspondingGid = *rt.toGlobalId(oId);
+				remappingWinAppender.append(nid, correspondingGid);
+			}
+		}
+		remappingWinAppender.writeBuffers();
+		gd->mappedIdsWin.flush();
+	}
+
+	template<typename TLocalId>
+	std::vector<RR2DGlobalId<TLocalId>> extractRemapedVerticesToVector(GraphData<TLocalId> *gd) {
+		std::vector<RR2DGlobalId<TLocalId>> remappedVertices(gd->remappedCount);
+		auto mappedData = gd->mappedIdsWin.getData();
+
+		for(ElementCount i = 0; i < gd->remappedCount; i++) {
+			remappedVertices.push_back(mappedData[i]);
+		}
+
+		return remappedVertices;
+	}
+
 } }
 
 template <typename TLocalId, typename TNumId>
@@ -869,7 +886,7 @@ protected:
 
 		deregisterTypes(types);
 
-		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), std::vector<GlobalId>());
+		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), extractRemapedVerticesToVector(gd));
 	};
 
 private:
