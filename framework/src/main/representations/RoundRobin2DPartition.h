@@ -620,6 +620,20 @@ namespace details { namespace RR2D {
 		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
 	}
 
+	template <typename TLocalId>
+	void destroyWindows(GraphData<TLocalId>& data) {
+		using GlobalId = RR2DGlobalId<TLocalId>;
+		using ShadowDesc = ShadowDescriptor<TLocalId>;
+
+		MpiWindow<GlobalId>::destroy(data.mastersVwin);
+		MpiWindow<TLocalId>::destroy(data.mastersOwin);
+		MpiWindow<GlobalId>::destroy(data.shadowsVwin);
+		MpiWindow<ShadowDesc>::destroy(data.shadowsOwin);
+		MpiWindow<NodeId>::destroy(data.coOwnersVwin);
+		MpiWindow<NodeCount>::destroy(data.coOwnersOwin);
+		MpiWindow<GlobalId>::destroy(data.mappedIdsWin);
+	}
+
 	template<typename TLocalId>
 	void handleRemapping(GraphData<TLocalId> *gd,
 	                     std::vector<OriginalVertexId> verticesToConvert,
@@ -888,7 +902,7 @@ protected:
 		deregisterTypes(types);
 
 		auto remappedVertices = extractRemapedVerticesToVector(gd);
-		MpiWindow::destroy(gd->mappedIdsWin);
+		MpiWindow<GlobalId>::destroy(gd->mappedIdsWin);
 
 		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), remappedVertices);
 	};
@@ -897,7 +911,8 @@ private:
 	std::string path;
 
 	static void destroyGraph(G* g) {
-		// @todo
+		details::RR2D::destroyWindows(*(g->graphData));
+		delete g->graphData;
 	}
 };
 
