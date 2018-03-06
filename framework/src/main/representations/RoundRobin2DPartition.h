@@ -337,7 +337,7 @@ namespace details { namespace RR2D {
 	 * memory for windows, which means that lifetime of the window is tied to the lifetime of it's memory.
 	 * This means that windows can be freed only after whole graph is released.
 	 */
-	template <typename TLocalId>
+	template <typename TLocalId, typename TNumId>
 	class CommunicationWrapper {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
@@ -346,7 +346,7 @@ namespace details { namespace RR2D {
 
 	public:
 		/* called by both master and slaves */
-		CommunicationWrapper(GraphData<TLocalId>& gd, MpiTypes& dts)
+		CommunicationWrapper(GraphData<TLocalId, TNumId>& gd, MpiTypes& dts)
 			: counts(CountsForCluster(gd.nodeCount, dts.count)),
 			  gd(gd),
 
@@ -520,7 +520,7 @@ namespace details { namespace RR2D {
 
 		/* 'global' members, shared across all vertices and nodes */
 		CountsForCluster counts;
-		GraphData<TLocalId>& gd;
+		GraphData<TLocalId, TNumId>& gd;
 
 		MpiWindowAppender<GlobalId> mastersV;
 		MpiWindowAppender<LocalVerticesCount> mastersO;
@@ -619,8 +619,8 @@ namespace details { namespace RR2D {
 		NodeId nextNeighbourNodeId;
 	};
 
-	template <typename TLocalId>
-	void initializeWindows(GraphData<TLocalId>& data, MpiTypes& dts) {
+	template <typename TLocalId, typename TNumId>
+	void initializeWindows(GraphData<TLocalId, TNumId>& data, MpiTypes& dts) {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
 
@@ -633,8 +633,8 @@ namespace details { namespace RR2D {
 		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
 	}
 
-	template <typename TLocalId>
-	void destroyWindows(GraphData<TLocalId>& data) {
+	template <typename TLocalId, typename TNumId>
+	void destroyWindows(GraphData<TLocalId, TNumId>& data) {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
 
@@ -647,8 +647,8 @@ namespace details { namespace RR2D {
 		MpiWindow<GlobalId>::destroy(data.mappedIdsWin);
 	}
 
-	template<typename TLocalId>
-	void handleRemapping(GraphData<TLocalId> *gd,
+	template<typename TLocalId, typename TNumId>
+	void handleRemapping(GraphData<TLocalId, TNumId> *gd,
 	                     std::vector<OriginalVertexId> verticesToConvert,
 	                     RemappingTable<TLocalId> rt) {
 		MpiWindowAppender<RR2DGlobalId<TLocalId>> remappingWinAppender(gd->mappedIdsWin, gd->nodeCount);
@@ -662,8 +662,8 @@ namespace details { namespace RR2D {
 		gd->mappedIdsWin.flush();
 	}
 
-	template<typename TLocalId>
-	std::vector<RR2DGlobalId<TLocalId>> extractRemapedVerticesToVector(GraphData<TLocalId> *gd) {
+	template<typename TLocalId, typename TNumId>
+	std::vector<RR2DGlobalId<TLocalId>> extractRemapedVerticesToVector(GraphData<TLocalId, TNumId> *gd) {
 		std::vector<RR2DGlobalId<TLocalId>> remappedVertices(gd->remappedCount);
 		auto mappedData = gd->mappedIdsWin.getData();
 
@@ -673,7 +673,6 @@ namespace details { namespace RR2D {
 
 		return remappedVertices;
 	}
-
 } }
 
 template <typename TLocalId, typename TNumId>
@@ -681,7 +680,7 @@ class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLoc
 	using P = GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId>;
 	IMPORT_ALIASES(P)
 
-	RoundRobin2DPartition(details::RR2D::GraphData<LocalId> *graphData) : graphData(graphData) {}
+	RoundRobin2DPartition(details::RR2D::GraphData<LocalId, NumericId> *graphData) : graphData(graphData) {}
 
 public:
 	MPI_Datatype getGlobalVertexIdDatatype() {
@@ -749,7 +748,7 @@ public:
 private:
 	friend class RR2DHandle<LocalId, NumericId>;
 
-	details::RR2D::GraphData<LocalId> *graphData;
+	details::RR2D::GraphData<LocalId, NumericId> *graphData;
 };
 
 
@@ -849,7 +848,7 @@ protected:
 
 		MpiTypes types = registerMpiTypes<LocalId>();
 
-		auto gd = new details::RR2D::GraphData<LocalId>();
+		auto gd = new details::RR2D::GraphData<LocalId, NumericId>();
 		gd->nodeId = nodeId;
 		gd->nodeCount = nodeCount;
 		gd->remappedCount = verticesToConvert.size();
@@ -857,7 +856,7 @@ protected:
 
 		initializeWindows(*gd, types);
 
-		CommunicationWrapper<LocalId> cm(*gd, types);
+		CommunicationWrapper<LocalId, NumericId> cm(*gd, types);
 
 		if (nodeId == 0) {
 			AdjacencyListReader<OriginalVertexId> reader(path);
@@ -921,7 +920,7 @@ protected:
 		LocalId nextShadowLocalId = gd->counts.masters.offsetCount;
 		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
 			auto* el = gd->shadowsOwin.getData() + i;
-			gd->shadowsGlobalToLocalMap.emplace(el->edgeBeginningId, nextShadowLocalId);
+			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId(el->edgeBeginningId), nextShadowLocalId);
 			nextShadowLocalId += 1;
 		}
 

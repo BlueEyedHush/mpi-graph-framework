@@ -26,4 +26,12 @@ struct ALHPGlobalVertexId {
 	}
 };
 
+template<typename TGlobalId, typename TNumId>
+TNumId globalToNumericId(const TGlobalId gid) {
+	unsigned short halfBitsInUll = (sizeof(TNumId)*CHAR_BIT)/2;
+	TNumId numerical = ((TNumId) gid.localId) << halfBitsInUll;
+	numerical |= ((unsigned int) gid.nodeId);
+	return numerical;
+}
+
 #endif //FRAMEWORK_SHARED_H
