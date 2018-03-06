@@ -253,16 +253,16 @@ namespace details { namespace RR2D {
 
 	template <typename TLocalId>
 	struct ShadowDescriptor {
-		ShadowDescriptor(RR2DGlobalId<TLocalId> id, ElementCount offset) : id(id), offset(offset) {}
+		ShadowDescriptor(RR2DGlobalId<TLocalId> id, ElementCount offset) : edgeBeginningId(id), offset(offset) {}
 
-		RR2DGlobalId<TLocalId> id;
+		RR2DGlobalId<TLocalId> edgeBeginningId;
 		ElementCount offset;
 
 		static MPI_Datatype mpiDatatype(MPI_Datatype gidDt, MPI_Datatype elCountDt) {
 			MPI_Datatype dt;
 			int blocklengths[] = {1, 1};
 			MPI_Aint displacements[] = {
-					offsetof(ShadowDescriptor, id),
+					offsetof(ShadowDescriptor, edgeBeginningId),
 					offsetof(ShadowDescriptor, offset)
 			};
 			MPI_Datatype building_types[] = {gidDt, elCountDt};
@@ -302,7 +302,7 @@ namespace details { namespace RR2D {
 		MPI_Type_free(&t.shadowDescriptor);
 	}
 
-	template <typename TLocalId>
+	template <typename TLocalId, typename TNumId>
 	struct GraphData {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
@@ -318,10 +318,13 @@ namespace details { namespace RR2D {
 
 		MpiWindow<GlobalId> mastersVwin;
 		MpiWindow<LocalVerticesCount> mastersOwin;
+		MpiWindow<NodeCount> coOwnersOwin;
+		MpiWindow<NodeId> coOwnersVwin;
+
 		MpiWindow<GlobalId> shadowsVwin;
 		MpiWindow<ShadowDesc> shadowsOwin;
-		MpiWindow<NodeId> coOwnersVwin;
-		MpiWindow<NodeCount> coOwnersOwin;
+		std::unordered_map<TNumId, TLocalId> shadowsGlobalToLocalMap;
+
 		/* this is used temporarily during building process and becomes invalid during normal operations */
 		MpiWindow<GlobalId> mappedIdsWin;
 	};
@@ -907,12 +910,22 @@ protected:
 		} else {
 			/* let master do her stuff */
 			MPI_Barrier(MPI_COMM_WORLD);
+
+			/* ensure all transfer from masters are visible */
 			cm.ensureTransfersVisibility();
 			gd->mappedIdsWin.sync();
 		}
 
 		deregisterTypes(types);
+		/* now each node must use contents of shadow-related windows to build GlobalId -> LocalId map */
+		LocalId nextShadowLocalId = gd->counts.masters.offsetCount;
+		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
+			auto* el = gd->shadowsOwin.getData() + i;
+			gd->shadowsGlobalToLocalMap.emplace(el->edgeBeginningId, nextShadowLocalId);
+			nextShadowLocalId += 1;
+		}
 
+		/* extract remapped vertices from window (written by master) to vector returned locally */
 		auto remappedVertices = extractRemapedVerticesToVector(gd);
 		MpiWindow<GlobalId>::destroy(gd->mappedIdsWin);
 		gd->remappedCount = 0;
