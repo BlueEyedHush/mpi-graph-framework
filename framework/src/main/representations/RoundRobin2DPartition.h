@@ -770,8 +770,11 @@ public:
 	}
 
 
-	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)>) {
-
+	void foreachMasterVertex(std::function<ITER_PROGRESS (const LocalId)> f) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(TLocalId vid = 0; vid < graphData->counts.masters.offsetCount && ip == CONTINUE; vid++) {
+			ip = f(vid);
+		}
 	}
 
 	size_t masterVerticesCount() {
@@ -779,13 +782,23 @@ public:
 	}
 
 	size_t masterVerticesMaxCount() {
-		// @todo probably shadows should start on all nodes from this offset, not locally bla bla...
-		return graphData->
+		return graphData->counts.maxMastersCount;
 	}
 
 
-	void foreachCoOwner(LocalId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)>) {
+	void foreachCoOwner(LocalId localId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
+		// @todo: range check
+		auto coownerIdx = graphData->coOwnersOwin.getData()[localId];
+		auto limit = (localId == graphData->counts.coOwners.offsetCount) ?
+	                 graphData->counts.coOwners.valueCount :
+	                 graphData->coOwnersOwin.getData()[localId+1]; // @todo: cast needed here
 
+		while(coownerIdx < limit) {
+			auto coownerId = graphData->coOwnersVwin.getData()[coownerIdx];
+			// @todo: do I need to append or remove myself?
+			f(coownerId);
+			coownerIdx += 1;
+		}
 	}
 
 	void foreachNeighbouringVertex(LocalId, std::function<ITER_PROGRESS (const GlobalId)>) {
