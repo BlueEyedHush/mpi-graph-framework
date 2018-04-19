@@ -313,6 +313,7 @@ namespace details { namespace RR2D {
 
 		Counts counts;
 		ElementCount remappedCount;
+		ElementCount firstShadowId;
 
 		MPI_Datatype globalIdDt;
 
@@ -683,44 +684,73 @@ class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLoc
 	RoundRobin2DPartition(details::RR2D::GraphData<LocalId, NumericId> *graphData) : graphData(graphData) {}
 
 public:
-	MPI_Datatype getGlobalVertexIdDatatype() {
+	MPI_Datatype getGlobalVertexIdDatatype() { return graphData->globalIdDt; }
 
+	LocalId toLocalId(const GlobalId gid, VERTEX_TYPE* vtype = nullptr) {
+		auto& map = graphData->shadowsGlobalToLocalMap;
+
+		if (gid.nodeId == graphData->nodeId) {
+			if (vtype != nullptr) *vtype = L_MASTER;
+			return gid.localId;
+		} else  {
+			auto it = map.find(toNumeric(gid));
+			if (it != map.end()) {
+				if (vtype != nullptr) *vtype = L_SHADOW;
+				return it->second;
+			} else {
+				if (vtype != nullptr) *vtype = NON_LOCAL;
+				return 0;
+			}
+		}
 	}
 
-	LocalId toLocalId(const GlobalId, VERTEX_TYPE* vtype = nullptr) {
-
+	NodeId toMasterNodeId(const GlobalId gid) {
+		return gid.nodeId;
 	}
 
-	NodeId toMasterNodeId(const GlobalId) {
+	GlobalId toGlobalId(const LocalId lid) {
+		const auto masterCount = graphData->counts.masters.offsetCount;
+		const auto shadowCount = graphData->counts.shadows.offsetCount;
 
+		if (lid >= 0 && lid < masterCount) {
+			/* we deal with master, just construct it? */
+			return GlobalId(graphData->nodeId, lid);
+		} else if (lid >= graphData->firstShadowId && lid < graphData->firstShadowId + shadowCount) {
+			/* when dealing with shadows, we have look into ShadowDesc window */
+			const auto relativeShadowId = lid - graphData->firstShadowId;
+			return graphData->shadowsOwin.getData()[relativeShadowId].edgeBeginningId;
+		} else {
+			/* just throw exception */
+			throw std::string("LocalID out of range");
+		}
 	}
 
-	GlobalId toGlobalId(const LocalId) {
-
+	NumericId toNumeric(const GlobalId gid) {
+		return globalToNumericId<GlobalId, NumericId>(gid);
 	}
 
-	NumericId toNumeric(const GlobalId) {
-
+	NumericId toNumeric(const LocalId lid) {
+		return toNumeric(GlobalId(graphData->nodeId, lid));
 	}
 
-	NumericId toNumeric(const LocalId) {
-
+	std::string idToString(const GlobalId gid) {
+		std::ostringstream os;
+		os << "(" << gid.nodeId << "," << gid.localId << ")";
+		return os.str();
 	}
 
-	std::string idToString(const GlobalId) {
-
+	std::string idToString(const LocalId lid) {
+		std::ostringstream os;
+		os << "(" << graphData->nodeId << "," << lid << ")";
+		return os.str();
 	}
 
-	std::string idToString(const LocalId) {
-
+	bool isSame(const GlobalId a, const GlobalId b) {
+		return a.nodeId == b.nodeId && a.localId == b.localId;
 	}
 
-	bool isSame(const GlobalId, const GlobalId) {
-
-	}
-
-	bool isValid(const GlobalId) {
-
+	bool isValid(const GlobalId gid) {
+		return gid.nodeId >= 0;
 	}
 
 
@@ -729,11 +759,12 @@ public:
 	}
 
 	size_t masterVerticesCount() {
-
+		return graphData->counts.masters.offsetCount;
 	}
 
 	size_t masterVerticesMaxCount() {
-
+		// @todo probably shadows should start on all nodes from this offset, not locally bla bla...
+		return graphData->
 	}
 
 
@@ -918,6 +949,7 @@ protected:
 		deregisterTypes(types);
 		/* now each node must use contents of shadow-related windows to build GlobalId -> LocalId map */
 		LocalId nextShadowLocalId = gd->counts.masters.offsetCount;
+		gd->firstShadowId = nextShadowLocalId;
 		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
 			auto* el = gd->shadowsOwin.getData() + i;
 			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId(el->edgeBeginningId), nextShadowLocalId);
