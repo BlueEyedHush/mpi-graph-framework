@@ -209,11 +209,20 @@ namespace details { namespace RR2D {
 		/* offsetCount for coOwners should be identical to that of masters, but we keep it here for to keep design
 		 * consistent */
 		OffsetArraySizeSpec coOwners;
+		ElementCount maxMastersCount;
 
 		static MPI_Datatype mpiDatatype() {
 			auto oascDt = OffsetArraySizeSpec::mpiDatatype();
 			MPI_Datatype dt;
-			MPI_Type_contiguous(3, oascDt, &dt);
+			int blocklengths[] = {1, 1, 1, 1};
+			MPI_Aint displacements[] = {
+					offsetof(Counts, masters),
+					offsetof(Counts, shadows),
+					offsetof(Counts, coOwners),
+					offsetof(Counts, maxMastersCount)
+			};
+			MPI_Datatype building_types[] = {oascDt, oascDt, oascDt, ElementCountDt};
+			MPI_Type_create_struct(4, blocklengths, displacements, building_types, &dt);
 			return dt;
 		}
 	};
@@ -585,7 +594,8 @@ namespace details { namespace RR2D {
 	class Partitioner {
 	public:
 		Partitioner(NodeCount nodeCount)
-				: nodeCount(nodeCount), nextMasterNodeId(0), nextLocalId(new TLocalId[nodeCount]), nextNeighbourNodeId(0)
+				: nodeCount(nodeCount), nextMasterNodeId(0), nextLocalId(new TLocalId[nodeCount]),
+				  nextNeighbourNodeId(0), largetstAssignedLocalId(0)
 		{}
 
 		~Partitioner() {
@@ -600,6 +610,9 @@ namespace details { namespace RR2D {
 			TLocalId lid = nextLid;
 			nextLid += 1;
 
+			if (nextLid > largetstAssignedLocalId)
+				largetstAssignedLocalId = nextLid;
+
 			/* assuming that user makes series of calls to nextNodeIdForNeighbour right after calling nextMasterId,
 			 * starting neighbourNodeIds with masterNodeId guarnatees that master won't be empty (which'd be legal, but
 			 * a waste)
@@ -613,11 +626,14 @@ namespace details { namespace RR2D {
 			return nextNeighbourNodeId++;
 		}
 
+		TLocalId getLargestAssignedLocalId() {return largetstAssignedLocalId;}
+
 	private:
 		NodeCount nodeCount;
 		NodeId nextMasterNodeId;
 		TLocalId *nextLocalId;
 		NodeId nextNeighbourNodeId;
+		TLocalId largetstAssignedLocalId;
 	};
 
 	template <typename TLocalId, typename TNumId>
@@ -929,6 +945,11 @@ protected:
 				});
 			}
 
+			/* update maxLocalId count */
+			const auto mmc = partitioner.getLargestAssignedLocalId() + 1;
+			for(NodeCount nid = 0; nid < nodeCount; nid++)
+				cm.getCountFor(nid).maxMastersCount = mmc;
+
 			cm.finishAllTransfers();
 
 			/* save requested remapping info */
@@ -948,7 +969,7 @@ protected:
 
 		deregisterTypes(types);
 		/* now each node must use contents of shadow-related windows to build GlobalId -> LocalId map */
-		LocalId nextShadowLocalId = gd->counts.masters.offsetCount;
+		LocalId nextShadowLocalId = gd->counts.maxMastersCount;
 		gd->firstShadowId = nextShadowLocalId;
 		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
 			auto* el = gd->shadowsOwin.getData() + i;
