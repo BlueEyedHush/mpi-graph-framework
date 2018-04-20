@@ -469,6 +469,13 @@ namespace details { namespace RR2D {
 				}
 			}
 
+			/* write information about coowners */
+			coOwnersO.append(currentVertexGid.nodeId, counts.get(currentVertexGid.nodeId).coOwners.valueCount);
+			for(auto& coowningNode: currentVertexCoOwners) {
+				coOwnersV.append(currentVertexGid.nodeId, coowningNode);
+				counts.get(currentVertexGid.nodeId).coOwners.valueCount += 1;
+			}
+
 			/* send stuff */
 			mastersV.writeBuffers();
 			mastersO.writeBuffers();
