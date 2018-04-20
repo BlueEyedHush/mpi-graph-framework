@@ -802,14 +802,25 @@ public:
 
 		while(coownerIdx < limit) {
 			auto coownerId = graphData->coOwnersVwin.getData()[coownerIdx];
-			// @todo: do I need to append or remove myself?
 			f(coownerId);
 			coownerIdx += 1;
 		}
+
+		/* owner is not writtn to coowners window */
+		if (returnSelf) f(graphData->nodeId);
 	}
 
-	void foreachNeighbouringVertex(LocalId, std::function<ITER_PROGRESS (const GlobalId)>) {
+	void foreachNeighbouringVertex(LocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
+		auto startPos = graphData->mastersOwin.getData()[id];
+		auto endPos = (id < graphData->counts.masters.offsetCount-1) ?
+		              graphData->mastersOwin.getData()[id+1] :
+		              graphData->counts.masters.valueCount;
 
+		ITER_PROGRESS ip = CONTINUE;
+		for(LocalVertexId i = startPos; i < endPos && ip == CONTINUE; i++) {
+			GlobalId neighId = graphData->mastersVwin.getData()[i];
+			ip = f(neighId);
+		}
 	}
 
 private:
