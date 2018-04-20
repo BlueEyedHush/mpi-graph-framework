@@ -793,6 +793,19 @@ public:
 	}
 
 
+	void foreachShadowVertex(std::function<ITER_PROGRESS (const LocalId, const GlobalId)> f) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(TLocalId lid = 0; lid < graphData->counts.shadows.offsetCount && ip == CONTINUE; lid++) {
+			auto gid = graphData->shadowsOwin.getData()[lid].edgeBeginningId;
+			ip = f(lid + graphData->firstShadowId, gid);
+		}
+	}
+
+	size_t shadowVerticesCount() {
+		return graphData->counts.shadows.offsetCount;
+	}
+
+
 	void foreachCoOwner(LocalId localId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
 		// @todo: range check
 		auto coownerIdx = graphData->coOwnersOwin.getData()[localId];
@@ -811,14 +824,30 @@ public:
 	}
 
 	void foreachNeighbouringVertex(LocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
-		auto startPos = graphData->mastersOwin.getData()[id];
-		auto endPos = (id < graphData->counts.masters.offsetCount-1) ?
-		              graphData->mastersOwin.getData()[id+1] :
-		              graphData->counts.masters.valueCount;
+		size_t startPos, endPos;
+		details::RR2D::MpiWindow<GlobalId>* winWithValues;
+		if (id >= graphData->firstShadowId) {
+			/* shadow */
+			auto relativeId = id - graphData->firstShadowId;
+			startPos = graphData->shadowsOwin.getData()[relativeId].offset;
+			endPos = (id < graphData->counts.masters.offsetCount-1) ?
+			         graphData->shadowsOwin.getData()[relativeId+1].offset :
+			         graphData->counts.masters.valueCount;
+
+			winWithValues = &(graphData->shadowsVwin);
+		} else {
+			/* master */
+			startPos = graphData->mastersOwin.getData()[id];
+			endPos = (id < graphData->counts.masters.offsetCount-1) ?
+			         graphData->mastersOwin.getData()[id+1] :
+			         graphData->counts.masters.valueCount;
+
+			winWithValues = &(graphData->mastersVwin);
+		}
 
 		ITER_PROGRESS ip = CONTINUE;
 		for(LocalVertexId i = startPos; i < endPos && ip == CONTINUE; i++) {
-			GlobalId neighId = graphData->mastersVwin.getData()[i];
+			GlobalId neighId = winWithValues->getData()[i];
 			ip = f(neighId);
 		}
 	}

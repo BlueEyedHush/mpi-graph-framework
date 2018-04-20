@@ -140,6 +140,9 @@ public:
 	void foreachMasterVertex(std::function<ITER_PROGRESS (const TLocalId)>);
 	size_t masterVerticesCount();
 	size_t masterVerticesMaxCount();
+
+	void foreachShadowVertex(std::function<ITER_PROGRESS (const TLocalId, const TGlobalId)>);
+	size_t shadowVerticesCount();
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */

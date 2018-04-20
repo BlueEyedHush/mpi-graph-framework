@@ -132,6 +132,14 @@ public:
 		return data.offsetTableWinSize;
 	}
 
+	void foreachShadowVertex(std::function<ITER_PROGRESS (const LocalId, const GlobalId)>) {
+		/* 1D partitioning, so this is NOOP */
+	}
+
+	size_t shadowVerticesCount() {
+		return 0;
+	}
+
 	void foreachCoOwner(const LocalId lid, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
 		if(returnSelf) {
 			f(data.world_rank);

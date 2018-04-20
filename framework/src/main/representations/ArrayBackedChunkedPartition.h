@@ -120,6 +120,10 @@ public:
 	};
 	size_t masterVerticesCount() { return localVertexCount; };
 	size_t masterVerticesMaxCount() { return localVertexMaxCount; };
+	void foreachShadowVertex(std::function<ITER_PROGRESS (const LocalId, const GlobalId)>) {
+		/* 1D partitioning, so this is NOOP */
+	}
+	size_t shadowVerticesCount() { return 0; }
 	/**
 	 * Returns coowners only for masters, not for shadows
 	 */
