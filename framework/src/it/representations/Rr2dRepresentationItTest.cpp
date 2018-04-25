@@ -93,16 +93,17 @@ private:
 	NodeId shmRank;
 };
 
-TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
+template <typename TGraphHandle>
+void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*rank*/)> ghSupplier,
+                        std::vector<OriginalVertexId> vertexIds,
+                        std::set<std::pair<OriginalVertexId, OriginalVertexId>> expectedEdges) {
 	int rank = -1;
 	int size = -1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	std::vector<OriginalVertexId> vertexIds({0, 1, 2, 3});
-
-	ABCGraphHandle<TestLocalId, TestNumId>  builder("resources/test/SimpleTestGraph.adjl", size, rank, vertexIds);
+	auto builder = ghSupplier(size, rank);
 	auto& gp = builder.getGraph();
 	LOG(INFO) << "Loaded graph from file";
 
@@ -153,14 +154,22 @@ TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
 		actualEdges.insert(edgesFromNode.begin(), edgesFromNode.end());
 	}
 
-	/* load expected edge list */
-	std::set<std::pair<OriginalVertexId, OriginalVertexId>> expectedEdges({
-		{0,1},{0,2},{0,3},
-		{1,0},{1,2},{1,3},
-		{2,0},{2,1},{2,3},
-		{3,0},{3,1},{3,2}
-	});
-
 	/* compare against */
 	ASSERT_EQ(actualEdges, expectedEdges);
+}
+
+TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
+	std::vector<OriginalVertexId> vertexIds({0, 1, 2, 3});
+
+	std::set<std::pair<OriginalVertexId, OriginalVertexId>> expectedEdges({
+			                                                                      {0,1},{0,2},{0,3},
+			                                                                      {1,0},{1,2},{1,3},
+			                                                                      {2,0},{2,1},{2,3},
+			                                                                      {3,0},{3,1},{3,2}
+	                                                                      });
+
+	representationTest<ABCGraphHandle<TestLocalId, TestNumId>>(
+			[&](NodeId size, NodeId rank) {
+				return ABCGraphHandle<TestLocalId, TestNumId>("resources/test/SimpleTestGraph.adjl", size, rank, vertexIds);
+			}, vertexIds, expectedEdges);
 }
