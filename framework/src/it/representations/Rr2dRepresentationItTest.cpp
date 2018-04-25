@@ -18,22 +18,13 @@ class CommHelper {
 public:
 	CommHelper(std::vector<OriginalVertexId>& originalVids,
 	           std::vector<TestNumId>& mappedVids,
-	           MPI_Comm comm,
-	           NodeId nodeRank,
-	           NodeId nodeCount) : originalRank(nodeRank)
+	           MPI_Comm shmComm,
+	           NodeId shmRank) : shmcomm(shmComm), shmRank(shmRank)
 	{
 		/* build mapping mapped -> original */
 		assert(originalVids.size() == mappedVids.size());
 		for(size_t i = 0; i < originalVids.size(); i++)
 			vmap.emplace(mappedVids[i], originalVids[i]);
-
-		/* get shared memory communicator */
-		MPI_Comm_split_type (MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED,0, MPI_INFO_NULL, &shmcomm);
-		MPI_Comm_size(shmcomm, &shmSize);
-		MPI_Comm_rank(shmcomm, &shmRank);
-
-		/* ensure all nodes work locally */
-		ASSERT_TRUE(shmSize == nodeCount);
 
 		/* allocate window */
 		TestNumId *winData = nullptr;
@@ -59,11 +50,11 @@ public:
 		unsigned long edgeCount = edgeDatas.size()/2;
 
 		auto* data = edgeDatas.data();
-		MPI_Put(&edgeCount, 1, MPI_UNSIGNED_LONG, originalRank, 0, 1, MPI_UNSIGNED_LONG, win);
+		MPI_Put(&edgeCount, 1, MPI_UNSIGNED_LONG, shmRank, 0, 1, MPI_UNSIGNED_LONG, win);
 
 		for(unsigned long i = 0; i < edgeCount; i++) {
-			MPI_Put(data + 2*i, 1, NUM_MPI_TYPE, originalRank, 1 + 2*i, 1, NUM_MPI_TYPE, win);
-			MPI_Put(data + 2*i + 1, 1, NUM_MPI_TYPE, originalRank, 1 + 2*i + 1, 1, NUM_MPI_TYPE, win);
+			MPI_Put(data + 2*i, 1, NUM_MPI_TYPE, shmRank, 1 + 2*i, 1, NUM_MPI_TYPE, win);
+			MPI_Put(data + 2*i + 1, 1, NUM_MPI_TYPE, shmRank, 1 + 2*i + 1, 1, NUM_MPI_TYPE, win);
 		}
 
 		MPI_Win_flush_all(win);
@@ -97,9 +88,7 @@ private:
 	MPI_Comm shmcomm;
 	MPI_Win win;
 	OriginalVertexId vCount;
-	int shmSize;
-	int shmRank;
-	NodeId originalRank;
+	NodeId shmRank;
 };
 
 TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
@@ -119,19 +108,35 @@ TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
 	for(auto gid: builder.getConvertedVertices())
 		numIds.push_back(gp.toNumeric(gid));
 
-	CommHelper commHelper(vertexIds, numIds, MPI_COMM_WORLD, rank, size);
+	/* get shared memory communicator */
+	MPI_Comm shmcomm;
+	int shmSize;
+	int shmRank;
+
+	MPI_Comm_split_type (MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED,0, MPI_INFO_NULL, &shmcomm);
+	MPI_Comm_size(shmcomm, &shmSize);
+	MPI_Comm_rank(shmcomm, &shmRank);
+
+	/* ensure all nodes work locally */
+	ASSERT_TRUE(shmSize == size);
+
+	CommHelper commHelper(vertexIds, numIds, MPI_COMM_WORLD, shmRank);
 
 	/* iterate masters & shadows, (source, target) pairs to file */
-	gp.foreachMasterVertex([&](auto startLid) {
-		gp.foreachNeighbouringVertex(startLid, [&](auto endGid) {
+	gp.foreachMasterVertex([&](const auto startLid) {
+		gp.foreachNeighbouringVertex(startLid, [&](const auto endGid) {
 			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			return CONTINUE;
 		});
+		return CONTINUE;
 	});
 
 	gp.foreachShadowVertex([&](auto startLid, auto startGid) {
 		gp.foreachNeighbouringVertex(startLid, [&](auto endGid) {
 			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			return CONTINUE;
 		});
+		return CONTINUE;
 	});
 
 	commHelper.finishTransfers();
@@ -139,7 +144,7 @@ TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	/* gather edges */
-	std::set<std::pair<OriginalVertexId>> actualEdges;
+	std::set<std::pair<OriginalVertexId, OriginalVertexId>> actualEdges;
 
 	for(NodeId nodeId = 0; nodeId < size; nodeId++) {
 		auto edgesFromNode = commHelper.getEdgesFrom(nodeId);
@@ -147,7 +152,7 @@ TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
 	}
 
 	/* load expected edge list */
-	std::set<std::pair<OriginalVertexId>> expectedEdges({
+	std::set<std::pair<OriginalVertexId, OriginalVertexId>> expectedEdges({
 		{0,1},{0,2},{0,3},
 		{1,0},{1,2},{1,3},
 		{2,0},{2,1},{2,3},
