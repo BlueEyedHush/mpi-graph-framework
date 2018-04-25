@@ -23,7 +23,8 @@ public:
 	{
 		/* build mapping mapped -> original */
 		assert(originalVids.size() == mappedVids.size());
-		for(size_t i = 0; i < originalVids.size(); i++)
+		auto vCount = originalVids.size();
+		for(size_t i = 0; i < vCount; i++)
 			vmap.emplace(mappedVids[i], originalVids[i]);
 
 		/* allocate window */
@@ -62,6 +63,8 @@ public:
 
 	/* reading */
 	std::set<std::pair<OriginalVertexId, OriginalVertexId>> getEdgesFrom(NodeId id) {
+		/* here we use global ranks, but they should be the same */
+
 		unsigned long edgeCount = 0;
 		MPI_Get(&edgeCount, 1, NUM_MPI_TYPE, id, 0, 1, NUM_MPI_TYPE, win);
 		MPI_Win_flush(id, win);
@@ -87,7 +90,6 @@ private:
 	std::vector<TestNumId> edgeDatas;
 	MPI_Comm shmcomm;
 	MPI_Win win;
-	OriginalVertexId vCount;
 	NodeId shmRank;
 };
 
