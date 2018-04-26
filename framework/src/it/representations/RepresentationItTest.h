@@ -16,17 +16,10 @@ typedef int TestNumId;
 
 class CommHelper {
 public:
-	CommHelper(std::vector<OriginalVertexId>& originalVids,
-	           std::vector<TestNumId>& mappedVids,
+	CommHelper(size_t vCount,
 	           MPI_Comm shmComm,
 	           NodeId shmRank) : shmcomm(shmComm), shmRank(shmRank)
 	{
-		/* build mapping mapped -> original */
-		assert(originalVids.size() == mappedVids.size());
-		auto vCount = originalVids.size();
-		for(size_t i = 0; i < vCount; i++)
-			vmap.emplace(mappedVids[i], originalVids[i]);
-
 		/* allocate window */
 		TestNumId *winData = nullptr;
 		/* max amount of edges is vcount^2-1, but we also need first one for counting */
@@ -62,8 +55,19 @@ public:
 	}
 
 	/* reading */
-	std::set<std::pair<OriginalVertexId, OriginalVertexId>> getEdgesFrom(NodeId id) {
+	std::set<std::pair<OriginalVertexId, OriginalVertexId>> getEdgesFrom(std::vector<OriginalVertexId>& originalVids,
+	                                                                     std::vector<TestNumId>& mappedVids,
+	                                                                     NodeId id) {
 		/* here we use global ranks, but they should be the same */
+
+		/* build mapping mapped -> original */
+		assert(originalVids.size() == mappedVids.size());
+		auto vCount = originalVids.size();
+
+		std::unordered_map<TestNumId, OriginalVertexId> vmap;
+		for(size_t i = 0; i < vCount; i++)
+			vmap.emplace(mappedVids[i], originalVids[i]);
+
 
 		unsigned long edgeCount = 0;
 		MPI_Get(&edgeCount, 1, NUM_MPI_TYPE, id, 0, 1, NUM_MPI_TYPE, win);
@@ -86,7 +90,6 @@ public:
 	};
 
 private:
-	std::unordered_map<TestNumId, OriginalVertexId> vmap;
 	std::vector<TestNumId> edgeDatas;
 	MPI_Comm shmcomm;
 	MPI_Win win;
@@ -107,10 +110,6 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 	auto& gp = builder.getGraph();
 	LOG(INFO) << "Loaded graph from file";
 
-	std::vector<TestNumId> numIds;
-	for(auto gid: builder.getConvertedVertices())
-		numIds.push_back(gp.toNumeric(gid));
-
 	/* get shared memory communicator */
 	MPI_Comm shmcomm;
 	int shmSize;
@@ -123,7 +122,7 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 	/* ensure all nodes work locally */
 	ASSERT_TRUE(shmSize == size);
 
-	CommHelper commHelper(vertexIds, numIds, MPI_COMM_WORLD, shmRank);
+	CommHelper commHelper(vertexIds.size(), MPI_COMM_WORLD, shmRank);
 
 	/* iterate masters & shadows, (source, target) pairs to file */
 	gp.foreachMasterVertex([&](const auto startLid) {
@@ -146,16 +145,22 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	/* gather edges */
-	std::set<std::pair<OriginalVertexId, OriginalVertexId>> actualEdges;
+	if (rank == 0) {
+		std::vector<TestNumId> numIds;
+		for(auto gid: builder.getConvertedVertices())
+			numIds.push_back(gp.toNumeric(gid));
 
-	for(NodeId nodeId = 0; nodeId < size; nodeId++) {
-		auto edgesFromNode = commHelper.getEdgesFrom(nodeId);
-		actualEdges.insert(edgesFromNode.begin(), edgesFromNode.end());
+		/* gather edges */
+		std::set<std::pair<OriginalVertexId, OriginalVertexId>> actualEdges;
+
+		for(NodeId nodeId = 0; nodeId < size; nodeId++) {
+			auto edgesFromNode = commHelper.getEdgesFrom(vertexIds, numIds, nodeId);
+			actualEdges.insert(edgesFromNode.begin(), edgesFromNode.end());
+		}
+
+		/* compare against */
+		ASSERT_EQ(actualEdges, expectedEdges);
 	}
-
-	/* compare against */
-	ASSERT_EQ(actualEdges, expectedEdges);
 }
 
 #endif //FRAMEWORK_REPRESENTATIONITTEST_H
