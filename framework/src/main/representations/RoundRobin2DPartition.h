@@ -734,7 +734,7 @@ namespace details { namespace RR2D {
 
 	template<typename TLocalId, typename TNumId>
 	std::vector<RR2DGlobalId<TLocalId>> extractRemapedVerticesToVector(GraphData<TLocalId, TNumId> *gd) {
-		std::vector<RR2DGlobalId<TLocalId>> remappedVertices(gd->remappedCount);
+		std::vector<RR2DGlobalId<TLocalId>> remappedVertices;
 		auto mappedData = gd->mappedIdsWin.getData();
 
 		for(ElementCount i = 0; i < gd->remappedCount; i++) {
