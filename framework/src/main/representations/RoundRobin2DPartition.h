@@ -65,6 +65,8 @@ namespace details { namespace RR2D {
 		}
 
 		void append(NodeId id, T value) {
+			assert(id >= 0);
+			assert(id < nc);
 			buffers[id].push_back(value);
 		}
 
@@ -664,7 +666,13 @@ namespace details { namespace RR2D {
 
 		RR2DGlobalId<TLocalId> nextMasterId() {
 			NodeId nid = nextMasterNodeId;
+
 			nextMasterNodeId += 1;
+			if (nextMasterNodeId >= nodeCount)
+				nextMasterNodeId = 0;
+
+			assert(nextMasterNodeId >= 0);
+			assert(nextMasterNodeId < nodeCount);
 
 			TLocalId& nextLid = nextLocalId[nid];
 			TLocalId lid = nextLid;
@@ -683,7 +691,16 @@ namespace details { namespace RR2D {
 		}
 
 		NodeId nextNodeIdForNeighbour() {
-			return nextNeighbourNodeId++;
+			auto toReturn = nextNeighbourNodeId;
+
+			nextNeighbourNodeId += 1;
+			if (nextNeighbourNodeId >= nodeCount)
+				nextNeighbourNodeId = 0;
+
+			assert(toReturn >= 0);
+			assert(toReturn < nodeCount);
+
+			return toReturn;
 		}
 
 		TLocalId getLargestAssignedLocalId() {return largetstAssignedLocalId;}
