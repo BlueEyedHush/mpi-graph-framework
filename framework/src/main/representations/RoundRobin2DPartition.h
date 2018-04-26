@@ -155,7 +155,11 @@ namespace details { namespace RR2D {
 		OffsetTracker(ElementCount maxCount, NodeCount nodeCount)
 				: nc(nodeCount),
 				  offsets(new ElementCount[nc]),
-				  maxCount(maxCount) {}
+				  maxCount(maxCount)
+		{
+			for(NodeId nid = 0; nid < nc; nid++)
+				offsets[nid] = 0;
+		}
 
 		OffsetTracker(OffsetTracker&& o) : maxCount(o.maxCount), offsets(o.offsets), nc(o.nc) {
 			o.offsets = nullptr;
@@ -190,7 +194,7 @@ namespace details { namespace RR2D {
 	class MpiWindowAppender : NonCopyable {
 	public:
 		MpiWindowAppender(MpiWindow<T>& win, NodeCount nodeCount)
-				: window(win), bufferManager(SendBufferManager<T>(nodeCount)), offsetTracker(nodeCount, win.getSize()) {}
+				: window(win), bufferManager(SendBufferManager<T>(nodeCount)), offsetTracker(win.getSize(), nodeCount) {}
 
 		void append(NodeId nid, T value) {
 			bufferManager.append(nid, value);
@@ -649,7 +653,10 @@ namespace details { namespace RR2D {
 		Partitioner(NodeCount nodeCount)
 				: nodeCount(nodeCount), nextMasterNodeId(0), nextLocalId(new TLocalId[nodeCount]),
 				  nextNeighbourNodeId(0), largetstAssignedLocalId(0)
-		{}
+		{
+			for(NodeId nid = 0; nid < nodeCount; nid++)
+				nextLocalId[nid] = 0;
+		}
 
 		~Partitioner() {
 			if(nextLocalId != nullptr) delete[] nextLocalId;
