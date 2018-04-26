@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <sstream>
-#include <boost/pool/object_pool.hpp>
+#include <boost/pool/pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
@@ -47,11 +47,21 @@ namespace details { namespace RR2D {
 			buffers = new std::vector<T>[nc];
 		}
 
-		SendBufferManager(SendBufferManager&&) = default;
-		SendBufferManager& operator=(SendBufferManager&&) = default;
+		SendBufferManager(SendBufferManager&& o) : nc(o.nc), buffers(o.buffers) {
+			assert(this != &o);
+			o.buffers = nullptr;
+		};
+
+		SendBufferManager& operator=(SendBufferManager&& o) {
+			assert(this != &o);
+			nc = o.nc;
+			buffers = o.buffers;
+			o.buffers = nullptr;
+			return *this;
+		};
 
 		~SendBufferManager() {
-			delete[] buffers;
+			if (buffers != nullptr) delete[] buffers;
 		}
 
 		void append(NodeId id, T value) {
@@ -397,7 +407,8 @@ namespace details { namespace RR2D {
 			  coOwnersV(gd.coOwnersVwin, gd.nodeCount),
 			  coOwnersO(gd.coOwnersOwin, gd.nodeCount),
 
-		      placeholdersPending(0)
+		      placeholdersPending(0),
+		      placeholderReplacementBuffers(sizeof(GlobalId))
 		{}
 
 		/* called by master */
@@ -525,10 +536,10 @@ namespace details { namespace RR2D {
 
 		/* for placeholder replacement */
 		void replacePlaceholder(EdgeTableOffset eto, GlobalId gid) {
-			auto* buffer = placeholderReplacementBuffers.malloc();
+			auto buffer = reinterpret_cast<GlobalId*>(placeholderReplacementBuffers.malloc());
 			*buffer = gid;
 
-			auto& oa = eto.master ? gd.mastersVwin : gd.mastersOwin;
+			auto& oa = eto.master ? gd.mastersVwin : gd.shadowsVwin;
 			oa.put(eto.nodeId, eto.offset, buffer, 1);
 
 			placeholdersPending += 1;
@@ -584,7 +595,7 @@ namespace details { namespace RR2D {
 		GlobalId currentVertexGid;
 		std::unordered_set<NodeId> currentVertexCoOwners;
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
-		boost::object_pool<GlobalId> placeholderReplacementBuffers;
+		boost::pool<> placeholderReplacementBuffers;
 	};
 
 	template <typename TLocalId>
