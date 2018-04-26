@@ -41,10 +41,11 @@ public:
 
 	void finishTransfers() {
 		assert(edgeDatas.size() % 2 == 0);
-		unsigned long edgeCount = edgeDatas.size()/2;
+		/* count must have same width as nods IDs - they are stored in the same window */
+		TestNumId edgeCount = edgeDatas.size()/2;
 
 		auto* data = edgeDatas.data();
-		MPI_Put(&edgeCount, 1, MPI_UNSIGNED_LONG, shmRank, 0, 1, MPI_UNSIGNED_LONG, win);
+		MPI_Put(&edgeCount, 1, NUM_MPI_TYPE, shmRank, 0, 1, NUM_MPI_TYPE, win);
 
 		for(unsigned long i = 0; i < edgeCount; i++) {
 			MPI_Put(data + 2*i, 1, NUM_MPI_TYPE, shmRank, 1 + 2*i, 1, NUM_MPI_TYPE, win);
@@ -69,7 +70,7 @@ public:
 			vmap.emplace(mappedVids[i], originalVids[i]);
 
 
-		unsigned long edgeCount = 0;
+		TestNumId edgeCount = 0;
 		MPI_Get(&edgeCount, 1, NUM_MPI_TYPE, id, 0, 1, NUM_MPI_TYPE, win);
 		MPI_Win_flush(id, win);
 
@@ -80,7 +81,7 @@ public:
 		std::set<std::pair<OriginalVertexId, OriginalVertexId>> edges;
 		for(unsigned long i = 0; i < edgeCount; i++) {
 			auto first = vmap[recvBuffer[2*i]];
-			auto second = vmap[recvBuffer[2*i] + 1];
+			auto second = vmap[recvBuffer[2*i+1]];
 			edges.emplace(std::make_pair(first, second));
 		}
 
