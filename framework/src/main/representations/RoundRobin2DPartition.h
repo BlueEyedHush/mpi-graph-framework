@@ -348,13 +348,13 @@ namespace details { namespace RR2D {
 		          ElementCount coownersVsize, ElementCount coownersOsize,
 		          ElementCount mappedIDsize, MpiTypes& dts)
 				:
-				mastersVwin(MpiWindow<GlobalId>(mastersVsize, dts.globalId)),
-				mastersOwin(MpiWindow<TLocalId>(mastersOsize, dts.localId)),
-                shadowsVwin(MpiWindow<GlobalId>(shadowsVsize, dts.globalId)),
-                shadowsOwin(MpiWindow<ShadowDesc>(shadowsOsize, dts.shadowDescriptor)),
-                coOwnersVwin(MpiWindow<NodeId>(coownersVsize, dts.nodeId)),
-                coOwnersOwin(MpiWindow<NodeCount>(coownersOsize, dts.nodeId)),
-                mappedIdsWin(MpiWindow<GlobalId>(mappedIDsize, dts.globalId))
+				mastersVwin(MpiWindow<GlobalId>(dts.globalId, mastersVsize)),
+				mastersOwin(MpiWindow<TLocalId>(dts.localId, mastersOsize)),
+                shadowsVwin(MpiWindow<GlobalId>(dts.globalId, shadowsVsize)),
+                shadowsOwin(MpiWindow<ShadowDesc>(dts.shadowDescriptor, shadowsOsize)),
+                coOwnersVwin(MpiWindow<NodeId>(dts.nodeId, coownersVsize)),
+                coOwnersOwin(MpiWindow<NodeCount>(dts.nodeId, coownersOsize)),
+                mappedIdsWin(MpiWindow<GlobalId>(dts.globalId, mappedIDsize))
 		{}
 
 		NodeId nodeId;
