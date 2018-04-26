@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include <sstream>
 #include <boost/pool/object_pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
@@ -316,6 +317,32 @@ namespace details { namespace RR2D {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
 		using LocalVerticesCount = TLocalId;
+
+		GraphData(ElementCount mastersVsize, ElementCount mastersOsize,
+		          ElementCount shadowsVsize, ElementCount shadowsOsize,
+		          ElementCount coownersVsize, ElementCount coownersOsize,
+		          ElementCount mappedIDsize, MpiTypes& dts)
+				:
+				mastersVwin(MpiWindow<GlobalId>::allocate(mastersVsize, dts.globalId)),
+				mastersOwin(MpiWindow<TLocalId>::allocate(mastersOsize, dts.localId)),
+                shadowsVwin(MpiWindow<GlobalId>::allocate(shadowsVsize, dts.globalId)),
+                shadowsOwin(MpiWindow<ShadowDesc>::allocate(shadowsOsize, dts.shadowDescriptor)),
+                coOwnersVwin(MpiWindow<NodeId>::allocate(coownersVsize, dts.nodeId)),
+                coOwnersOwin(MpiWindow<NodeCount>::allocate(coownersOsize, dts.nodeId)),
+                mappedIdsWin(MpiWindow<GlobalId>::allocate(mappedIDsize, dts.globalId))
+		{
+
+		}
+
+		~GraphData() {
+			MpiWindow<GlobalId>::destroy(mastersVwin);
+			MpiWindow<TLocalId>::destroy(mastersOwin);
+			MpiWindow<GlobalId>::destroy(shadowsVwin);
+			MpiWindow<ShadowDesc>::destroy(shadowsOwin);
+			MpiWindow<NodeId>::destroy(coOwnersVwin);
+			MpiWindow<NodeCount>::destroy(coOwnersOwin);
+			MpiWindow<GlobalId>::destroy(mappedIdsWin);
+		}
 
 		NodeId nodeId;
 		NodeCount nodeCount;
@@ -643,34 +670,6 @@ namespace details { namespace RR2D {
 		TLocalId largetstAssignedLocalId;
 	};
 
-	template <typename TLocalId, typename TNumId>
-	void initializeWindows(GraphData<TLocalId, TNumId>& data, MpiTypes& dts) {
-		using GlobalId = RR2DGlobalId<TLocalId>;
-		using ShadowDesc = ShadowDescriptor<TLocalId>;
-
-		data.mastersVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.mastersOwin = MpiWindow<TLocalId>::allocate(VERTEX_MAX_COUNT, dts.localId);
-		data.shadowsVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
-		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
-		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
-		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
-	}
-
-	template <typename TLocalId, typename TNumId>
-	void destroyWindows(GraphData<TLocalId, TNumId>& data) {
-		using GlobalId = RR2DGlobalId<TLocalId>;
-		using ShadowDesc = ShadowDescriptor<TLocalId>;
-
-		MpiWindow<GlobalId>::destroy(data.mastersVwin);
-		MpiWindow<TLocalId>::destroy(data.mastersOwin);
-		MpiWindow<GlobalId>::destroy(data.shadowsVwin);
-		MpiWindow<ShadowDesc>::destroy(data.shadowsOwin);
-		MpiWindow<NodeId>::destroy(data.coOwnersVwin);
-		MpiWindow<NodeCount>::destroy(data.coOwnersOwin);
-		MpiWindow<GlobalId>::destroy(data.mappedIdsWin);
-	}
-
 	template<typename TLocalId, typename TNumId>
 	void handleRemapping(GraphData<TLocalId, TNumId> *gd,
 	                     std::vector<OriginalVertexId> verticesToConvert,
@@ -939,7 +938,7 @@ class RR2DHandle : public GraphPartitionHandle<RoundRobin2DPartition<TLocalId, T
 
 public:
 	RR2DHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: G(verticesToConv, destroyGraph), path(path)
+			: P(verticesToConv, destroyGraph), path(path)
 	{
 
 	}
@@ -955,13 +954,18 @@ protected:
 
 		MpiTypes types = registerMpiTypes<LocalId>();
 
-		auto gd = new details::RR2D::GraphData<LocalId, NumericId>();
+		auto gd = new details::RR2D::GraphData<LocalId, NumericId>(EDGES_MAX_COUNT,
+		                                                           VERTEX_MAX_COUNT,
+		                                                           EDGES_MAX_COUNT,
+		                                                           VERTEX_MAX_COUNT,
+		                                                           COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT,
+		                                                           COOWNERS_MAX_COUNT,
+		                                                           verticesToConvert.size(),
+		                                                           types);
 		gd->nodeId = nodeId;
 		gd->nodeCount = nodeCount;
 		gd->remappedCount = verticesToConvert.size();
 		gd->globalIdDt = types.globalId;
-
-		initializeWindows(*gd, types);
 
 		CommunicationWrapper<LocalId, NumericId> cm(*gd, types);
 
@@ -1049,7 +1053,6 @@ private:
 	std::string path;
 
 	static void destroyGraph(G* g) {
-		details::RR2D::destroyWindows(*(g->graphData));
 		MPI_Type_free(&(g->graphData->globalIdDt));
 		delete g->graphData;
 	}
