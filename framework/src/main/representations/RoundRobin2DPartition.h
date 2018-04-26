@@ -542,6 +542,10 @@ namespace details { namespace RR2D {
 			}
 		}
 
+		void setMaxMasterCount(NodeId targetNode, ElementCount maxCount) {
+			counts.get(targetNode).maxMastersCount = maxCount;
+		}
+
 		const Counts& getCountFor(NodeId nodeId) { return counts.get(nodeId); };
 
 	private:
@@ -1012,7 +1016,7 @@ protected:
 			/* update maxLocalId count */
 			const auto mmc = partitioner.getLargestAssignedLocalId() + 1;
 			for(NodeCount nid = 0; nid < nodeCount; nid++)
-				cm.getCountFor(nid).maxMastersCount = mmc;
+				cm.setMaxMasterCount(nid, mmc);
 
 			cm.finishAllTransfers();
 
