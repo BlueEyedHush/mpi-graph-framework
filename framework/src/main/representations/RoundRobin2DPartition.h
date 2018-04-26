@@ -123,7 +123,7 @@ namespace details { namespace RR2D {
 		}
 
 		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
-			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
+			MPI_Put(data, dataLen, dt, nodeId, offset, dataLen, dt, win);
 		}
 
 
@@ -141,6 +141,8 @@ namespace details { namespace RR2D {
 	};
 
 	struct OffsetArraySizeSpec {
+		OffsetArraySizeSpec() : valueCount(0), offsetCount(0) {}
+
 		ElementCount valueCount;
 		ElementCount offsetCount;
 
@@ -177,12 +179,14 @@ namespace details { namespace RR2D {
 
 		ElementCount get(NodeId nid) {
 			assert(nid < nc);
-			return offsets[nid];
+			auto value = offsets[nid];
+			assert(value < maxCount);
+			return value;
 		}
 
 		void tryAdvance(NodeId nid, ElementCount increment) {
 			auto& offset = offsets[nid];
-			assert(offset + increment < maxCount);
+			assert(offset + increment <= maxCount);
 			offset += increment;
 		}
 
