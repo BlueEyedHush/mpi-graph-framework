@@ -609,8 +609,7 @@ namespace details { namespace RR2D {
 
 		boost::optional<GlobalId> toGlobalId(OriginalVertexId oid) {
 			const auto fresult = remappingTable.find(oid);
-			auto gid = (*fresult).second;
-			return (fresult != remappingTable.end()) ? boost::optional<GlobalId>(gid) : boost::none;
+			return (fresult != remappingTable.end()) ? boost::optional<GlobalId>((*fresult).second) : boost::none;
 		}
 
 		/* @todo: this seems unused */
