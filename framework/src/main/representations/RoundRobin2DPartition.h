@@ -81,7 +81,11 @@ namespace details { namespace RR2D {
 	template <typename T>
 	class MpiWindow : NonCopyable {
 	public:
-		MpiWindow(MPI_Datatype datatype, size_t size) : dt(datatype), size(size) {};
+		MpiWindow(MPI_Datatype datatype, size_t size) : dt(datatype), size(size) {
+			auto elSize = sizeof(T);
+			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &data, &win);
+			MPI_Win_lock_all(0, win);
+		};
 
 		MpiWindow(MpiWindow&& o): dt(o.dt), win(o.win), data(o.data), size(o.size) {
 			o.win = MPI_WIN_NULL;
@@ -93,8 +97,18 @@ namespace details { namespace RR2D {
 			data = o.data;
 			dt = o.dt;
 			size = o.size;
+
+			o.win = MPI_WIN_NULL;
+
 			return *this;
 		};
+
+		~MpiWindow() {
+			if (win != MPI_WIN_NULL) {
+				MPI_Win_unlock_all(win);
+				MPI_Win_free(&win);
+			}
+		}
 
 		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
 			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
@@ -106,21 +120,6 @@ namespace details { namespace RR2D {
 
 		size_t getSize() {return size;}
 		T* getData() { return data; }
-
-		static MpiWindow allocate(ElementCount size, MPI_Datatype dt) {
-			auto elSize = sizeof(T);
-			MpiWindow wd(dt, size);
-			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
-			MPI_Win_lock_all(0, wd.win);
-			return wd;
-		}
-
-		static void destroy(MpiWindow &d) {
-			if (d.win != MPI_WIN_NULL) {
-				MPI_Win_unlock_all(d.win);
-				MPI_Win_free(&d.win);
-			}
-		}
 
 	private:
 		MPI_Win win;
@@ -228,17 +227,33 @@ namespace details { namespace RR2D {
 		}
 	};
 
-	class CountsForCluster {
+	class CountsForCluster : NonCopyable {
 	public:
 		CountsForCluster(NodeCount nc, MPI_Datatype countDt)
 				: nc(nc),
 				  counts(new Counts[nc]),
-				  winDesc(MpiWindow<Counts>::allocate(1, countDt))
+				  winDesc(MpiWindow<Counts>(1, countDt))
 		{}
 
+		CountsForCluster(CountsForCluster&& o) : nc(o.nc), counts(o.counts), winDesc(std::move(o.winDesc)) {
+			assert(this != &o);
+			o.counts = nullptr;
+		}
+
+		CountsForCluster& operator=(CountsForCluster&& o) {
+			assert(this != &o);
+
+			nc = o.nc;
+			counts = o.counts;
+			winDesc = std::move(o.winDesc);
+
+			o.counts = nullptr;
+
+			return *this;
+		};
+
 		~CountsForCluster() {
-			MpiWindow<Counts>::destroy(winDesc);
-			delete[] counts;
+			if (counts != nullptr) delete[] counts;
 		}
 
 		/* meant to be used for both reading and _writing_ */
@@ -323,26 +338,14 @@ namespace details { namespace RR2D {
 		          ElementCount coownersVsize, ElementCount coownersOsize,
 		          ElementCount mappedIDsize, MpiTypes& dts)
 				:
-				mastersVwin(MpiWindow<GlobalId>::allocate(mastersVsize, dts.globalId)),
-				mastersOwin(MpiWindow<TLocalId>::allocate(mastersOsize, dts.localId)),
-                shadowsVwin(MpiWindow<GlobalId>::allocate(shadowsVsize, dts.globalId)),
-                shadowsOwin(MpiWindow<ShadowDesc>::allocate(shadowsOsize, dts.shadowDescriptor)),
-                coOwnersVwin(MpiWindow<NodeId>::allocate(coownersVsize, dts.nodeId)),
-                coOwnersOwin(MpiWindow<NodeCount>::allocate(coownersOsize, dts.nodeId)),
-                mappedIdsWin(MpiWindow<GlobalId>::allocate(mappedIDsize, dts.globalId))
-		{
-
-		}
-
-		~GraphData() {
-			MpiWindow<GlobalId>::destroy(mastersVwin);
-			MpiWindow<TLocalId>::destroy(mastersOwin);
-			MpiWindow<GlobalId>::destroy(shadowsVwin);
-			MpiWindow<ShadowDesc>::destroy(shadowsOwin);
-			MpiWindow<NodeId>::destroy(coOwnersVwin);
-			MpiWindow<NodeCount>::destroy(coOwnersOwin);
-			MpiWindow<GlobalId>::destroy(mappedIdsWin);
-		}
+				mastersVwin(MpiWindow<GlobalId>(mastersVsize, dts.globalId)),
+				mastersOwin(MpiWindow<TLocalId>(mastersOsize, dts.localId)),
+                shadowsVwin(MpiWindow<GlobalId>(shadowsVsize, dts.globalId)),
+                shadowsOwin(MpiWindow<ShadowDesc>(shadowsOsize, dts.shadowDescriptor)),
+                coOwnersVwin(MpiWindow<NodeId>(coownersVsize, dts.nodeId)),
+                coOwnersOwin(MpiWindow<NodeCount>(coownersOsize, dts.nodeId)),
+                mappedIdsWin(MpiWindow<GlobalId>(mappedIDsize, dts.globalId))
+		{}
 
 		NodeId nodeId;
 		NodeCount nodeCount;
@@ -1041,14 +1044,14 @@ protected:
 		gd->firstShadowId = nextShadowLocalId;
 		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
 			auto* el = gd->shadowsOwin.getData() + i;
-			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId(el->edgeBeginningId), nextShadowLocalId);
+			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId<GlobalId, NumericId>(el->edgeBeginningId),
+			                                    nextShadowLocalId);
 			nextShadowLocalId += 1;
 		}
 
 		/* extract remapped vertices from window (written by master) to vector returned locally */
 		auto remappedVertices = extractRemapedVerticesToVector(gd);
-		MpiWindow<GlobalId>::destroy(gd->mappedIdsWin);
-		gd->remappedCount = 0;
+		/* at this point stuff related to remapping could be cleaned up */
 
 		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), remappedVertices);
 	};
