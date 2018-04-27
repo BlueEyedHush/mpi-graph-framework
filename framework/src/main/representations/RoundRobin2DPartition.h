@@ -520,9 +520,14 @@ namespace details { namespace RR2D {
 
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex() {
+			/* firstly, send concrete stuff (neighbours we were able to remap) */
+			mastersV.writeBuffers();
+			shadowsV.writeBuffers();
+
 			/*
-			 * Frist we need to process placeholders - give them offsets and create offset entries for shadows
-			 * if necessary
+			 * Secondly, we process placeholders - give them offsets, create offset entries for shadows if necessary and
+			 *  advance valueCounts and OffsetTrakcers (we are not going to transfer empty air)
+			 * valueCount has already been incremented for each non-placeholder value, so we put placeholders at the end
 			 */
 			for(auto& p: placeholders) {
 				auto& desc = p.second;
@@ -543,6 +548,11 @@ namespace details { namespace RR2D {
 				}
 			}
 
+			/* write information about offsets - must be done after processing placeholders since they could cause
+			 * shadow offset to be added */
+			mastersO.writeBuffers();
+			shadowsO.writeBuffers();
+
 			/* write information about coowners */
 			coOwnersO.append(currentVertexGid.nodeId, counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount);
 			for(auto& coowningNode: currentVertexCoOwners) {
@@ -550,16 +560,11 @@ namespace details { namespace RR2D {
 				counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount += 1;
 			}
 
-			/* send stuff */
-			mastersV.writeBuffers();
-			mastersO.writeBuffers();
-			shadowsV.writeBuffers();
-			shadowsO.writeBuffers();
 			coOwnersV.writeBuffers();
 			coOwnersO.writeBuffers();
-			placeholdersFreed();
 
 			/* cleanup */
+			placeholdersFreed();
 			currentVertexCoOwners.clear();
 			auto placehodersRet(placeholders);
 			placeholders.clear();
