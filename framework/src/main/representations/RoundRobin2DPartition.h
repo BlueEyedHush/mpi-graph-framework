@@ -249,10 +249,10 @@ namespace details { namespace RR2D {
 
 	class CountsForCluster : NonCopyable {
 	public:
-		CountsForCluster(NodeCount nc, MPI_Datatype countDt)
+		CountsForCluster(NodeCount nc, MPI_Datatype countsDt)
 				: nc(nc),
 				  counts(new Counts[nc]),
-				  winDesc(MpiWindow<Counts>(1, countDt))
+				  winDesc(MpiWindow<Counts>(countsDt, 1))
 		{}
 
 		CountsForCluster(CountsForCluster&& o) : nc(o.nc), counts(o.counts), winDesc(std::move(o.winDesc)) {
@@ -322,6 +322,7 @@ namespace details { namespace RR2D {
 		MPI_Datatype shadowDescriptor;
 		MPI_Datatype nodeId;
 		MPI_Datatype count;
+		MPI_Datatype counts;
 	};
 
 	template <typename TLocalId>
@@ -333,7 +334,10 @@ namespace details { namespace RR2D {
 		t.nodeId = getDatatypeFor<NodeId>();
 		t.count = getDatatypeFor<ElementCount>();
 		t.shadowDescriptor = ShadowDescriptor<TLocalId>::mpiDatatype(t.globalId, t.count);
+		t.counts = Counts::mpiDatatype();
+
 		MPI_Type_commit(&t.shadowDescriptor);
+		MPI_Type_commit(&t.counts);
 
 		return t;
 	}
@@ -344,6 +348,7 @@ namespace details { namespace RR2D {
 	 * @param t
 	 */
 	void deregisterTypes(MpiTypes& t) {
+		MPI_Type_free(&t.counts);
 		MPI_Type_free(&t.shadowDescriptor);
 	}
 
@@ -407,7 +412,7 @@ namespace details { namespace RR2D {
 	public:
 		/* called by both master and slaves */
 		CommunicationWrapper(GraphData<TLocalId, TNumId>& gd, MpiTypes& dts)
-			: counts(CountsForCluster(gd.nodeCount, dts.count)),
+			: counts(CountsForCluster(gd.nodeCount, dts.counts)),
 			  gd(gd),
 
 			  mastersV(gd.mastersVwin, gd.nodeCount),
@@ -429,6 +434,8 @@ namespace details { namespace RR2D {
 			gd.shadowsOwin.flush();
 			gd.coOwnersVwin.flush();
 			gd.coOwnersOwin.flush();
+
+			counts.send();
 			counts.flush();
 
 			placeholdersFreed();
