@@ -216,6 +216,11 @@ namespace details { namespace RR2D {
 			window.flush();
 			bufferManager.clearBuffers();
 		}
+
+		void skip(NodeId nodeId, ElementCount count) {
+			offsetTracker.tryAdvance(nodeId, count);
+		}
+
 	private:
 		MpiWindow<T>& window;
 		SendBufferManager<T> bufferManager;
@@ -525,6 +530,8 @@ namespace details { namespace RR2D {
 					auto& c = counts.senderGet(desc.nodeId).masters;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
+					mastersV.skip(desc.nodeId, 1);
+
 				} else {
 					currentVertexCoOwners.insert(desc.nodeId);
 					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
@@ -532,6 +539,7 @@ namespace details { namespace RR2D {
 					auto& c = counts.senderGet(desc.nodeId).shadows;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
+					shadowsV.skip(desc.nodeId, 1);
 				}
 			}
 
