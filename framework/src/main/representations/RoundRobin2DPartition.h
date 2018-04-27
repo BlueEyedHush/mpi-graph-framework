@@ -276,9 +276,14 @@ namespace details { namespace RR2D {
 			if (counts != nullptr) delete[] counts;
 		}
 
-		/* meant to be used for both reading and _writing_ */
-		Counts& get(NodeId nid) {
+		/* meant to be used for both reading and _writing_, but on sending side
+		 * reciving side uses XXX to access window memory*/
+		Counts& senderGet(NodeId nid) {
 			return counts[nid];
+		}
+
+		Counts& recvGet() {
+			return *(winDesc.getData());
 		}
 
 		void send() {
@@ -465,12 +470,12 @@ namespace details { namespace RR2D {
 			 * next in offset tables'll share the same ID
 			 */
 
-			auto& mastersCounts = counts.get(gid.nodeId).masters;
+			auto& mastersCounts = counts.senderGet(gid.nodeId).masters;
 			/* put into offset table id of first unused cell in values table, then update offset table length */
 			mastersO.append(gid.nodeId, mastersCounts.valueCount);
 			mastersCounts.offsetCount += 1;
 
-			auto& coOwnersCounts = counts.get(gid.nodeId).coOwners;
+			auto& coOwnersCounts = counts.senderGet(gid.nodeId).coOwners;
 			/* same story as above */
 			coOwnersO.append(gid.nodeId, coOwnersCounts.valueCount);
 			/* in this case we skip updaing coOwnersCounts.offsetCounts since it must match mastersCounts.offsetCount */
@@ -490,10 +495,10 @@ namespace details { namespace RR2D {
 				insertOffsetDescriptorOnShadowIfNeeded(storeOn);
 
 				shadowsV.append(storeOn, neighbour);
-				counts.get(storeOn).shadows.valueCount += 1;
+				counts.senderGet(storeOn).shadows.valueCount += 1;
 			} else {
 				mastersV.append(storeOn, neighbour);
-				counts.get(storeOn).masters.valueCount += 1;
+				counts.senderGet(storeOn).masters.valueCount += 1;
 			}
 		}
 
@@ -517,24 +522,24 @@ namespace details { namespace RR2D {
 			for(auto& p: placeholders) {
 				auto& desc = p.second;
 				if (desc.master) {
-					auto& c = counts.get(desc.nodeId).masters;
+					auto& c = counts.senderGet(desc.nodeId).masters;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
 				} else {
 					currentVertexCoOwners.insert(desc.nodeId);
 					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
 
-					auto& c = counts.get(desc.nodeId).shadows;
+					auto& c = counts.senderGet(desc.nodeId).shadows;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
 				}
 			}
 
 			/* write information about coowners */
-			coOwnersO.append(currentVertexGid.nodeId, counts.get(currentVertexGid.nodeId).coOwners.valueCount);
+			coOwnersO.append(currentVertexGid.nodeId, counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount);
 			for(auto& coowningNode: currentVertexCoOwners) {
 				coOwnersV.append(currentVertexGid.nodeId, coowningNode);
-				counts.get(currentVertexGid.nodeId).coOwners.valueCount += 1;
+				counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount += 1;
 			}
 
 			/* send stuff */
@@ -577,14 +582,15 @@ namespace details { namespace RR2D {
 		}
 
 		void setMaxMasterCount(NodeId targetNode, ElementCount maxCount) {
-			counts.get(targetNode).maxMastersCount = maxCount;
+			counts.senderGet(targetNode).maxMastersCount = maxCount;
 		}
 
-		const Counts& getCountFor(NodeId nodeId) { return counts.get(nodeId); };
+		const Counts& getCountFor(NodeId nodeId) { return counts.senderGet(nodeId); };
+		const Counts& getMyCounts() { return counts.recvGet(); }
 
 	private:
 		void insertOffsetDescriptorOnShadowIfNeeded(NodeId storeOn) {
-			auto& c = counts.get(storeOn).shadows;
+			auto& c = counts.senderGet(storeOn).shadows;
 			if(currentVertexCoOwners.count(storeOn) == 0) {
 				shadowsO.append(storeOn, ShadowDesc(currentVertexGid, c.valueCount));
 				c.offsetCount += 1;
@@ -1089,6 +1095,9 @@ protected:
 		}
 
 		deregisterTypes(types);
+		/* cast Counts pointer to more user-friendly ref */
+		gd->counts = cm.getMyCounts();
+
 		/* now each node must use contents of shadow-related windows to build GlobalId -> LocalId map */
 		LocalId nextShadowLocalId = gd->counts.maxMastersCount;
 		gd->firstShadowId = nextShadowLocalId;
