@@ -231,8 +231,8 @@ namespace details { namespace RR2D {
 		OffsetArraySizeSpec coOwners;
 		ElementCount maxMastersCount;
 
-		static MPI_Datatype mpiDatatype() {
-			auto oascDt = OffsetArraySizeSpec::mpiDatatype();
+		static MPI_Datatype mpiDatatype(MPI_Datatype offsetArraySizeSpecDt) {
+			auto oascDt = offsetArraySizeSpecDt;
 			MPI_Datatype dt;
 			int blocklengths[] = {1, 1, 1, 1};
 			MPI_Aint displacements[] = {
@@ -323,6 +323,7 @@ namespace details { namespace RR2D {
 		MPI_Datatype nodeId;
 		MPI_Datatype count;
 		MPI_Datatype counts;
+		MPI_Datatype offsetArraySizeSpecDt;
 	};
 
 	template <typename TLocalId>
@@ -334,9 +335,10 @@ namespace details { namespace RR2D {
 		t.nodeId = getDatatypeFor<NodeId>();
 		t.count = getDatatypeFor<ElementCount>();
 		t.shadowDescriptor = ShadowDescriptor<TLocalId>::mpiDatatype(t.globalId, t.count);
-		t.counts = Counts::mpiDatatype();
-
 		MPI_Type_commit(&t.shadowDescriptor);
+		t.offsetArraySizeSpecDt = OffsetArraySizeSpec::mpiDatatype();
+		MPI_Type_commit(&t.offsetArraySizeSpecDt);
+		t.counts = Counts::mpiDatatype(t.offsetArraySizeSpecDt);
 		MPI_Type_commit(&t.counts);
 
 		return t;
@@ -349,6 +351,7 @@ namespace details { namespace RR2D {
 	 */
 	void deregisterTypes(MpiTypes& t) {
 		MPI_Type_free(&t.counts);
+		MPI_Type_free(&t.offsetArraySizeSpecDt);
 		MPI_Type_free(&t.shadowDescriptor);
 	}
 
