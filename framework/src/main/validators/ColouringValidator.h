@@ -43,9 +43,9 @@ public: /* @todo: finish rewriting validator */
 						solutionCorrect = false;
 
 						LOG(INFO) << "Failure: "
-						          << g->idToString(v_id) << "[" << g->toNumeric(v_id) << "] "
+						          << g->idToString(v_id) << "(" << g->toNumeric(v_id) << ") "
 						          << "colour: " << partialSolution[v_id] << ", "
-						          << g->idToString(neigh_id) << "[" << g->toNumeric(neigh_id) << "] "
+						          << g->idToString(neigh_id) << "(" << g->toNumeric(neigh_id) << ") "
 						          << "colour: " << partialSolution[neighLocalId];
 
 					}

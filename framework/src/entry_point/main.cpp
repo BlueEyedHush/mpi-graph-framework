@@ -66,7 +66,7 @@ int main(const int argc, const char** argv) {
 	#if WAIT_FOR_DEBUGGER == 1
 	int world_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	fprintf(stderr, "[%d] PID: %d\n", world_rank, getpid());
+	fprintf(stderr, "PID: %d\n", world_rank, getpid());
 	raise(SIGSTOP);
 	//volatile short execute_loop = 1;
 	//while(execute_loop == 1) {}
