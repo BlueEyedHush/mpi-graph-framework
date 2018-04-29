@@ -125,20 +125,27 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 	CommHelper commHelper(vertexIds.size(), MPI_COMM_WORLD, shmRank);
 
+	size_t masterEdgeCount = 0, masterVertexCount = 0;
+	size_t shadowEdgeCount = 0, shadowVertexCount = 0;
+
 	/* iterate masters & shadows, (source, target) pairs to file */
 	gp.foreachMasterVertex([&](const auto startLid) {
 		gp.foreachNeighbouringVertex(startLid, [&](const auto endGid) {
 			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			masterEdgeCount += 1;
 			return CONTINUE;
 		});
+		masterVertexCount += 1;
 		return CONTINUE;
 	});
 
 	gp.foreachShadowVertex([&](auto startLid, auto startGid) {
 		gp.foreachNeighbouringVertex(startLid, [&](auto endGid) {
 			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			shadowEdgeCount += 1;
 			return CONTINUE;
 		});
+		shadowVertexCount += 1;
 		return CONTINUE;
 	});
 
@@ -162,6 +169,9 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 		/* compare against */
 		ASSERT_EQ(actualEdges, expectedEdges);
 	}
+
+	LOG(INFO) << "masterVertexCount: " << masterVertexCount << " masterEdgeCount: " << masterEdgeCount
+	          << " shadowVertexCount: " << shadowVertexCount << " shadowEdgeCount: " << shadowEdgeCount;
 }
 
 #endif //FRAMEWORK_REPRESENTATIONITTEST_H
