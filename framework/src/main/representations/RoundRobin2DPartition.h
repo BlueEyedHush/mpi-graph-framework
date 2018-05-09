@@ -828,7 +828,8 @@ public:
 	}
 
 	NumericId toNumeric(const LocalId lid) {
-		return toNumeric(GlobalId(graphData->nodeId, lid));
+		/* we must use toGlobalId to properly handle shadows which LID is different from ID inside GID */
+		return toNumeric(toGlobalId(lid));
 	}
 
 	std::string idToString(const GlobalId gid) {
@@ -899,29 +900,31 @@ public:
 	}
 
 	void foreachNeighbouringVertex(LocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
-		size_t startPos, endPos;
+		size_t startPos, oneAfterEnd;
 		details::RR2D::MpiWindow<GlobalId>* winWithValues;
 		if (id >= graphData->firstShadowId) {
 			/* shadow */
 			auto relativeId = id - graphData->firstShadowId;
 			startPos = graphData->shadowsOwin.getData()[relativeId].offset;
-			endPos = (id < graphData->counts.masters.offsetCount-1) ?
+			oneAfterEnd = (relativeId < graphData->counts.shadows.offsetCount-1) ?
 			         graphData->shadowsOwin.getData()[relativeId+1].offset :
-			         graphData->counts.masters.valueCount;
+			         graphData->counts.shadows.valueCount;
 
 			winWithValues = &(graphData->shadowsVwin);
 		} else {
 			/* master */
 			startPos = graphData->mastersOwin.getData()[id];
-			endPos = (id < graphData->counts.masters.offsetCount-1) ?
+			oneAfterEnd = (id < graphData->counts.masters.offsetCount-1) ?
 			         graphData->mastersOwin.getData()[id+1] :
 			         graphData->counts.masters.valueCount;
 
 			winWithValues = &(graphData->mastersVwin);
 		}
 
+		// LOG(INFO) << "Neighbour iteration " << startPos << " to " << oneAfterEnd;
+
 		ITER_PROGRESS ip = CONTINUE;
-		for(LocalVertexId i = startPos; i < endPos && ip == CONTINUE; i++) {
+		for(LocalVertexId i = startPos; i < oneAfterEnd && ip == CONTINUE; i++) {
 			GlobalId neighId = winWithValues->getData()[i];
 			ip = f(neighId);
 		}
