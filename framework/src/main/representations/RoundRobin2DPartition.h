@@ -496,8 +496,8 @@ namespace details { namespace RR2D {
 			 */
 
 			if(storeOn != currentVertexGid.nodeId) {
-				currentVertexCoOwners.insert(storeOn);
 				insertOffsetDescriptorOnShadowIfNeeded(storeOn);
+				currentVertexCoOwners.insert(storeOn);
 
 				shadowsV.append(storeOn, neighbour);
 				counts.senderGet(storeOn).shadows.valueCount += 1;
@@ -538,8 +538,8 @@ namespace details { namespace RR2D {
 					mastersV.skip(desc.nodeId, 1);
 
 				} else {
-					currentVertexCoOwners.insert(desc.nodeId);
 					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
+					currentVertexCoOwners.insert(desc.nodeId);
 
 					auto& c = counts.senderGet(desc.nodeId).shadows;
 					desc.offset = c.valueCount;
