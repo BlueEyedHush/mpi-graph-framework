@@ -18,3 +18,4 @@ Testing/
 CTestTestfile.cmake
 *.a
 sandbox
+pass
