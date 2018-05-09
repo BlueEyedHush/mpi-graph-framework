@@ -125,7 +125,7 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 	/* ensure all nodes work locally */
 	ASSERT_TRUE(shmSize == size);
 
-	CommHelper commHelper(vertexIds.size(), MPI_COMM_WORLD, shmRank);
+	CommHelper commHelper(vertexIds.size(), shmcomm, shmRank);
 
 	size_t masterEdgeCount = 0, masterVertexCount = 0;
 	size_t shadowEdgeCount = 0, shadowVertexCount = 0;
@@ -163,7 +163,7 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 	commHelper.finishTransfers();
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(shmcomm);
 
 	if (rank == 0) {
 		std::vector<TestNumId> numIds;
