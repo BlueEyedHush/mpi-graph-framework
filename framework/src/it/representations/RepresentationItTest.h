@@ -105,16 +105,20 @@ std::vector<OriginalVertexId> loadVertexListFromFile(std::string path);
 std::set<std::pair<OriginalVertexId, OriginalVertexId>> loadEdgeListFromFile(std::string path);
 
 template <typename TGraphHandle>
-void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*rank*/)> ghSupplier,
-                        std::vector<OriginalVertexId> vertexIds,
-                        std::set<std::pair<OriginalVertexId, OriginalVertexId>> expectedEdges) {
+void representationTest(std::function<TGraphHandle(NodeId /*size*/,
+                                                   NodeId /*rank*/,
+                                                   std::vector<OriginalVertexId> /*idsToMap*/)> ghSupplier,
+                        std::string datafilesPathPrefix) {
 	int rank = -1;
 	int size = -1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	LOG(INFO) << "Initialized MPI";
 
-	auto builder = ghSupplier(size, rank);
+	std::vector<OriginalVertexId> vertexIds = loadVertexListFromFile(datafilesPathPrefix + ".vl");
+	auto expectedEdges = loadEdgeListFromFile(datafilesPathPrefix + ".el");
+
+	auto builder = ghSupplier(size, rank, vertexIds);
 	auto& gp = builder.getGraph();
 	LOG(INFO) << "Loaded graph from file";
 

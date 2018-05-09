@@ -8,10 +8,10 @@
 using G = RoundRobin2DPartition<TestLocalId, TestNumId>;
 
 TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
-	auto vertexIds = loadVertexListFromFile("resources/test/SimpleTestGraph.vl");
 
 	representationTest<RR2DHandle<TestLocalId, TestNumId>>(
-			[&](NodeId size, NodeId rank) {
+			[&](NodeId size, NodeId rank, auto vertexIds) {
 				return RR2DHandle<TestLocalId, TestNumId>("resources/test/SimpleTestGraph.adjl", vertexIds);
-			}, vertexIds, loadEdgeListFromFile("resources/test/SimpleTestGraph.el"));
+			}, "resources/test/SimpleTestGraph");
+
 }
