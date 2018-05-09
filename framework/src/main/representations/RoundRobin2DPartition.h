@@ -9,7 +9,8 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
-#include <boost/pool/object_pool.hpp>
+#include <sstream>
+#include <boost/pool/pool.hpp>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/AdjacencyListReader.h>
@@ -46,14 +47,26 @@ namespace details { namespace RR2D {
 			buffers = new std::vector<T>[nc];
 		}
 
-		SendBufferManager(SendBufferManager&&) = default;
-		SendBufferManager& operator=(SendBufferManager&&) = default;
+		SendBufferManager(SendBufferManager&& o) : nc(o.nc), buffers(o.buffers) {
+			assert(this != &o);
+			o.buffers = nullptr;
+		};
+
+		SendBufferManager& operator=(SendBufferManager&& o) {
+			assert(this != &o);
+			nc = o.nc;
+			buffers = o.buffers;
+			o.buffers = nullptr;
+			return *this;
+		};
 
 		~SendBufferManager() {
-			delete[] buffers;
+			if (buffers != nullptr) delete[] buffers;
 		}
 
 		void append(NodeId id, T value) {
+			assert(id >= 0);
+			assert(id < nc);
 			buffers[id].push_back(value);
 		}
 
@@ -80,7 +93,11 @@ namespace details { namespace RR2D {
 	template <typename T>
 	class MpiWindow : NonCopyable {
 	public:
-		MpiWindow(MPI_Datatype datatype, size_t size) : dt(datatype), size(size) {};
+		MpiWindow(MPI_Datatype datatype, size_t size) : dt(datatype), size(size) {
+			auto elSize = sizeof(T);
+			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &data, &win);
+			MPI_Win_lock_all(0, win);
+		};
 
 		MpiWindow(MpiWindow&& o): dt(o.dt), win(o.win), data(o.data), size(o.size) {
 			o.win = MPI_WIN_NULL;
@@ -92,11 +109,21 @@ namespace details { namespace RR2D {
 			data = o.data;
 			dt = o.dt;
 			size = o.size;
+
+			o.win = MPI_WIN_NULL;
+
 			return *this;
 		};
 
+		~MpiWindow() {
+			if (win != MPI_WIN_NULL) {
+				MPI_Win_unlock_all(win);
+				MPI_Win_free(&win);
+			}
+		}
+
 		void put(NodeId nodeId, ElementCount offset, T* data, ElementCount dataLen) {
-			MPI_Put(data + offset, dataLen, dt, nodeId, offset, dataLen, dt, win);
+			MPI_Put(data, dataLen, dt, nodeId, offset, dataLen, dt, win);
 		}
 
 
@@ -106,21 +133,6 @@ namespace details { namespace RR2D {
 		size_t getSize() {return size;}
 		T* getData() { return data; }
 
-		static MpiWindow allocate(ElementCount size, MPI_Datatype dt) {
-			auto elSize = sizeof(T);
-			MpiWindow wd(dt, size);
-			MPI_Win_allocate(size*elSize, elSize, MPI_INFO_NULL, MPI_COMM_WORLD, &wd.data, &wd.win);
-			MPI_Win_lock_all(0, wd.win);
-			return wd;
-		}
-
-		static void destroy(MpiWindow &d) {
-			if (d.win != MPI_WIN_NULL) {
-				MPI_Win_unlock_all(d.win);
-				MPI_Win_free(&d.win);
-			}
-		}
-
 	private:
 		MPI_Win win;
 		T* data;
@@ -129,6 +141,8 @@ namespace details { namespace RR2D {
 	};
 
 	struct OffsetArraySizeSpec {
+		OffsetArraySizeSpec() : valueCount(0), offsetCount(0) {}
+
 		ElementCount valueCount;
 		ElementCount offsetCount;
 
@@ -145,7 +159,11 @@ namespace details { namespace RR2D {
 		OffsetTracker(ElementCount maxCount, NodeCount nodeCount)
 				: nc(nodeCount),
 				  offsets(new ElementCount[nc]),
-				  maxCount(maxCount) {}
+				  maxCount(maxCount)
+		{
+			for(NodeId nid = 0; nid < nc; nid++)
+				offsets[nid] = 0;
+		}
 
 		OffsetTracker(OffsetTracker&& o) : maxCount(o.maxCount), offsets(o.offsets), nc(o.nc) {
 			o.offsets = nullptr;
@@ -161,12 +179,14 @@ namespace details { namespace RR2D {
 
 		ElementCount get(NodeId nid) {
 			assert(nid < nc);
-			return offsets[nid];
+			auto value = offsets[nid];
+			assert(value < maxCount);
+			return value;
 		}
 
 		void tryAdvance(NodeId nid, ElementCount increment) {
 			auto& offset = offsets[nid];
-			assert(offset + increment < maxCount);
+			assert(offset + increment <= maxCount);
 			offset += increment;
 		}
 
@@ -180,7 +200,7 @@ namespace details { namespace RR2D {
 	class MpiWindowAppender : NonCopyable {
 	public:
 		MpiWindowAppender(MpiWindow<T>& win, NodeCount nodeCount)
-				: window(win), bufferManager(SendBufferManager<T>(nodeCount)), offsetTracker(nodeCount, win.getSize()) {}
+				: window(win), bufferManager(SendBufferManager<T>(nodeCount)), offsetTracker(win.getSize(), nodeCount) {}
 
 		void append(NodeId nid, T value) {
 			bufferManager.append(nid, value);
@@ -196,6 +216,11 @@ namespace details { namespace RR2D {
 			window.flush();
 			bufferManager.clearBuffers();
 		}
+
+		void skip(NodeId nodeId, ElementCount count) {
+			offsetTracker.tryAdvance(nodeId, count);
+		}
+
 	private:
 		MpiWindow<T>& window;
 		SendBufferManager<T> bufferManager;
@@ -211,8 +236,8 @@ namespace details { namespace RR2D {
 		OffsetArraySizeSpec coOwners;
 		ElementCount maxMastersCount;
 
-		static MPI_Datatype mpiDatatype() {
-			auto oascDt = OffsetArraySizeSpec::mpiDatatype();
+		static MPI_Datatype mpiDatatype(MPI_Datatype offsetArraySizeSpecDt) {
+			auto oascDt = offsetArraySizeSpecDt;
 			MPI_Datatype dt;
 			int blocklengths[] = {1, 1, 1, 1};
 			MPI_Aint displacements[] = {
@@ -227,22 +252,43 @@ namespace details { namespace RR2D {
 		}
 	};
 
-	class CountsForCluster {
+	class CountsForCluster : NonCopyable {
 	public:
-		CountsForCluster(NodeCount nc, MPI_Datatype countDt)
+		CountsForCluster(NodeCount nc, MPI_Datatype countsDt)
 				: nc(nc),
 				  counts(new Counts[nc]),
-				  winDesc(MpiWindow<Counts>::allocate(1, countDt))
+				  winDesc(MpiWindow<Counts>(countsDt, 1))
 		{}
 
-		~CountsForCluster() {
-			MpiWindow<Counts>::destroy(winDesc);
-			delete[] counts;
+		CountsForCluster(CountsForCluster&& o) : nc(o.nc), counts(o.counts), winDesc(std::move(o.winDesc)) {
+			assert(this != &o);
+			o.counts = nullptr;
 		}
 
-		/* meant to be used for both reading and _writing_ */
-		Counts& get(NodeId nid) {
+		CountsForCluster& operator=(CountsForCluster&& o) {
+			assert(this != &o);
+
+			nc = o.nc;
+			counts = o.counts;
+			winDesc = std::move(o.winDesc);
+
+			o.counts = nullptr;
+
+			return *this;
+		};
+
+		~CountsForCluster() {
+			if (counts != nullptr) delete[] counts;
+		}
+
+		/* meant to be used for both reading and _writing_, but on sending side
+		 * reciving side uses XXX to access window memory*/
+		Counts& senderGet(NodeId nid) {
 			return counts[nid];
+		}
+
+		Counts& recvGet() {
+			return *(winDesc.getData());
 		}
 
 		void send() {
@@ -286,6 +332,8 @@ namespace details { namespace RR2D {
 		MPI_Datatype shadowDescriptor;
 		MPI_Datatype nodeId;
 		MPI_Datatype count;
+		MPI_Datatype counts;
+		MPI_Datatype offsetArraySizeSpecDt;
 	};
 
 	template <typename TLocalId>
@@ -298,6 +346,10 @@ namespace details { namespace RR2D {
 		t.count = getDatatypeFor<ElementCount>();
 		t.shadowDescriptor = ShadowDescriptor<TLocalId>::mpiDatatype(t.globalId, t.count);
 		MPI_Type_commit(&t.shadowDescriptor);
+		t.offsetArraySizeSpecDt = OffsetArraySizeSpec::mpiDatatype();
+		MPI_Type_commit(&t.offsetArraySizeSpecDt);
+		t.counts = Counts::mpiDatatype(t.offsetArraySizeSpecDt);
+		MPI_Type_commit(&t.counts);
 
 		return t;
 	}
@@ -308,6 +360,8 @@ namespace details { namespace RR2D {
 	 * @param t
 	 */
 	void deregisterTypes(MpiTypes& t) {
+		MPI_Type_free(&t.counts);
+		MPI_Type_free(&t.offsetArraySizeSpecDt);
 		MPI_Type_free(&t.shadowDescriptor);
 	}
 
@@ -316,6 +370,20 @@ namespace details { namespace RR2D {
 		using GlobalId = RR2DGlobalId<TLocalId>;
 		using ShadowDesc = ShadowDescriptor<TLocalId>;
 		using LocalVerticesCount = TLocalId;
+
+		GraphData(ElementCount mastersVsize, ElementCount mastersOsize,
+		          ElementCount shadowsVsize, ElementCount shadowsOsize,
+		          ElementCount coownersVsize, ElementCount coownersOsize,
+		          ElementCount mappedIDsize, MpiTypes& dts)
+				:
+				mastersVwin(MpiWindow<GlobalId>(dts.globalId, mastersVsize)),
+				mastersOwin(MpiWindow<TLocalId>(dts.localId, mastersOsize)),
+                shadowsVwin(MpiWindow<GlobalId>(dts.globalId, shadowsVsize)),
+                shadowsOwin(MpiWindow<ShadowDesc>(dts.shadowDescriptor, shadowsOsize)),
+                coOwnersVwin(MpiWindow<NodeId>(dts.nodeId, coownersVsize)),
+                coOwnersOwin(MpiWindow<NodeCount>(dts.nodeId, coownersOsize)),
+                mappedIdsWin(MpiWindow<GlobalId>(dts.globalId, mappedIDsize))
+		{}
 
 		NodeId nodeId;
 		NodeCount nodeCount;
@@ -357,7 +425,7 @@ namespace details { namespace RR2D {
 	public:
 		/* called by both master and slaves */
 		CommunicationWrapper(GraphData<TLocalId, TNumId>& gd, MpiTypes& dts)
-			: counts(CountsForCluster(gd.nodeCount, dts.count)),
+			: counts(CountsForCluster(gd.nodeCount, dts.counts)),
 			  gd(gd),
 
 			  mastersV(gd.mastersVwin, gd.nodeCount),
@@ -367,7 +435,8 @@ namespace details { namespace RR2D {
 			  coOwnersV(gd.coOwnersVwin, gd.nodeCount),
 			  coOwnersO(gd.coOwnersOwin, gd.nodeCount),
 
-		      placeholdersPending(0)
+		      placeholdersPending(0),
+		      placeholderReplacementBuffers(sizeof(GlobalId))
 		{}
 
 		/* called by master */
@@ -378,6 +447,8 @@ namespace details { namespace RR2D {
 			gd.shadowsOwin.flush();
 			gd.coOwnersVwin.flush();
 			gd.coOwnersOwin.flush();
+
+			counts.send();
 			counts.flush();
 
 			placeholdersFreed();
@@ -404,12 +475,12 @@ namespace details { namespace RR2D {
 			 * next in offset tables'll share the same ID
 			 */
 
-			auto& mastersCounts = counts.get(gid.nodeId).masters;
+			auto& mastersCounts = counts.senderGet(gid.nodeId).masters;
 			/* put into offset table id of first unused cell in values table, then update offset table length */
 			mastersO.append(gid.nodeId, mastersCounts.valueCount);
 			mastersCounts.offsetCount += 1;
 
-			auto& coOwnersCounts = counts.get(gid.nodeId).coOwners;
+			auto& coOwnersCounts = counts.senderGet(gid.nodeId).coOwners;
 			/* same story as above */
 			coOwnersO.append(gid.nodeId, coOwnersCounts.valueCount);
 			/* in this case we skip updaing coOwnersCounts.offsetCounts since it must match mastersCounts.offsetCount */
@@ -425,14 +496,14 @@ namespace details { namespace RR2D {
 			 */
 
 			if(storeOn != currentVertexGid.nodeId) {
-				currentVertexCoOwners.insert(storeOn);
 				insertOffsetDescriptorOnShadowIfNeeded(storeOn);
+				currentVertexCoOwners.insert(storeOn);
 
 				shadowsV.append(storeOn, neighbour);
-				counts.get(storeOn).shadows.valueCount += 1;
+				counts.senderGet(storeOn).shadows.valueCount += 1;
 			} else {
 				mastersV.append(storeOn, neighbour);
-				counts.get(storeOn).masters.valueCount += 1;
+				counts.senderGet(storeOn).masters.valueCount += 1;
 			}
 		}
 
@@ -449,43 +520,51 @@ namespace details { namespace RR2D {
 
 		/* returns offset under which placeholders were stored */
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> finishVertex() {
+			/* firstly, send concrete stuff (neighbours we were able to remap) */
+			mastersV.writeBuffers();
+			shadowsV.writeBuffers();
+
 			/*
-			 * Frist we need to process placeholders - give them offsets and create offset entries for shadows
-			 * if necessary
+			 * Secondly, we process placeholders - give them offsets, create offset entries for shadows if necessary and
+			 *  advance valueCounts and OffsetTrakcers (we are not going to transfer empty air)
+			 * valueCount has already been incremented for each non-placeholder value, so we put placeholders at the end
 			 */
 			for(auto& p: placeholders) {
 				auto& desc = p.second;
 				if (desc.master) {
-					auto& c = counts.get(desc.nodeId).masters;
+					auto& c = counts.senderGet(desc.nodeId).masters;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
-				} else {
-					currentVertexCoOwners.insert(desc.nodeId);
-					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
+					mastersV.skip(desc.nodeId, 1);
 
-					auto& c = counts.get(desc.nodeId).shadows;
+				} else {
+					insertOffsetDescriptorOnShadowIfNeeded(desc.nodeId);
+					currentVertexCoOwners.insert(desc.nodeId);
+
+					auto& c = counts.senderGet(desc.nodeId).shadows;
 					desc.offset = c.valueCount;
 					c.valueCount += 1;
+					shadowsV.skip(desc.nodeId, 1);
 				}
 			}
 
+			/* write information about offsets - must be done after processing placeholders since they could cause
+			 * shadow offset to be added */
+			mastersO.writeBuffers();
+			shadowsO.writeBuffers();
+
 			/* write information about coowners */
-			coOwnersO.append(currentVertexGid.nodeId, counts.get(currentVertexGid.nodeId).coOwners.valueCount);
+			coOwnersO.append(currentVertexGid.nodeId, counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount);
 			for(auto& coowningNode: currentVertexCoOwners) {
 				coOwnersV.append(currentVertexGid.nodeId, coowningNode);
-				counts.get(currentVertexGid.nodeId).coOwners.valueCount += 1;
+				counts.senderGet(currentVertexGid.nodeId).coOwners.valueCount += 1;
 			}
 
-			/* send stuff */
-			mastersV.writeBuffers();
-			mastersO.writeBuffers();
-			shadowsV.writeBuffers();
-			shadowsO.writeBuffers();
 			coOwnersV.writeBuffers();
 			coOwnersO.writeBuffers();
-			placeholdersFreed();
 
 			/* cleanup */
+			placeholdersFreed();
 			currentVertexCoOwners.clear();
 			auto placehodersRet(placeholders);
 			placeholders.clear();
@@ -495,10 +574,10 @@ namespace details { namespace RR2D {
 
 		/* for placeholder replacement */
 		void replacePlaceholder(EdgeTableOffset eto, GlobalId gid) {
-			auto* buffer = placeholderReplacementBuffers.malloc();
+			auto buffer = reinterpret_cast<GlobalId*>(placeholderReplacementBuffers.malloc());
 			*buffer = gid;
 
-			auto& oa = eto.master ? gd.mastersVwin : gd.mastersOwin;
+			auto& oa = eto.master ? gd.mastersVwin : gd.shadowsVwin;
 			oa.put(eto.nodeId, eto.offset, buffer, 1);
 
 			placeholdersPending += 1;
@@ -515,11 +594,16 @@ namespace details { namespace RR2D {
 			}
 		}
 
-		const Counts& getCountFor(NodeId nodeId) { return counts.get(nodeId); };
+		void setMaxMasterCount(NodeId targetNode, ElementCount maxCount) {
+			counts.senderGet(targetNode).maxMastersCount = maxCount;
+		}
+
+		const Counts& getCountFor(NodeId nodeId) { return counts.senderGet(nodeId); };
+		const Counts& getMyCounts() { return counts.recvGet(); }
 
 	private:
 		void insertOffsetDescriptorOnShadowIfNeeded(NodeId storeOn) {
-			auto& c = counts.get(storeOn).shadows;
+			auto& c = counts.senderGet(storeOn).shadows;
 			if(currentVertexCoOwners.count(storeOn) == 0) {
 				shadowsO.append(storeOn, ShadowDesc(currentVertexGid, c.valueCount));
 				c.offsetCount += 1;
@@ -550,7 +634,7 @@ namespace details { namespace RR2D {
 		GlobalId currentVertexGid;
 		std::unordered_set<NodeId> currentVertexCoOwners;
 		std::vector<std::pair<OriginalVertexId, EdgeTableOffset>> placeholders;
-		boost::object_pool<GlobalId> placeholderReplacementBuffers;
+		boost::pool<> placeholderReplacementBuffers;
 	};
 
 	template <typename TLocalId>
@@ -564,9 +648,10 @@ namespace details { namespace RR2D {
 
 		boost::optional<GlobalId> toGlobalId(OriginalVertexId oid) {
 			const auto fresult = remappingTable.find(oid);
-			return (fresult != remappingTable.end()) ? (*fresult).second : boost::none;
+			return (fresult != remappingTable.end()) ? boost::optional<GlobalId>((*fresult).second) : boost::none;
 		}
 
+		/* @todo: this seems unused */
 		void releaseMapping(OriginalVertexId oid) {
 			remappingTable.erase(oid);
 		}
@@ -603,7 +688,10 @@ namespace details { namespace RR2D {
 		Partitioner(NodeCount nodeCount)
 				: nodeCount(nodeCount), nextMasterNodeId(0), nextLocalId(new TLocalId[nodeCount]),
 				  nextNeighbourNodeId(0), largetstAssignedLocalId(0)
-		{}
+		{
+			for(NodeId nid = 0; nid < nodeCount; nid++)
+				nextLocalId[nid] = 0;
+		}
 
 		~Partitioner() {
 			if(nextLocalId != nullptr) delete[] nextLocalId;
@@ -611,7 +699,13 @@ namespace details { namespace RR2D {
 
 		RR2DGlobalId<TLocalId> nextMasterId() {
 			NodeId nid = nextMasterNodeId;
+
 			nextMasterNodeId += 1;
+			if (nextMasterNodeId >= nodeCount)
+				nextMasterNodeId = 0;
+
+			assert(nextMasterNodeId >= 0);
+			assert(nextMasterNodeId < nodeCount);
 
 			TLocalId& nextLid = nextLocalId[nid];
 			TLocalId lid = nextLid;
@@ -630,7 +724,16 @@ namespace details { namespace RR2D {
 		}
 
 		NodeId nextNodeIdForNeighbour() {
-			return nextNeighbourNodeId++;
+			auto toReturn = nextNeighbourNodeId;
+
+			nextNeighbourNodeId += 1;
+			if (nextNeighbourNodeId >= nodeCount)
+				nextNeighbourNodeId = 0;
+
+			assert(toReturn >= 0);
+			assert(toReturn < nodeCount);
+
+			return toReturn;
 		}
 
 		TLocalId getLargestAssignedLocalId() {return largetstAssignedLocalId;}
@@ -642,34 +745,6 @@ namespace details { namespace RR2D {
 		NodeId nextNeighbourNodeId;
 		TLocalId largetstAssignedLocalId;
 	};
-
-	template <typename TLocalId, typename TNumId>
-	void initializeWindows(GraphData<TLocalId, TNumId>& data, MpiTypes& dts) {
-		using GlobalId = RR2DGlobalId<TLocalId>;
-		using ShadowDesc = ShadowDescriptor<TLocalId>;
-
-		data.mastersVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.mastersOwin = MpiWindow<TLocalId>::allocate(VERTEX_MAX_COUNT, dts.localId);
-		data.shadowsVwin = MpiWindow<GlobalId>::allocate(EDGES_MAX_COUNT, dts.globalId);
-		data.shadowsOwin = MpiWindow<ShadowDesc>::allocate(VERTEX_MAX_COUNT, dts.shadowDescriptor);
-		data.coOwnersVwin = MpiWindow<NodeId>::allocate(COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT, dts.nodeId);
-		data.coOwnersOwin = MpiWindow<NodeCount>::allocate(COOWNERS_MAX_COUNT, dts.nodeId);
-		data.mappedIdsWin = MpiWindow<GlobalId>::allocate(data.remappedCount, dts.globalId);
-	}
-
-	template <typename TLocalId, typename TNumId>
-	void destroyWindows(GraphData<TLocalId, TNumId>& data) {
-		using GlobalId = RR2DGlobalId<TLocalId>;
-		using ShadowDesc = ShadowDescriptor<TLocalId>;
-
-		MpiWindow<GlobalId>::destroy(data.mastersVwin);
-		MpiWindow<TLocalId>::destroy(data.mastersOwin);
-		MpiWindow<GlobalId>::destroy(data.shadowsVwin);
-		MpiWindow<ShadowDesc>::destroy(data.shadowsOwin);
-		MpiWindow<NodeId>::destroy(data.coOwnersVwin);
-		MpiWindow<NodeCount>::destroy(data.coOwnersOwin);
-		MpiWindow<GlobalId>::destroy(data.mappedIdsWin);
-	}
 
 	template<typename TLocalId, typename TNumId>
 	void handleRemapping(GraphData<TLocalId, TNumId> *gd,
@@ -688,7 +763,7 @@ namespace details { namespace RR2D {
 
 	template<typename TLocalId, typename TNumId>
 	std::vector<RR2DGlobalId<TLocalId>> extractRemapedVerticesToVector(GraphData<TLocalId, TNumId> *gd) {
-		std::vector<RR2DGlobalId<TLocalId>> remappedVertices(gd->remappedCount);
+		std::vector<RR2DGlobalId<TLocalId>> remappedVertices;
 		auto mappedData = gd->mappedIdsWin.getData();
 
 		for(ElementCount i = 0; i < gd->remappedCount; i++) {
@@ -753,7 +828,8 @@ public:
 	}
 
 	NumericId toNumeric(const LocalId lid) {
-		return toNumeric(GlobalId(graphData->nodeId, lid));
+		/* we must use toGlobalId to properly handle shadows which LID is different from ID inside GID */
+		return toNumeric(toGlobalId(lid));
 	}
 
 	std::string idToString(const GlobalId gid) {
@@ -793,6 +869,19 @@ public:
 	}
 
 
+	void foreachShadowVertex(std::function<ITER_PROGRESS (const LocalId, const GlobalId)> f) {
+		ITER_PROGRESS ip = CONTINUE;
+		for(TLocalId lid = 0; lid < graphData->counts.shadows.offsetCount && ip == CONTINUE; lid++) {
+			auto gid = graphData->shadowsOwin.getData()[lid].edgeBeginningId;
+			ip = f(lid + graphData->firstShadowId, gid);
+		}
+	}
+
+	size_t shadowVerticesCount() {
+		return graphData->counts.shadows.offsetCount;
+	}
+
+
 	void foreachCoOwner(LocalId localId, bool returnSelf, std::function<ITER_PROGRESS (const NodeId)> f) {
 		// @todo: range check
 		auto coownerIdx = graphData->coOwnersOwin.getData()[localId];
@@ -811,14 +900,32 @@ public:
 	}
 
 	void foreachNeighbouringVertex(LocalId id, std::function<ITER_PROGRESS (const GlobalId)> f) {
-		auto startPos = graphData->mastersOwin.getData()[id];
-		auto endPos = (id < graphData->counts.masters.offsetCount-1) ?
-		              graphData->mastersOwin.getData()[id+1] :
-		              graphData->counts.masters.valueCount;
+		size_t startPos, oneAfterEnd;
+		details::RR2D::MpiWindow<GlobalId>* winWithValues;
+		if (id >= graphData->firstShadowId) {
+			/* shadow */
+			auto relativeId = id - graphData->firstShadowId;
+			startPos = graphData->shadowsOwin.getData()[relativeId].offset;
+			oneAfterEnd = (relativeId < graphData->counts.shadows.offsetCount-1) ?
+			         graphData->shadowsOwin.getData()[relativeId+1].offset :
+			         graphData->counts.shadows.valueCount;
+
+			winWithValues = &(graphData->shadowsVwin);
+		} else {
+			/* master */
+			startPos = graphData->mastersOwin.getData()[id];
+			oneAfterEnd = (id < graphData->counts.masters.offsetCount-1) ?
+			         graphData->mastersOwin.getData()[id+1] :
+			         graphData->counts.masters.valueCount;
+
+			winWithValues = &(graphData->mastersVwin);
+		}
+
+		// LOG(INFO) << "Neighbour iteration " << startPos << " to " << oneAfterEnd;
 
 		ITER_PROGRESS ip = CONTINUE;
-		for(LocalVertexId i = startPos; i < endPos && ip == CONTINUE; i++) {
-			GlobalId neighId = graphData->mastersVwin.getData()[i];
+		for(LocalVertexId i = startPos; i < oneAfterEnd && ip == CONTINUE; i++) {
+			GlobalId neighId = winWithValues->getData()[i];
 			ip = f(neighId);
 		}
 	}
@@ -910,7 +1017,7 @@ class RR2DHandle : public GraphPartitionHandle<RoundRobin2DPartition<TLocalId, T
 
 public:
 	RR2DHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: G(verticesToConv, destroyGraph), path(path)
+			: P(verticesToConv, destroyGraph), path(path)
 	{
 
 	}
@@ -926,13 +1033,18 @@ protected:
 
 		MpiTypes types = registerMpiTypes<LocalId>();
 
-		auto gd = new details::RR2D::GraphData<LocalId, NumericId>();
+		auto gd = new details::RR2D::GraphData<LocalId, NumericId>(EDGES_MAX_COUNT,
+		                                                           VERTEX_MAX_COUNT,
+		                                                           EDGES_MAX_COUNT,
+		                                                           VERTEX_MAX_COUNT,
+		                                                           COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT,
+		                                                           COOWNERS_MAX_COUNT,
+		                                                           verticesToConvert.size(),
+		                                                           types);
 		gd->nodeId = nodeId;
 		gd->nodeCount = nodeCount;
 		gd->remappedCount = verticesToConvert.size();
 		gd->globalIdDt = types.globalId;
-
-		initializeWindows(*gd, types);
 
 		CommunicationWrapper<LocalId, NumericId> cm(*gd, types);
 
@@ -979,7 +1091,7 @@ protected:
 			/* update maxLocalId count */
 			const auto mmc = partitioner.getLargestAssignedLocalId() + 1;
 			for(NodeCount nid = 0; nid < nodeCount; nid++)
-				cm.getCountFor(nid).maxMastersCount = mmc;
+				cm.setMaxMasterCount(nid, mmc);
 
 			cm.finishAllTransfers();
 
@@ -999,19 +1111,22 @@ protected:
 		}
 
 		deregisterTypes(types);
+		/* cast Counts pointer to more user-friendly ref */
+		gd->counts = cm.getMyCounts();
+
 		/* now each node must use contents of shadow-related windows to build GlobalId -> LocalId map */
 		LocalId nextShadowLocalId = gd->counts.maxMastersCount;
 		gd->firstShadowId = nextShadowLocalId;
 		for(ElementCount i = 0; i < gd->counts.shadows.offsetCount; i++) {
 			auto* el = gd->shadowsOwin.getData() + i;
-			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId(el->edgeBeginningId), nextShadowLocalId);
+			gd->shadowsGlobalToLocalMap.emplace(globalToNumericId<GlobalId, NumericId>(el->edgeBeginningId),
+			                                    nextShadowLocalId);
 			nextShadowLocalId += 1;
 		}
 
 		/* extract remapped vertices from window (written by master) to vector returned locally */
 		auto remappedVertices = extractRemapedVerticesToVector(gd);
-		MpiWindow<GlobalId>::destroy(gd->mappedIdsWin);
-		gd->remappedCount = 0;
+		/* at this point stuff related to remapping could be cleaned up */
 
 		return std::make_pair(new RoundRobin2DPartition<LocalId, NumericId>(gd), remappedVertices);
 	};
@@ -1020,7 +1135,6 @@ private:
 	std::string path;
 
 	static void destroyGraph(G* g) {
-		details::RR2D::destroyWindows(*(g->graphData));
 		MPI_Type_free(&(g->graphData->globalIdDt));
 		delete g->graphData;
 	}

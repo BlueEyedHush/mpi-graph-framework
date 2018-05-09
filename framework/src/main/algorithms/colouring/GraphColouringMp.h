@@ -62,10 +62,10 @@ public:
 
 			vertexDataMap[v_id] = new VertexTempData();
 
-			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "[" << v_id_num << "] neighbours";
+			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
 			g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
 				auto neigh_num = g->toNumeric(neigh_id);
-				LOG(INFO) << "Looking @ " << g->idToString(neigh_id) << "[" << neigh_num << "]";
+				LOG(INFO) << "Looking @ " << g->idToString(neigh_id) << "(" << neigh_num << ")";
 				if (neigh_num > v_id_num) {
 					vertexDataMap[v_id]->wait_counter++;
 					LOG(INFO) << "Qualified!";
@@ -106,8 +106,8 @@ public:
 					int chosen_colour = previous_used_colour + 1;
 					this->finalColouring[v_id] = chosen_colour;
 
-					LOG(INFO) << "!!! All neighbours of " << g->idToString(v_id) << "[" << v_id_num
-					          << "] chosen colours, we choose " << chosen_colour;
+					LOG(INFO) << "!!! All neighbours of " << g->idToString(v_id) << "(" << v_id_num
+					          << ") chosen colours, we choose " << chosen_colour;
 
 					/* inform neighbours */
 					g->foreachNeighbouringVertex(v_id, [&, g, nodeId](const GlobalId neigh_id) {
@@ -119,8 +119,8 @@ public:
 							if(neighNodeId == nodeId) {
 								vertexDataMap[neighLocalId]->wait_counter -= 1;
 								vertexDataMap[neighLocalId]->used_colours.insert(chosen_colour);
-								LOG(INFO) << g->idToString(neigh_id) << "[" << neigh_num
-								          << "] is local, informing about colour "<< chosen_colour;
+								LOG(INFO) << g->idToString(neigh_id) << "(" << neigh_num
+								          << ") is local, informing about colour "<< chosen_colour;
 							} else {
 								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
 								b->buffer.receiving_node_id = neighLocalId;
@@ -128,8 +128,8 @@ public:
 
 								MPI_Isend(&b->buffer, 1, mpi_message_type, neighNodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
 
-								LOG(INFO) << "Isend to " << g->idToString(neigh_id) << "[" << neigh_num << "] info that "
-								          << g->idToString(v_id) << "[" << v_id_num << "] has been coloured with "
+								LOG(INFO) << "Isend to " << g->idToString(neigh_id) << "(" << neigh_num << ") info that "
+								          << g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 								          << chosen_colour;
 							}
 						}

@@ -53,6 +53,7 @@ void callEachGpFunction(TGraphPartition& gp) {
 	auto nodeIdConsumer = [](const NodeId) {return ITER_PROGRESS::STOP;};
 	auto localIdconsumer = [](const LocalId) {return ITER_PROGRESS::STOP;};
 	auto globalIdconsumer = [](const GlobalId) {return ITER_PROGRESS::STOP;};
+	auto localAndGlobalIdConsumer = [](const LocalId, const GlobalId) {return ITER_PROGRESS::STOP;};
 
 	gp.getGlobalVertexIdDatatype();
 	gp.toLocalId(globalId, &vtype);
@@ -69,6 +70,8 @@ void callEachGpFunction(TGraphPartition& gp) {
 	gp.masterVerticesMaxCount();
 	gp.foreachCoOwner(localId, true, nodeIdConsumer);
 	gp.foreachNeighbouringVertex(localId, globalIdconsumer);
+	gp.foreachShadowVertex(localAndGlobalIdConsumer);
+	gp.shadowVerticesCount();
 }
 
 void testBuildersAndGraphs() {

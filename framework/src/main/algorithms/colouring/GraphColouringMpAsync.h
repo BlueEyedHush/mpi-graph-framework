@@ -95,8 +95,8 @@ namespace details {
 
 			gd->vertexDataMap->at(v_id)->wait_counter = -1;
 
-			LOG(INFO) << CLI_BOLD "All neighbours of " << gd->g->idToString(v_id) << "[" << v_id_num 
-			          << "] chosen colours, we choose " << chosen_colour << CLI_RESET;
+			LOG(INFO) << CLI_BOLD "All neighbours of " << gd->g->idToString(v_id) << "(" << v_id_num
+			          << ") chosen colours, we choose " << chosen_colour << CLI_RESET;
 
 			/* inform neighbours */
 			gd->g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
@@ -108,8 +108,8 @@ namespace details {
 					if(neighNodeId == gd->nodeId) {
 						gd->vertexDataMap->at(neighLocalId)->wait_counter -= 1;
 						gd->vertexDataMap->at(neighLocalId)->used_colours.insert(chosen_colour);
-						LOG(INFO) << gd->g->idToString(neigh_id) << "[" << neigh_num 
-						          << "] is local, scheduling callback " << chosen_colour;
+						LOG(INFO) << gd->g->idToString(neigh_id) << "(" << neigh_num
+						          << ") is local, scheduling callback " << chosen_colour;
 
 						/* it might be already processed, then it's wait_counter'll < 0 */
 						if (gd->vertexDataMap->at(neighLocalId)->wait_counter == 0) {
@@ -125,8 +125,8 @@ namespace details {
 						MPI_Request *rq = reinterpret_cast<MPI_Request *>(gd->mpiRequestPool->malloc());
 						MPI_Isend(b, 1, *gd->mpi_message_type, neighNodeId, MPI_TAG, MPI_COMM_WORLD, rq);
 
-						LOG(INFO) << "Isend to " << gd->g->idToString(neigh_id) << "[" << neigh_num << "] info that " 
-						          << gd->g->idToString(v_id) << "[" << v_id_num << "] has been coloured with " 
+						LOG(INFO) << "Isend to " << gd->g->idToString(neigh_id) << "(" << neigh_num << ") info that "
+						          << gd->g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 						          << chosen_colour << " scheduled";
 
 						OnSendFinished<TGraphPartition> *cb = gd->sendFinishedCbPool->construct(b, gd);
@@ -246,10 +246,10 @@ public:
 			vertexDataMap[v_id] = new VertexTempData();
 			int wait_counter = 0;
 
-			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "[" << v_id_num << "] neighbours";
+			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
 			g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
 				auto neigh_num = g->toNumeric(neigh_id);
-				LOG(INFO) << "N: " << g->idToString(neigh_id) << "[" << neigh_num << "]";
+				LOG(INFO) << "N: " << g->idToString(neigh_id) << "(" << neigh_num << ")";
 				if (neigh_num > v_id_num) {
 					wait_counter++;
 					LOG(INFO) << "Qualified!";
