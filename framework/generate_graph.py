@@ -16,12 +16,13 @@ def output_adjacency_list(nx_graph, file):
     file.write(neighbours_str)
 
 def output_vertex_list(nx_graph, file):
-    vertex_str = ",".join(nx_graph.nodes())
+    vertex_str = ",".join(map(lambda i: str(i), nx_graph.nodes()))
     file.write(vertex_str)
 
 def output_edge_list(nx_graph, file):
     for (start, end) in nx_graph.edges_iter():
         file.write("{},{}\n".format(start, end))
+        file.write("{},{}\n".format(end, start))
 
 def output_graph(filename_prefix, nx_graph):
 
@@ -32,6 +33,6 @@ def output_graph(filename_prefix, nx_graph):
 
 
 if __name__ == '__main__':
-    g = nx.complete_graph(10)
+    g = nx.powerlaw_cluster_graph(25, 2, 0.5, 876)
 
     output_graph(sys.argv[1] if len(sys.argv) > 1 else "graph", g)
