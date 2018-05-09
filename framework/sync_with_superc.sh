@@ -15,7 +15,7 @@ sshpass -p "$PASS" rsync -avzr \
     --exclude target/ \
     --exclude .gitignore \
     --exclude *.cbp \
-    --exclude *.a \
+    --exclude /*.a \
     --exclude Makefile \
     --exclude *.cmake \
     --exclude sync_with_superc.sh \

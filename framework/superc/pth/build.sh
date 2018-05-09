@@ -8,7 +8,7 @@ module load compilers/gcc/5.3.0
 
 pushd "$HOME"/ml-graphs/  > /dev/null
 
-LOWERCASE_BT=`echo $BUILD_TYPE | tr '[:upper]' '[:lower]'`
+LOWERCASE_BT=`echo ${BUILD_TYPE,,}`
 BT_SPECIFIC_DIR=cmake-build-$LOWERCASE_BT
 mkdir -p $BT_SPECIFIC_DIR
 
