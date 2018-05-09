@@ -1,5 +1,13 @@
 
 #include "RepresentationItTest.h"
+#include <utils/CsvReader.h>
+
+std::vector<OriginalVertexId> loadVertexListFromFile(std::string path) {
+	CsvReader<OriginalVertexId> csvReader(path);
+	auto line = csvReader.getNextLine();
+	assert(line.is_initialized());
+	return *line;
+}
 
 std::set<std::pair<OriginalVertexId, OriginalVertexId>> loadEdgeListFromFile(std::string path) {
 	CsvReader<OriginalVertexId> csvReader(path);

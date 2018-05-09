@@ -8,7 +8,7 @@
 using G = RoundRobin2DPartition<TestLocalId, TestNumId>;
 
 TEST(Rr2dRepresentation, PartitioningPreservesGraphStructure) {
-	std::vector<OriginalVertexId> vertexIds({0, 1, 2, 3});
+	auto vertexIds = loadVertexListFromFile("resources/test/SimpleTestGraph.vl");
 
 	representationTest<RR2DHandle<TestLocalId, TestNumId>>(
 			[&](NodeId size, NodeId rank) {

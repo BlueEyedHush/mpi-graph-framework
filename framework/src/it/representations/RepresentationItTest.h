@@ -100,6 +100,8 @@ private:
 	NodeId rank;
 };
 
+std::vector<OriginalVertexId> loadVertexListFromFile(std::string path);
+
 std::set<std::pair<OriginalVertexId, OriginalVertexId>> loadEdgeListFromFile(std::string path);
 
 template <typename TGraphHandle>
