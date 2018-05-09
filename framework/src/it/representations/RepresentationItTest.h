@@ -74,6 +74,8 @@ public:
 		MPI_Get(&edgeCount, 1, NUM_MPI_TYPE, id, 0, 1, NUM_MPI_TYPE, win);
 		MPI_Win_flush(id, win);
 
+		LOG(INFO) << "Edge count read from node " << id << ": " << edgeCount;
+
 		auto *recvBuffer = new TestNumId[edgeCount*2];
 		MPI_Get(recvBuffer, edgeCount*2, NUM_MPI_TYPE, id, 1, edgeCount*2, NUM_MPI_TYPE, win);
 		MPI_Win_flush(id, win);
@@ -129,10 +131,14 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 	size_t shadowEdgeCount = 0, shadowVertexCount = 0;
 
 	/* iterate masters & shadows, (source, target) pairs to file */
+	LOG(INFO) << "Edges reported by representation: ";
 	gp.foreachMasterVertex([&](const auto startLid) {
 		gp.foreachNeighbouringVertex(startLid, [&](const auto endGid) {
-			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			auto numFirst = gp.toNumeric(startLid);
+			auto numSecond = gp.toNumeric(endGid);
+			commHelper.appendEdge(numFirst, numSecond);
 			masterEdgeCount += 1;
+			LOG(INFO) << " M(" << numFirst << "," << numSecond << ")";
 			return CONTINUE;
 		});
 		masterVertexCount += 1;
@@ -141,13 +147,19 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 	gp.foreachShadowVertex([&](auto startLid, auto startGid) {
 		gp.foreachNeighbouringVertex(startLid, [&](auto endGid) {
-			commHelper.appendEdge(gp.toNumeric(startLid), gp.toNumeric(endGid));
+			auto numFirst = gp.toNumeric(startLid);
+			auto numSecond = gp.toNumeric(endGid);
+			commHelper.appendEdge(numFirst, numSecond);
 			shadowEdgeCount += 1;
+			LOG(INFO) << " S(" << numFirst << "," << numSecond << ")";
 			return CONTINUE;
 		});
 		shadowVertexCount += 1;
 		return CONTINUE;
 	});
+
+	LOG(INFO) << "masterVertexCount: " << masterVertexCount << " masterEdgeCount: " << masterEdgeCount
+	          << " shadowVertexCount: " << shadowVertexCount << " shadowEdgeCount: " << shadowEdgeCount;
 
 	commHelper.finishTransfers();
 
@@ -163,15 +175,15 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 		for(NodeId nodeId = 0; nodeId < size; nodeId++) {
 			auto edgesFromNode = commHelper.getEdgesFrom(vertexIds, numIds, nodeId);
+			LOG(INFO) << "Received " << edgesFromNode.size() << " from node " << nodeId;
+			for(auto edge: edgesFromNode)
+				LOG(INFO) << "  (" << edge.first << "," << edge.second << ")";
 			actualEdges.insert(edgesFromNode.begin(), edgesFromNode.end());
 		}
 
 		/* compare against */
 		ASSERT_EQ(actualEdges, expectedEdges);
 	}
-
-	LOG(INFO) << "masterVertexCount: " << masterVertexCount << " masterEdgeCount: " << masterEdgeCount
-	          << " shadowVertexCount: " << shadowVertexCount << " shadowEdgeCount: " << shadowEdgeCount;
 }
 
 #endif //FRAMEWORK_REPRESENTATIONITTEST_H
