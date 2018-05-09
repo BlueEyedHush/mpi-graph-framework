@@ -18,13 +18,13 @@ class CommHelper {
 public:
 	CommHelper(size_t vCount,
 	           MPI_Comm shmComm,
-	           NodeId shmRank) : shmcomm(shmComm), shmRank(shmRank)
+	           NodeId shmRank) : comm(shmComm), rank(shmRank)
 	{
 		/* allocate window */
 		TestNumId *winData = nullptr;
 		/* max amount of edges is vcount^2-1, but we also need first one for counting */
 		// @todo: types might not fit! look at it! (add assert?)
-		MPI_Win_allocate_shared(2*vCount*vCount, sizeof(TestNumId), MPI_INFO_NULL, shmcomm, &winData, &win);
+		MPI_Win_allocate(2*vCount*vCount, sizeof(TestNumId), MPI_INFO_NULL, comm, &winData, &win);
 		MPI_Win_lock_all(0, win);
 	}
 
@@ -45,11 +45,11 @@ public:
 		TestNumId edgeCount = edgeDatas.size()/2;
 
 		auto* data = edgeDatas.data();
-		MPI_Put(&edgeCount, 1, NUM_MPI_TYPE, shmRank, 0, 1, NUM_MPI_TYPE, win);
+		MPI_Put(&edgeCount, 1, NUM_MPI_TYPE, rank, 0, 1, NUM_MPI_TYPE, win);
 
 		for(unsigned long i = 0; i < edgeCount; i++) {
-			MPI_Put(data + 2*i, 1, NUM_MPI_TYPE, shmRank, 1 + 2*i, 1, NUM_MPI_TYPE, win);
-			MPI_Put(data + 2*i + 1, 1, NUM_MPI_TYPE, shmRank, 1 + 2*i + 1, 1, NUM_MPI_TYPE, win);
+			MPI_Put(data + 2*i, 1, NUM_MPI_TYPE, rank, 1 + 2*i, 1, NUM_MPI_TYPE, win);
+			MPI_Put(data + 2*i + 1, 1, NUM_MPI_TYPE, rank, 1 + 2*i + 1, 1, NUM_MPI_TYPE, win);
 		}
 
 		MPI_Win_flush_all(win);
@@ -94,9 +94,9 @@ public:
 
 private:
 	std::vector<TestNumId> edgeDatas;
-	MPI_Comm shmcomm;
+	MPI_Comm comm;
 	MPI_Win win;
-	NodeId shmRank;
+	NodeId rank;
 };
 
 template <typename TGraphHandle>
@@ -113,19 +113,7 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 	auto& gp = builder.getGraph();
 	LOG(INFO) << "Loaded graph from file";
 
-	/* get shared memory communicator */
-	MPI_Comm shmcomm;
-	int shmSize;
-	int shmRank;
-
-	MPI_Comm_split_type (MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED,0, MPI_INFO_NULL, &shmcomm);
-	MPI_Comm_size(shmcomm, &shmSize);
-	MPI_Comm_rank(shmcomm, &shmRank);
-
-	/* ensure all nodes work locally */
-	ASSERT_TRUE(shmSize == size);
-
-	CommHelper commHelper(vertexIds.size(), shmcomm, shmRank);
+	CommHelper commHelper(vertexIds.size(), MPI_COMM_WORLD, rank);
 
 	size_t masterEdgeCount = 0, masterVertexCount = 0;
 	size_t shadowEdgeCount = 0, shadowVertexCount = 0;
@@ -163,7 +151,7 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*ran
 
 	commHelper.finishTransfers();
 
-	MPI_Barrier(shmcomm);
+	MPI_Barrier(MPI_COMM_WORLD);
 
 	if (rank == 0) {
 		std::vector<TestNumId> numIds;
