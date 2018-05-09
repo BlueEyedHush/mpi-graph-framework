@@ -9,6 +9,7 @@
 #include <glog/logging.h>
 #include <mpi.h>
 #include <utils/TestUtils.h>
+#include <bits/unordered_set.h>
 
 typedef int TestLocalId;
 typedef int TestNumId;
@@ -98,6 +99,8 @@ private:
 	MPI_Win win;
 	NodeId rank;
 };
+
+std::set<std::pair<OriginalVertexId, OriginalVertexId>> loadEdgeListFromFile(std::string path);
 
 template <typename TGraphHandle>
 void representationTest(std::function<TGraphHandle(NodeId /*size*/, NodeId /*rank*/)> ghSupplier,
