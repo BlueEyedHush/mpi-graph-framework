@@ -61,11 +61,8 @@ if __name__ == "__main__":
     for k in node_to_str.iterkeys():
         f = open(dir + "/{}".format(k), "w")
         f.write(node_to_str[k])
-        f.close()
 
-    # print to stdout everything
-    for k in sorted(node_to_str.iterkeys()):
-        sys.stdout.write("~~~~ {} ~~~~\n".format(k))
-        sys.stdout.write(node_to_str[k])
-        sys.stdout.write("\n\n")
+    # print original to stdout
+    for line in lines:
+        sys.stdout.write(line)
 
