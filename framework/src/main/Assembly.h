@@ -40,8 +40,13 @@ public:
 	bool validationSucceeded = false;
 
 	virtual void run() override {
+		int rank, size;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		MPI_Comm_size(MPI_COMM_WORLD, &size);
+
 		Probe graphLoadingProbe("GraphLoading");
 		Probe algorithmExecutionProbe("Algorithm");
+		Probe algorithmGlobalProbe("Algorithm", true);
 		Probe validationProbe("Validation");
 
 		graphLoadingProbe.start();
@@ -49,12 +54,14 @@ public:
 		auto& graph = handle.getGraph();
 		graphLoadingProbe.stop();
 
+		if (rank == 0) algorithmGlobalProbe.start();
 		algorithmExecutionProbe.start();
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
 		algorithmSucceeded = algorithm.run(&graph);
 		algorithmExecutionProbe.stop();
 
 		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank == 0) algorithmGlobalProbe.stop();
 
 		auto solution = algorithm.getResult();
 

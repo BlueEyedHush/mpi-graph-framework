@@ -30,17 +30,28 @@ def splitter(sentence, mapping):
     return mapping
 
 def measurements_processor(node_to_log_map):
-    probes = []
+    local_time_probes = []
+    global_time_probes = []
 
     for node, lines in node_to_log_map.iteritems():
         for line in lines:
-            for m in re.finditer("\[TM:(.+?):(.+?)\]", line):
-                probe_name = m.group(1)
-                probe_value = m.group(2)
+            for m in re.finditer("\[P:(.+?):(.+?):(.+?)\]", line):
+                probe_type = m.group(1).lower()
+                probe_name = m.group(2)
+                probe_value = m.group(3)
 
-                probes.append("[{}] {}: {}\n".format(node, probe_name, probe_value))
+                if probe_type == "tl":
+                    local_time_probes.append("[{}] {}: {}\n".format(node, probe_name, probe_value))
+                elif probe_type == "tg":
+                    global_time_probes.append("{}: {}\n".format(probe_name, probe_value))
+                else:
+                    raise Exception("Unknown probe type encountered")
 
-    node_to_log_map["probes"] = probes
+    node_to_log_map["probes"] = ["Global times:\n"] + \
+                                global_time_probes + \
+                                ["\nLocal times:\n"] + \
+                                local_time_probes
+
 
 if __name__ == "__main__":
     lines = sys.stdin.readlines()

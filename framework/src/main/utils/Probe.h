@@ -12,7 +12,7 @@
 
 class Probe {
 public:
-	Probe(std::string name) : name(name), started(false) {};
+	Probe(std::string name, bool global = false) : name(name), global(global), started(false) {};
 
 	void start() {
 		assert(!started);
@@ -24,13 +24,16 @@ public:
 		assert(started);
 		auto duration = std::chrono::system_clock::now() - startTimePoint;
 		auto durationNs = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+		std::string probeType = global ? "TG" : "TL";
 
-		LOG(WARNING) << "[TM:" << name << ":" << durationNs.count() << "ns]";
+		/* time is reported in nanoseconds */
+		LOG(WARNING) << "[P:" << probeType << ":" << name << ":" << durationNs.count() << "]";
 	}
 
 private:
 	std::string name;
 	bool started;
+	bool global;
 	std::chrono::system_clock::time_point startTimePoint;
 };
 
