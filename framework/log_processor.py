@@ -35,11 +35,11 @@ def measurements_processor(node_to_log_map):
 
     for node, lines in node_to_log_map.iteritems():
         for line in lines:
-            for m in re.finditer("\[TM:(+?):(+?)\]", line):
+            for m in re.finditer("\[TM:(.+?):(.+?)\]", line):
                 probe_name = m.group(1)
                 probe_value = m.group(2)
 
-                probes.append("[{}] {}: {}".format(node, probe_name, probe_value))
+                probes.append("[{}] {}: {}\n".format(node, probe_name, probe_value))
 
     node_to_log_map["probes"] = probes
 
