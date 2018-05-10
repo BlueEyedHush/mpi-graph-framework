@@ -3,8 +3,12 @@ import sys
 import re
 
 def splitter(sentence, mapping):
-    split = re.split("\[[0-9]+?\]", sentence)
+    def append(node_id, line):
+        if node_id not in mapping:
+            mapping[node_id] = []
+        mapping[node_id].append(line)
 
+    split = re.split("\[[0-9]+?\]", sentence)
 
     if len(split) > 1:
         groups = []
@@ -13,20 +17,15 @@ def splitter(sentence, mapping):
 
         if split[0]:
             # if first is non-empty, line didn't start with node id indicator
-            mapping["_"].append(split[0])
-            mapping["_"].append(" (???) \n")
+            append("_", "{} (???)\n".format(split[0]))
 
         for node_id, str in zip(groups, split[1:]):
-            if node_id not in mapping:
-                mapping[node_id] = []
-
             if str[0] == ' ':
                 str = str[1:]
-
-            mapping[node_id].append(str)
+            append(node_id, str)
 
     else:
-        mapping["_"].append(sentence)
+        append("_", sentence)
 
     return mapping
 
@@ -46,7 +45,7 @@ def measurements_processor(node_to_log_map):
 if __name__ == "__main__":
     lines = sys.stdin.readlines()
 
-    node_to_log_mapping = {"_": []}
+    node_to_log_mapping = {}
     for line in lines:
         splitter(line, node_to_log_mapping)
 
