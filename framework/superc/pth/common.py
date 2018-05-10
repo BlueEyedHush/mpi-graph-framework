@@ -15,30 +15,24 @@ def ensure_dir_exists(dir):
 def err(msg):
     sys.stderr.write(msg + "\n")
 
-cached_paths = None
-def get_paths():
+class Paths(object):
+    def __init__(self):
+        self.script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+        self.base_dir = os.path.abspath(os.path.join(self.script_dir, "..", ".."))
+        self.log_dir = os.path.join(self.base_dir, "logs")
 
+    def build_dir(self, type):
+        return "cmake-build-{}".format(type)
+
+    def abs_build_dir(self, type):
+        return os.path.join(self.base_dir, self.build_dir(type))
+
+cached_paths = None
+
+def get_paths():
     if cached_paths is None:
         global cached_paths
-
-        script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        base_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
-        log_dir = os.path.join(base_dir, "logs")
-
-        def build_dir(type):
-            return "cmake-build-{}".format(type)
-
-        def abs_build_dir(type):
-            return os.path.join(base_dir, build_dir(type))
-
-        r = object()
-        setattr(r, "script_dir", script_dir)
-        setattr(r, "base_dir", base_dir)
-        setattr(r, "build_dir", build_dir)
-        setattr(r, "abs_build_dir", abs_build_dir)
-        setattr(r, "log_dir", log_dir)
-
-        cached_paths = r
+        cached_paths = Paths()
 
     return cached_paths
 
