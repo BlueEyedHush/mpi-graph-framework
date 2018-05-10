@@ -42,7 +42,7 @@ def get_paths():
 
 def prepare_log_dir():
     p = get_paths()
-    datetime_component = datetime.datetime.now().strftime("%Y%m%D_%H%M%S")
+    datetime_component = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join(p.log_dir, datetime_component)
     ensure_dir_exists(log_dir)
     return log_dir
