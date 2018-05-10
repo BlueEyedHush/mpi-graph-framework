@@ -10,11 +10,11 @@ include_directories(src/main)
 
 # sandbox
 file(GLOB_RECURSE SANDBOX_SRC src/sandbox/*.cpp src/sandbox/*.h)
-add_executable(sandbox ${SANDBOX_SRC})
+# add_executable(sandbox ${SANDBOX_SRC})
 
 # for testing particular compilation units during large refactorings
 file(STRINGS "single_cu.filelist" SINGLE_CU)
-add_executable(single_cu ${SINGLE_CU})
+# add_library(single_cu ${SINGLE_CU})
 
 # executable configuration
 file(GLOB_RECURSE FRAMEWORK_SRC src/main/*.cpp src/main/*.h)
