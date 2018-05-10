@@ -69,7 +69,7 @@ def run_batch_string(cmds,
     " --output " + log_prefix + ".so"
     " --error " + log_prefix + ".se"
     " --mail-type=END,FAIL"
-    " --mail-user=knawara112@gmail.com execu" + script + cmds_arg_str)
+    " --mail-user=knawara112@gmail.com " + script + cmds_arg_str)
 
     print cmd
     return cmd
