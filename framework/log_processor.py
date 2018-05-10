@@ -57,8 +57,9 @@ if __name__ == "__main__":
         node_to_str[k] = "".join(node_to_log_mapping[k])
 
     # print to separate files
+    dir = "/tmp" if len(sys.argv) <= 1 else sys.argv[1]
     for k in node_to_str.iterkeys():
-        f = open("/tmp/{}_out".format(k), "w")
+        f = open(dir + "/{}".format(k), "w")
         f.write(node_to_str[k])
         f.close()
 
