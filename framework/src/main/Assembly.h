@@ -54,7 +54,9 @@ public:
 		auto& graph = handle.getGraph();
 		graphLoadingProbe.stop();
 
+	    MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.start();
+
 		algorithmExecutionProbe.start();
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
 		algorithmSucceeded = algorithm.run(&graph);
