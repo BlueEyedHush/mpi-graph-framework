@@ -7,6 +7,7 @@
 
 #include <mpi.h>
 #include <glog/logging.h>
+#include <utils/Probe.h>
 #include "GraphPartition.h"
 #include "Algorithm.h"
 #include "Validator.h"
@@ -39,18 +40,37 @@ public:
 	bool validationSucceeded = false;
 
 	virtual void run() override {
+		int rank, size;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+		Probe graphLoadingProbe("GraphLoading");
+		Probe algorithmExecutionProbe("Algorithm");
+		Probe algorithmGlobalProbe("Algorithm", true);
+		Probe validationProbe("Validation");
+
+		graphLoadingProbe.start();
 		TGHandle& handle = getHandle();
 		auto& graph = handle.getGraph();
+		graphLoadingProbe.stop();
 
+	    MPI_Barrier(MPI_COMM_WORLD);
+		if (rank == 0) algorithmGlobalProbe.start();
+
+		algorithmExecutionProbe.start();
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
 		algorithmSucceeded = algorithm.run(&graph);
+		algorithmExecutionProbe.stop();
 
 		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank == 0) algorithmGlobalProbe.stop();
 
 		auto solution = algorithm.getResult();
 
+		validationProbe.start();
 		TValidator<G>& validator = getValidator(handle, algorithm);
 		validationSucceeded = validator.validate(&graph, solution);
+		validationProbe.stop();
 
 		if (!algorithmSucceeded) {
 			LOG(ERROR) << "Error occured while executing algorithm";

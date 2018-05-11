@@ -75,11 +75,17 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def framework_cli(build_type, graph_file, assembly_name):
+def framework_cli(build_type, graph_file, assembly_name, log_dir):
     paths = get_paths()
     framework_path = os.path.join(paths.build_dir(build_type), "framework")
-    cmd = mpiexec_prefix + "{} -g {} -a {}".format(framework_path, graph_file, assembly_name)
+    log_processor = "python {} {}".format(os.path.join(paths.base_dir, "log_processor.py"), log_dir)
+    cmd = mpiexec_prefix + "{} -g {} -a {} |& {}".format(
+        framework_path,
+        graph_file,
+        assembly_name,
+        log_processor)
     return cmd
+
 
 # -------------------
 # Meant for executor

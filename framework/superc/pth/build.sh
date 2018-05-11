@@ -14,12 +14,11 @@ mkdir -p $BT_SPECIFIC_DIR
 
 pushd $BT_SPECIFIC_DIR  > /dev/null
 
-cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ../
-if [ -z "$1" ]; then
-    make all
-else
-    make "$1"
+if [ "$1" = "refresh" ] || [ ! -f CMakeCache.txt ]; then
+    cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=$BUILD_TYPE ../
 fi
+
+make all
 
 popd  > /dev/null
 popd  > /dev/null
