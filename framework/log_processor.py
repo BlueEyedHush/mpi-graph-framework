@@ -38,12 +38,13 @@ def measurements_processor(node_to_log_map):
             for m in re.finditer("\[P:(.+?):(.+?):(.+?)\]", line):
                 probe_type = m.group(1).lower()
                 probe_name = m.group(2)
-                probe_value = m.group(3)
+                probe_value = int(m.group(3))
+                value_in_sec = float(probe_value)/1000000000
 
                 if probe_type == "tl":
-                    local_time_probes.append("[{}] {}: {}\n".format(node, probe_name, probe_value))
+                    local_time_probes.append("[{}] {}: {}ns ({}s)\n".format(node, probe_name, probe_value, value_in_sec))
                 elif probe_type == "tg":
-                    global_time_probes.append("{}: {}\n".format(probe_name, probe_value))
+                    global_time_probes.append("{}: {} ({}s)\n".format(probe_name, probe_value, value_in_sec))
                 else:
                     raise Exception("Unknown probe type encountered")
 
