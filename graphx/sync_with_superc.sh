@@ -13,18 +13,11 @@ fi
 PASS=`cat $DIR/pass`
 sshpass -p "$PASS" rsync -avzr \
     --exclude pass \
-    --exclude CMakeFiles/ \
-    --exclude CMakeCache.txt \
     --exclude .git/ \
     --exclude .idea/ \
-    --exclude Testing/ \
     --exclude target/ \
     --exclude .gitignore \
-    --exclude *.cbp \
-    --exclude /*.a \
-    --exclude Makefile \
-    --exclude *.cmake \
     --exclude sync_with_superc.sh \
     --exclude "$CUSTOM_EXCLUDE" \
-    "$DIR"/. plgblueeyedhush@$MACHINE:ml-graphs/framework
+    "$DIR"/. plgblueeyedhush@$MACHINE:ml-graphs/graphx
 
