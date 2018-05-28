@@ -89,16 +89,13 @@ def graphx_test_cli(log_dir):
 # -------------------
 
 def import_modules_string():
-    return "module load plgrid/apps/spark/2.0.1"
+    return ["module load plgrid/apps/spark/2.0.1"]
 
 def start_spark_cluster():
     return ["start-spark-cluster.sh"]
 
 def stop_spark_cluster():
     return ["stop-spark-cluster.sh"]
-
-def get_slurm_node_id():
-    return int(os.environ("SLURM_NODEID"))
 
 def only_on_master(cmds):
     cmd = "; ".join(cmds)
