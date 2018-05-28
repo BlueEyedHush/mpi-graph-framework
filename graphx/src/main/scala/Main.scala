@@ -13,7 +13,7 @@ object Main {
 
     println("\n### Loading graph\n")
     // Load a graph.
-    val path = "src/main/resources/edge_list_1.txt"
+    val path = "../graphs/data/powerlaw_25_2_05_876.el"
 
     println(s"\n### Loading edge list: ${path}\n")
     Source.fromFile(path).getLines().foreach(println)
