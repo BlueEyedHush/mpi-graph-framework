@@ -10,8 +10,7 @@ else
     CUSTOM_EXCLUDE="lks73892dskfja37t2299ekk"
 fi
 
-PASS=`cat $DIR/pass`
-sshpass -p "$PASS" rsync -avzr \
+rsync -avzr \
     --exclude pass \
     --exclude CMakeFiles/ \
     --exclude CMakeCache.txt \
@@ -26,5 +25,5 @@ sshpass -p "$PASS" rsync -avzr \
     --exclude *.cmake \
     --exclude sync_with_superc.sh \
     --exclude "$CUSTOM_EXCLUDE" \
-    "$DIR"/. plgblueeyedhush@$MACHINE:ml-graphs
+    "$DIR"/. plgblueeyedhush@$MACHINE:ml-graphs/framework
 
