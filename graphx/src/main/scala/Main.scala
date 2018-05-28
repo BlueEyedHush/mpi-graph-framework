@@ -11,13 +11,15 @@ object Main {
     // Suppress unnecessary logging.
     Logger.getRootLogger.setLevel(Level.ERROR)
 
-    println("\n### Loading graph\n")
-    // Load a graph.
-    val path = "../graphs/data/powerlaw_25_2_05_876.el"
+    def pwd = System.getProperty("user.dir")
+    val path = s"$pwd/../graphs/data/powerlaw_25_2_05_876.el"
 
     println(s"\n### Loading edge list: ${path}\n")
     Source.fromFile(path).getLines().foreach(println)
+    System.err.println("Edges loaded successfully")
 
+    println("\n### Loading graph\n")
+    // Load a graph.
     val g: Graph[Int, Int] = GraphLoader.edgeListFile(
       sc,
       path,
