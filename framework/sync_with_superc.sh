@@ -10,8 +10,7 @@ else
     CUSTOM_EXCLUDE="lks73892dskfja37t2299ekk"
 fi
 
-PASS=`cat $DIR/pass`
-sshpass -p "$PASS" rsync -avzr \
+rsync -avzr \
     --exclude pass \
     --exclude CMakeFiles/ \
     --exclude CMakeCache.txt \
