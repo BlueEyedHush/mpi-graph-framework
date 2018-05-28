@@ -18,7 +18,7 @@ def err(msg):
 class Paths(object):
     def __init__(self):
         self.script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        self.base_dir = os.path.abspath(os.path.join(self.script_dir, "..", ".."))
+        self.base_dir = self.script_dir
         self.log_dir = os.path.join(self.base_dir, "logs")
 
     def build_dir(self, type):
@@ -78,15 +78,9 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def framework_cli(build_type, graph_file, assembly_name, log_dir):
+def graphx_test_cli(log_dir):
     paths = get_paths()
-    framework_path = os.path.join(paths.build_dir(build_type), "framework")
-    log_processor = "python {} {}".format(os.path.join(paths.base_dir, "log_processor.py"), log_dir)
-    cmd = mpiexec_prefix + "{} -g {} -a {} |& {}".format(
-        framework_path,
-        graph_file,
-        assembly_name,
-        log_processor)
+    cmd = "spark-submit --class ClusterRunner {}/graphx-perf-comp*.jar".format(paths.base_dir)
     return cmd
 
 
