@@ -17,6 +17,7 @@ echo "Syncing files"
 pushd "$DIR" &> /dev/null
 sshpass -p "$PASS" rsync -avzr \
     target/scala-2.11/*.jar \
+    superc/**/* \
     "$LOGIN_STR":"$REMOTE_DIR"
 popd &> /dev/null
 
