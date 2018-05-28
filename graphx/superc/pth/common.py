@@ -72,8 +72,8 @@ def run_batch_string(cmds,
     " -A ccbmc6"
     " -p " + queue +
     " --output " + log_prefix + ".so"
-    " --error " + log_prefix + ".se" +
-    script + work_dir + cmds_arg_str)
+    " --error " + log_prefix + ".se"
+    " " + script + work_dir + cmds_arg_str)
 
     print cmd
     return cmd
