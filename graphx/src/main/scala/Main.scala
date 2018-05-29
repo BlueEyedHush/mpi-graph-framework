@@ -31,6 +31,8 @@ object Main {
     // Calculate centralities.
     println("\n### Bfs\n")
     val (startVertexId, _) = g.vertices.take(1)(0)
-    Bfs.run(g, startVertexId)
+    val visisted = Bfs.run(g, startVertexId)
+    require(visisted.size == g.numVertices, "all vertices must be visisted")
+    require(visisted.toSet.size == visisted.size, "all recorded visits must be unique")
   }
 }

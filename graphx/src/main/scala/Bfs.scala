@@ -1,11 +1,16 @@
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Graph, VertexId}
 
+import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 object Bfs {
-  def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Unit = {
-    val onVisit: Long => Unit = vid => println(s"visisted $vid")
+  def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): List[Long] = {
+    val visited = ListBuffer[Long]()
+    val onVisit: Long => Unit = vid => {
+      println(s"visisted $vid")
+      visited += vid
+    }
 
     graph
       .pregel(false)((vid, vdata, msg) => {
@@ -27,5 +32,7 @@ object Bfs {
         // only messages in circulation are 'visited' messages, we could OR them, but this is simple
         true
       )
+
+    visited.toList
   }
 }
