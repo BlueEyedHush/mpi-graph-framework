@@ -19,6 +19,9 @@ object Main {
     // Calculate centralities.
     println("\n### Bfs\n")
     val (startVertexId, _) = g.vertices.take(1)(0)
+    val start = System.nanoTime()
     val visisted = Bfs.run(g, startVertexId)
+    val duration = System.nanoTime() - start
+    println(s"Bfs took $duration ns")
   }
 }
