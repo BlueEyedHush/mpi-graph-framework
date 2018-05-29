@@ -25,6 +25,7 @@ rsync -avzr --prune-empty-dirs \
     --include "*/" \
     --include "*.h" \
     --include "*.hpp" \
+    --include "*.ipp" \
     --include "*.a" \
     --include "*.so" \
     --exclude "lib/**" \
