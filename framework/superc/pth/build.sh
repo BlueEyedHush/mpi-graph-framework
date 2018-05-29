@@ -2,11 +2,13 @@
 
 BUILD_TYPE=Release
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 module load plgrid/tools/cmake/3.10.2
 module load tools/impi/2018.1
 module load compilers/gcc/5.3.0
 
-pushd "$HOME"/ml-graphs/  > /dev/null
+pushd "$DIR"/../../  > /dev/null
 
 LOWERCASE_BT=`echo ${BUILD_TYPE,,}`
 BT_SPECIFIC_DIR=cmake-build-$LOWERCASE_BT
