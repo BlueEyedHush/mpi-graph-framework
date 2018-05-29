@@ -1,7 +1,9 @@
+package perftest
+
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark._
 import org.apache.spark.graphx._
 import org.apache.spark.storage.StorageLevel
-import org.apache.log4j.{Level, Logger}
 
 import scala.io.Source
 

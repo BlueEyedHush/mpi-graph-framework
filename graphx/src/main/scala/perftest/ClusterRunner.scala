@@ -1,3 +1,5 @@
+package perftest
+
 import org.apache.spark.{SparkConf, SparkContext}
 
 object ClusterRunner {
