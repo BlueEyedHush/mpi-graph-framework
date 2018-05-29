@@ -12,7 +12,7 @@ object Main {
     Logger.getRootLogger.setLevel(Level.ERROR)
 
     def pwd = System.getProperty("user.dir")
-    val path = s"$pwd/../graphs/data/powerlaw_25_2_05_876.el"
+    val path = s"$pwd/../graphs/data/powerlaw_25_2_05_876.elt"
 
     println(s"\n### Loading edge list: ${path}\n")
     Source.fromFile(path).getLines().foreach(println)
@@ -20,6 +20,7 @@ object Main {
 
     println("\n### Loading graph\n")
     // Load a graph.
+
     val g: Graph[Boolean, Int] = GraphLoader.edgeListFile(
       sc,
       path,
