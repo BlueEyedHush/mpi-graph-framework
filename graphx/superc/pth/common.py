@@ -80,7 +80,7 @@ def run_batch_string(cmds,
 
 def graphx_test_cli(log_dir):
     paths = get_paths()
-    cmd = "spark-submit ClusterRunner {}/graphx-perf-comp*.jar".format(paths.base_dir)
+    cmd = "spark-submit perftest.ClusterRunner {}/graphx-perf-comp*.jar".format(paths.base_dir)
     return cmd
 
 
