@@ -19,7 +19,7 @@ object Bfs {
           true
         }
       }, triplet => {
-        if (triplet.srcAttr) Iterator.single((triplet.dstId, true))
+        if (triplet.srcAttr && !triplet.dstAttr) Iterator.single((triplet.dstId, true))
         else Iterator.empty
       }, (m1, m2) =>
         // only messages in circulation are 'visited' messages, we could OR them, but this is simple
