@@ -7,12 +7,10 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
 object Bfs {
-  def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): List[Long] = {
+  def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Graph[Boolean, ED] = {
     val visited = ListBuffer[Long]()
-    val onVisit: Long => Unit = vid => {
-      println(s"visisted $vid")
-      visited += vid
-    }
+    val onVisit: Long => Unit =
+      vid => println(s"visisted $vid")
 
     graph
       .pregel(false)((vid, vdata, msg) => {
@@ -34,7 +32,5 @@ object Bfs {
         // only messages in circulation are 'visited' messages, we could OR them, but this is simple
         true
       )
-
-    visited.toList
   }
 }
