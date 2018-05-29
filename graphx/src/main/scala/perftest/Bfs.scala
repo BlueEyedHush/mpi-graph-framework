@@ -10,7 +10,7 @@ object Bfs {
   def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Graph[Boolean, ED] = {
     val visited = ListBuffer[Long]()
     val onVisit: Long => Unit =
-      vid => println(s"visisted $vid")
+      vid => ()
 
     graph
       .pregel(false)((vid, vdata, msg) => {
