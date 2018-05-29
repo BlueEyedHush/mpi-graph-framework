@@ -1,8 +1,10 @@
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Graph, VertexId}
 
+import scala.reflect.ClassTag
+
 object Bfs {
-  def run[ED](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Unit = {
+  def run[ED: ClassTag](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Unit = {
     val onVisit: Long => Unit = vid => println(s"visisted $vid")
 
     graph
