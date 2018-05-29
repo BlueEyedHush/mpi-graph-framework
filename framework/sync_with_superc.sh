@@ -27,7 +27,7 @@ rsync -avzr --prune-empty-dirs \
     --include "*.hpp" \
     --include "*.ipp" \
     --include "*.a" \
-    --include "*.so" \
+    --include "*.so*" \
     --exclude "lib/**" \
     --exclude pass \
     --exclude CMakeCache.txt \
