@@ -3,7 +3,7 @@ import org.apache.spark.graphx.{Graph, VertexId}
 
 object Bfs {
   def run[ED](graph: Graph[Boolean, ED], start: VertexId)(implicit sc: SparkContext): Unit = {
-    val onVisit: Long => Unit = vid => println(s"visisted $onVisit")
+    val onVisit: Long => Unit = vid => println(s"visisted $vid")
 
     graph
       .pregel(false)((vid, vdata, msg) => {

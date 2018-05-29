@@ -20,19 +20,16 @@ object Main {
 
     println("\n### Loading graph\n")
     // Load a graph.
-    val g: Graph[Int, Int] = GraphLoader.edgeListFile(
+    val g: Graph[Boolean, Int] = GraphLoader.edgeListFile(
       sc,
       path,
       edgeStorageLevel = StorageLevel.MEMORY_AND_DISK,
       vertexStorageLevel = StorageLevel.MEMORY_AND_DISK
-    )
+    ).mapVertices((vid, _) => false)
 
     // Calculate centralities.
-    println("\n### Degree centrality\n")
-    g.degrees.sortByKey().collect().foreach { case (n, v) => println(s"Node: ${n} -> Degree: ${v}") }
-
-    println("\n### Betweenness centrality\n")
-    val h: Graph[Double, Int] = Betweenness.run(g)
-    h.vertices.sortByKey().collect().foreach { case (n, v) => println(s"Node: ${n} -> Betweenness: ${v}") }
+    println("\n### Bfs\n")
+    val (startVertexId, _) = g.vertices.take(1)(0)
+    Bfs.run(g, startVertexId)
   }
 }
