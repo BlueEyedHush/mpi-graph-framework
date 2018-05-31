@@ -31,24 +31,30 @@ object Colouring {
     graph
       .mapVertices((_, vdata) => VertexData(originalData = vdata))
       .pregel[Message](Dummy)((vid, vdata, msg) => {
+      
+      var nvdata = vdata
+      
       msg match {
         case NeighbourIdAdvertisment(idsSet) =>
           val (higherIdCount, lowerIdSet) = idsSet
             .map(nVid => if (nVid > vid) (1, Set.empty) else (0, Set(nVid)))
             .reduce((a,b) => (a,b) match { case ((c1, s1), (c2, s2)) => (c1 + c2, s1 ++ s2) })
 
-          vdata.copy(
-            iAmWaitingFor = vdata.iAmWaitingFor + higherIdCount,
-            waitingForMe = vdata.waitingForMe ++ lowerIdSet
+          nvdata.copy(
+            iAmWaitingFor = nvdata.iAmWaitingFor + higherIdCount,
+            waitingForMe = nvdata.waitingForMe ++ lowerIdSet,
+            idAdvSent = true /* since we received IdAdv it must be 2nd superstep, so we know that we sent
+            ours even without confirmation only guys who didn't receive message (are not connected to anything)
+            will have idAdvSent false, but it doesn't really matter */
           )
 
         case NeighbourChoseColour(colourSet) =>
-          val stillWaitingFor = vdata.iAmWaitingFor - colourSet.size
+          val stillWaitingFor = nvdata.iAmWaitingFor - colourSet.size
 
           val newChosenColour =
             if (stillWaitingFor == 0) {
               var colour: Int = 0
-              val usedUpColoursIt = vdata.coloursAlreadyUsedUp.toSeq.sorted.iterator
+              val usedUpColoursIt = nvdata.coloursAlreadyUsedUp.toSeq.sorted.iterator
               while (usedUpColoursIt.hasNext && colour == usedUpColoursIt.next())
                 colour += 1
 
@@ -56,15 +62,15 @@ object Colouring {
             } else
               None
 
-          vdata.copy(
-            coloursAlreadyUsedUp = vdata.coloursAlreadyUsedUp ++ colourSet,
+          nvdata.copy(
+            coloursAlreadyUsedUp = nvdata.coloursAlreadyUsedUp ++ colourSet,
             colour = newChosenColour
           )
 
         case ColourPropagated =>
-          vdata.copy(colourPropagatedToNeighbours = true)
+          nvdata.copy(colourPropagatedToNeighbours = true)
 
-        case Dummy => vdata
+        case Dummy => nvdata
       }
 
     }, triplet => {
@@ -88,6 +94,10 @@ object Colouring {
       case (NeighbourChoseColour(s1), NeighbourChoseColour(s2)) => NeighbourChoseColour(s1 ++ s2)
       case (ColourPropagated, ColourPropagated) => ColourPropagated
       case (m1, m2) => throw new RuntimeException(s"received unexpected combination of messages:\n M1: $m1\n M2: $m2")
+    }).mapVertices((id, vdata) => vdata.colour match {
+      /* this is to set colour of unconnected vertices */
+      case None => vdata.copy(colour = Some(0))
+      case _ => vdata
     })
   }
 

@@ -8,8 +8,11 @@ class ColouringTest extends FunSpec {
       it("should not use same colour for neighbours") {
         TestUtils.withTestContext(implicit sc => {
           val g = Utils.loadGraphFromStdDirectory("powerlaw_25_2_05_876")
-          Colouring.run(g).triplets.foreach(t =>
-            assert(t.srcAttr.colour != t.dstAttr.colour, "neighbouring vertices must be coloured differently"))
+          Colouring.run(g)
+            .triplets
+            .collect()
+            .foreach(t =>
+              assert(t.srcAttr.colour != t.dstAttr.colour, "neighbouring vertices must be coloured differently"))
         })
       }
     }
