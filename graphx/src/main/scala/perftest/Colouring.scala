@@ -17,6 +17,7 @@ object Colouring {
                             iAmWaitingFor: Long = 0,
                             waitingForMe: Set[VertexId] = Set.empty,
                             coloursAlreadyUsedUp: Set[Int] = Set.empty,
+                            colouringPhaseStartedSent: Boolean = false,
                             colour: Option[Int] = None,
                             colourPropagatedToNeighbours: Boolean = false,
                             originalData: VD)
@@ -26,6 +27,7 @@ object Colouring {
   case class NeighbourChoseColour(colours: Set[Int]) extends Message
   case object ColourPropagated extends Message
   case object Dummy extends Message
+  case object ColouringPhaseStarted extends Message
 
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED])(implicit sc: SparkContext): Graph[VertexData[VD], ED] = {
     graph
@@ -64,8 +66,16 @@ object Colouring {
 
           nvdata.copy(
             coloursAlreadyUsedUp = nvdata.coloursAlreadyUsedUp ++ colourSet,
-            colour = newChosenColour
+            colour = newChosenColour,
+            iAmWaitingFor = stillWaitingFor
           )
+
+        case ColouringPhaseStarted =>
+          if (nvdata.iAmWaitingFor == 0)
+            /* we don't need to wait for anybody, so we pick smallest colour - 0 */
+            nvdata.copy(colour = Some(0), colouringPhaseStartedSent = true)
+          else
+            nvdata.copy(colouringPhaseStartedSent = true) // todo: guys that don't choose colour won't stop sending ColouringPhaseStarted
 
         case ColourPropagated =>
           nvdata.copy(colourPropagatedToNeighbours = true)
@@ -75,9 +85,12 @@ object Colouring {
 
     }, triplet => {
       triplet.srcAttr match {
-        case VertexData(false, _, _, _, _, _, _) =>
+        case VertexData(false, _, _, _, _, _, _, _) =>
           Iterator.single((triplet.dstId, NeighbourIdAdvertisment(Set(triplet.srcId))))
-        case VertexData(true, _, _, _, Some(colour), false, _) =>
+        case VertexData(true, _, _, _, false, None, false, _) =>
+          /* sent after all ids has been adversited to jog vertices which don't have to wait to choose colour */
+          Iterator.single((triplet.dstId, ColouringPhaseStarted))
+        case VertexData(true, _, _, _, _, Some(colour), false, _) =>
           /* we need to send message to target vertex, but also to src vertex,
              so that src vertex can update colourPropagatedToNeighbours flag
              (vertex program is only executed if there is any message incoming)
@@ -93,9 +106,10 @@ object Colouring {
       case (NeighbourIdAdvertisment(s1), NeighbourIdAdvertisment(s2)) => NeighbourIdAdvertisment(s1 ++ s2)
       case (NeighbourChoseColour(s1), NeighbourChoseColour(s2)) => NeighbourChoseColour(s1 ++ s2)
       case (ColourPropagated, ColourPropagated) => ColourPropagated
+      case (ColouringPhaseStarted, ColouringPhaseStarted) => ColouringPhaseStarted
       case (m1, m2) => throw new RuntimeException(s"received unexpected combination of messages:\n M1: $m1\n M2: $m2")
     }).mapVertices((id, vdata) => vdata.colour match {
-      /* this is to set colour of unconnected vertices */
+      /* this is to set colour of unconnected vertices, for which there is no triplet */
       case None => vdata.copy(colour = Some(0))
       case _ => vdata
     })
