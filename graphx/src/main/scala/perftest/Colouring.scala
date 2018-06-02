@@ -10,6 +10,8 @@ import scala.reflect.ClassTag
   * This implementation assumes, that we deal with undirected graph
   * Since in GraphX all edges are directed, each "undirected" edge must
   * be represented as two directed edges
+  *
+  * Doesn't support loops
   */
 object Colouring {
 
@@ -90,14 +92,19 @@ object Colouring {
         case VertexData(true, _, _, _, false, None, false, _) =>
           /* sent after all ids has been adversited to jog vertices which don't have to wait to choose colour */
           Iterator.single((triplet.dstId, ColouringPhaseStarted))
-        case VertexData(true, _, _, _, _, Some(colour), false, _) =>
+        case VertexData(true, _, waitingForMe, _, _, Some(colour), false, _) =>
           /* we need to send message to target vertex, but also to src vertex,
              so that src vertex can update colourPropagatedToNeighbours flag
              (vertex program is only executed if there is any message incoming)
           */
-          val toDest = (triplet.dstId, NeighbourChoseColour(Set(colour)))
           val toSrc = (triplet.srcId, ColourPropagated)
-          Iterator(toDest, toSrc)
+
+          if (waitingForMe.contains(triplet.dstId)) {
+            val toDest = (triplet.dstId, NeighbourChoseColour(Set(colour)))
+            Iterator(toDest, toSrc)
+          } else
+            Iterator.single(toSrc)
+
         case _ =>
           Iterator.empty
       }
