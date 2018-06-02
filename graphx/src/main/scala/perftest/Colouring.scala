@@ -26,7 +26,7 @@ object Colouring {
 
   trait Message
   case class NeighbourIdAdvertisment(id: Set[VertexId]) extends Message
-  case class NeighbourChoseColour(colours: Set[Int]) extends Message
+  case class NeighbourChoseColour(colours: List[Int]) extends Message
   case object ColourPropagated extends Message
   case object Dummy extends Message
   case object ColouringPhaseStarted extends Message
@@ -100,7 +100,7 @@ object Colouring {
           val toSrc = (triplet.srcId, ColourPropagated)
 
           if (waitingForMe.contains(triplet.dstId)) {
-            val toDest = (triplet.dstId, NeighbourChoseColour(Set(colour)))
+            val toDest = (triplet.dstId, NeighbourChoseColour(List(colour)))
             Iterator(toDest, toSrc)
           } else
             Iterator.single(toSrc)
