@@ -41,6 +41,7 @@ object Colouring {
       msg match {
         case NeighbourIdAdvertisment(idsSet) =>
           val (higherIdCount, lowerIdSet) = idsSet
+            .toArray /* otherwise duplicate elements won't be allowed */
             .map(nVid => if (nVid > vid) (1, Set.empty) else (0, Set(nVid)))
             .reduce((a,b) => (a,b) match { case ((c1, s1), (c2, s2)) => (c1 + c2, s1 ++ s2) })
 
@@ -54,11 +55,12 @@ object Colouring {
 
         case NeighbourChoseColour(colourSet) =>
           val stillWaitingFor = nvdata.iAmWaitingFor - colourSet.size
+          val prohibitedColours = nvdata.coloursAlreadyUsedUp ++ colourSet
 
           val newChosenColour =
             if (stillWaitingFor == 0) {
               var colour: Int = 0
-              val usedUpColoursIt = nvdata.coloursAlreadyUsedUp.toSeq.sorted.iterator
+              val usedUpColoursIt = prohibitedColours.toSeq.sorted.iterator
               while (usedUpColoursIt.hasNext && colour == usedUpColoursIt.next())
                 colour += 1
 
@@ -67,7 +69,7 @@ object Colouring {
               None
 
           nvdata.copy(
-            coloursAlreadyUsedUp = nvdata.coloursAlreadyUsedUp ++ colourSet,
+            coloursAlreadyUsedUp = prohibitedColours,
             colour = newChosenColour,
             iAmWaitingFor = stillWaitingFor
           )
