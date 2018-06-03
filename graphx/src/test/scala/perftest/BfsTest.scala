@@ -8,17 +8,14 @@ class BfsTest extends FunSpec {
     describe("Bfs") {
         describe("on powerlaw graph") {
             it("should visit all vertices") {
-                implicit val sc = new SparkContext(new SparkConf().setAppName("example-graphx").setMaster("local[2]"))
+                TestUtils.withTestContext(implicit sc => {
+                  val g = Utils.loadGraphFromStdDirectory("powerlaw_25_2_05_876").mapVertices((vid, _) => false)
+                  val (startVertexId, _) = g.vertices.take(1)(0)
+                  val vertexData = Bfs.run(g, startVertexId).vertices.map({ case (vid, visited) => visited })
 
-                try {
-                    val g = Utils.loadGraphFromStdDirectory("powerlaw_25_2_05_876").mapVertices((vid, _) => false)
-                    val (startVertexId, _) = g.vertices.take(1)(0)
-                    val vertexData = Bfs.run(g, startVertexId).vertices.map({ case (vid, visited) => visited })
-
-                    assert(vertexData.count() === g.numVertices, "(all vertices must be visisted)")
-                    assert(vertexData.reduce((a,b) => a && b), "(all recorded visits must be unique)")
-
-                } finally sc.stop()
+                  assert(vertexData.count() === g.numVertices, "(all vertices must be visisted)")
+                  assert(vertexData.reduce((a,b) => a && b), "(all recorded visits must be unique)")
+                })
             }
         }
     }
