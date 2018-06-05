@@ -11,3 +11,5 @@ libraryDependencies ++= Seq(
 )
 
 fork in run := true
+parallelExecution in Test := false // each test creates its own SparkContext and they conflict during parallel exec
+test in assembly := {} // don't run tests when building fat jar

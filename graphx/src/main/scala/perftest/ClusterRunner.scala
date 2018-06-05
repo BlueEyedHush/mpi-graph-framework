@@ -7,7 +7,9 @@ object ClusterRunner {
     val sparkConf = new SparkConf().setAppName("example-graphx")
     implicit val sc = new SparkContext(sparkConf)
 
-    Main.run(sc)
+    val cliArgs = CliParser.parseCli(args.toList)
+
+    Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath)
 
     sc.stop()
   }
