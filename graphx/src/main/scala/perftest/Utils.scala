@@ -3,6 +3,7 @@ package perftest
 import org.apache.spark.SparkContext
 import org.apache.spark.graphx.{Graph, GraphLoader}
 import org.apache.spark.storage.StorageLevel
+import perftest.Main.Algorithm
 
 object Utils {
   def stdGraphNameToPath(filename: String): String = {
@@ -23,5 +24,28 @@ object Utils {
       edgeStorageLevel = StorageLevel.MEMORY_AND_DISK,
       vertexStorageLevel = StorageLevel.MEMORY_AND_DISK
     )
+  }
+}
+
+object CliParser {
+  case class CliArguments(algorithm: Algorithm.Value = Algorithm.Bfs,
+                          iterations: Int = 1,
+                          graphPath: String = "../graphs/data/SimpleTestgraph.elt")
+
+  def parseCli(args: List[String], partiallyParsed: CliArguments): CliArguments = {
+    args match {
+      case Nil => partiallyParsed
+      case "-g" :: graphPath :: tail =>
+        parseCli(tail, partiallyParsed.copy(graphPath = graphPath))
+      case "-i" :: iterations :: tail =>
+        parseCli(tail, partiallyParsed.copy(iterations = iterations.toInt))
+      case "-a" :: algorithm :: tail =>
+        val a = algorithm.toLowerCase() match {
+          case "bfs" => Algorithm.Bfs
+          case "colouring" => Algorithm.Colouring
+        }
+
+        parseCli(tail, partiallyParsed.copy(algorithm = a))
+    }
   }
 }
