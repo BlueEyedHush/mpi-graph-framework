@@ -32,20 +32,22 @@ object CliParser {
                           iterations: Int = 1,
                           graphPath: String = "../graphs/data/SimpleTestgraph.elt")
 
-  def parseCli(args: List[String], partiallyParsed: CliArguments): CliArguments = {
+  def parseCli(args: List[String]): CliArguments = parseCliR(args, CliArguments())
+
+  private def parseCliR(args: List[String], partiallyParsed: CliArguments): CliArguments = {
     args match {
       case Nil => partiallyParsed
       case "-g" :: graphPath :: tail =>
-        parseCli(tail, partiallyParsed.copy(graphPath = graphPath))
+        parseCliR(tail, partiallyParsed.copy(graphPath = graphPath))
       case "-i" :: iterations :: tail =>
-        parseCli(tail, partiallyParsed.copy(iterations = iterations.toInt))
+        parseCliR(tail, partiallyParsed.copy(iterations = iterations.toInt))
       case "-a" :: algorithm :: tail =>
         val a = algorithm.toLowerCase() match {
           case "bfs" => Algorithm.Bfs
           case "colouring" => Algorithm.Colouring
         }
 
-        parseCli(tail, partiallyParsed.copy(algorithm = a))
+        parseCliR(tail, partiallyParsed.copy(algorithm = a))
     }
   }
 }
