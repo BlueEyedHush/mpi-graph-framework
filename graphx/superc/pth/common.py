@@ -78,9 +78,17 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def graphx_test_cli(log_dir):
+def graphx_test_cli(graph=None, algo=None, iterations=None):
+    cli_args = ""
+    if graph is not None:
+        cli_args += " -g " + graph
+    if algo is not None:
+        cli_args += " -a " + algo
+    if iterations is not None:
+        cli_args += " -i {}".format(iterations)
+
     paths = get_paths()
-    cmd = "spark-submit perftest.ClusterRunner {}/graphx-perf-comp*.jar".format(paths.base_dir)
+    cmd = "spark-submit perftest.ClusterRunner \"{}/graphx-perf-comp*.jar {}\"".format(paths.base_dir, cli_args)
     return cmd
 
 
