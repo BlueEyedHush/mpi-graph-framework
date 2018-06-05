@@ -88,7 +88,7 @@ def graphx_test_cli(graph=None, algo=None, iterations=None):
         cli_args += " -i {}".format(iterations)
 
     paths = get_paths()
-    cmd = "spark-submit perftest.ClusterRunner \"{}/graphx-perf-comp*.jar {}\"".format(paths.base_dir, cli_args)
+    cmd = "spark-submit perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar' {}'".format(paths.base_dir, cli_args)
     return cmd
 
 
