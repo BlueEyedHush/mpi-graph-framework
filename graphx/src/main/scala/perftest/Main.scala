@@ -3,9 +3,6 @@ package perftest
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark._
 import org.apache.spark.graphx._
-import org.apache.spark.storage.StorageLevel
-
-import scala.io.Source
 
 object Main {
   object Algorithm extends Enumeration {
@@ -14,11 +11,11 @@ object Main {
   }
 
   // Start Spark.
-  def run(algo: Algorithm.Value, iterationCount: Int)(implicit sc: SparkContext) = {
-    // Suppress unnecessary logging.
+  def run(algo: Algorithm.Value, iterationCount: Int, relativeGraphPath: String)(implicit sc: SparkContext) = {
+    // Suppress unnecessary logging
     Logger.getRootLogger.setLevel(Level.ERROR)
 
-    val g: Graph[Int, Int] = Utils.loadGraphFromStdDirectory("powerlaw_25_2_05_876")
+    val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath))
 
     // Calculate centralities.
 

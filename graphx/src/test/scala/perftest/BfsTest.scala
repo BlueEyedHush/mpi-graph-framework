@@ -9,7 +9,9 @@ class BfsTest extends FunSpec {
         describe("on powerlaw graph") {
             it("should visit all vertices") {
                 TestUtils.withTestContext(implicit sc => {
-                  val g = Utils.loadGraphFromStdDirectory("powerlaw_25_2_05_876").mapVertices((vid, _) => false)
+                  val g = Utils
+                    .loadGraph(Utils.stdGraphNameToPath("powerlaw_25_2_05_876"))
+                    .mapVertices((vid, _) => false)
                   val (startVertexId, _) = g.vertices.take(1)(0)
                   val vertexData = Bfs.run(g, startVertexId).vertices.map({ case (vid, visited) => visited })
 
