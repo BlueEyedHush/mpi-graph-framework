@@ -138,16 +138,15 @@ using V_BFS = BfsValidator<TestGP>;
 using V_COLOUR = ColouringValidator<TestGP>;
 
 template <typename TValidator>
-void callEachValidatorFunctions(TValidator& algo) {
+void callEachValidatorFunctions(TValidator* algo) {
 	auto G = TestGP();
 	using R = typename TValidator::ResultType;
 	auto result = *uglyInstantiation<R>();
-	algo.validate(&G, result);
+	algo->validate(&G, result);
 }
 
 void testValidators() {
-	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
-	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
-	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
-	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
+	auto bfsRoot = TGVID();
+	callEachValidatorFunctions(new V_BFS(bfsRoot));
+	callEachValidatorFunctions(new V_COLOUR());
 }
