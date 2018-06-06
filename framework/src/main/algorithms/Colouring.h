@@ -5,6 +5,7 @@
 #ifndef FRAMEWORK_COLOURING_H
 #define FRAMEWORK_COLOURING_H
 
+#include <cstddef>
 #include <mpi.h>
 #include <Algorithm.h>
 
