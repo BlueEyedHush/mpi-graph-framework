@@ -109,18 +109,20 @@ using COLOUR_MP = GraphColouringMp<TestGP>;
 using COLOUR_MP_ASYNC = GraphColouringMPAsync<TestGP>;
 
 
-template <typename TAlgo> void callEachAlgoFunctions(TAlgo& algo) {
+template <typename TAlgo> void callEachAlgoFunctions(TAlgo* algo) {
 	auto G = TestGP();
-	algo.run(&G);
-	algo.getResult();
+	algo->run(&G);
+	algo->getResult();
 }
 
 void testAlgorithms() {
-	callEachAlgoFunctions(*uglyInstantiation<BFS_VM>());
-	callEachAlgoFunctions(*uglyInstantiation<BFS_FM>());
-	callEachAlgoFunctions(*uglyInstantiation<BFS_1C>());
-	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP>());
-	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP_ASYNC>());
+	auto bfsRoot = TGVID();
+	callEachAlgoFunctions(new BFS_VM(bfsRoot));
+	callEachAlgoFunctions(new BFS_FM(bfsRoot));
+	callEachAlgoFunctions(new BFS_1C(bfsRoot));
+
+	callEachAlgoFunctions(new COLOUR_MP());
+	callEachAlgoFunctions(new COLOUR_MP_ASYNC());
 }
 
 /*
