@@ -111,7 +111,7 @@ using COLOUR_MP_ASYNC = GraphColouringMPAsync<TestGP>;
 
 template <typename TAlgo> void callEachAlgoFunctions(TAlgo* algo) {
 	auto G = TestGP();
-	algo->run(&G);
+	algo->run(&G, AAuxiliaryParams());
 	algo->getResult();
 }
 

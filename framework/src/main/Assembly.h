@@ -58,9 +58,12 @@ public:
 	    MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.start();
 
+		AAuxiliaryParams aaParams;
+		aaParams.config = config;
+
 		algorithmExecutionProbe.start();
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
-		algorithmSucceeded = algorithm.run(&graph);
+		algorithmSucceeded = algorithm.run(&graph, aaParams);
 		algorithmExecutionProbe.stop();
 
 		MPI_Barrier(MPI_COMM_WORLD);

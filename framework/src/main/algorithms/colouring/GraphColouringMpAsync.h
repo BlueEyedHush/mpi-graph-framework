@@ -191,7 +191,7 @@ private:
 	IMPORT_ALIASES(TGraphPartition)
 
 public:
-	bool run(TGraphPartition *g) {
+	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		using namespace details;
 
 		int nodeId;

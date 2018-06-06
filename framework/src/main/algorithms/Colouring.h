@@ -44,7 +44,7 @@ class GraphColouring : public Algorithm<VertexColour*, TGraphPartition> {
 public:
 	GraphColouring() : finalColouring(nullptr) {}
 
-	virtual bool run(TGraphPartition *g) = 0;
+	virtual bool run(TGraphPartition *g, AAuxiliaryParams aParams) = 0;
 	/**
 	 *  This method should only return part of the result that is local to the node
 	 *  If the result is represented by array with 1:1 vertex-result mapping, it should allocate

@@ -18,7 +18,7 @@ public:
 
 	Bfs_Mp_FixedMsgLen_1D_2CommRounds(const GlobalId _bfsRoot) : Bfs<TGraphPartition>(_bfsRoot) {};
 
-	bool run(TGraphPartition *g) { //@todo signature!
+	bool run(TGraphPartition *g, AAuxiliaryParams aParams) { //@todo signature!
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;

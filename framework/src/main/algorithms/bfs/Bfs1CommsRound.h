@@ -19,7 +19,7 @@ public:
 
 	Bfs_Mp_VarMsgLen_1D_1CommsTag(const GlobalId _bfsRoot) : Bfs<TGraphPartition>(_bfsRoot) {};
 	~Bfs_Mp_VarMsgLen_1D_1CommsTag() {};
-	bool run(TGraphPartition *g) {
+	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;
