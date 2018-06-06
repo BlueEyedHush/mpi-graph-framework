@@ -10,6 +10,11 @@
 #include <type_traits>
 #include <Prerequisites.h>
 #include "GraphPartition.h"
+#include "Config.h"
+
+struct GBAuxiliaryParams {
+	ConfigMap configMap = ConfigMap();
+};
 
 /**
  * Responsible for buildling graph and ensuring, that only one instance is ever constructed (and can be resued between
@@ -63,10 +68,17 @@ protected:
 	 * partially destructed object /since child destructors has already been executed/). This means that destroyer
 	 * should not use handler object - static function'd be best.
 	 */
-	GraphPartitionHandle(std::vector<OriginalVertexId> verticesToConvert, GraphDestroyer destroyer)
-			: verticesToConvert(verticesToConvert), initialized(false), graph(nullptr), destroyer(destroyer) {};
+	GraphPartitionHandle(std::vector<OriginalVertexId> verticesToConvert,
+	                     GraphDestroyer destroyer,
+	                     GBAuxiliaryParams aParams = GBAuxiliaryParams())
+			: verticesToConvert(verticesToConvert),
+			  initialized(false),
+			  graph(nullptr),
+			  destroyer(destroyer),
+			  aParams(aParams) {};
 
-	virtual std::pair<TGraphPartition*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert) = 0;
+	virtual std::pair<TGraphPartition*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert,
+	                                                                      GBAuxiliaryParams aParams) = 0;
 
 private:
 	const std::vector<OriginalVertexId> verticesToConvert;
@@ -74,9 +86,10 @@ private:
 	TGraphPartition* graph;
 	std::vector<GlobalId> convertedVertices;
 	GraphDestroyer destroyer;
+	GBAuxiliaryParams aParams;
 
 	void initialize() {
-		std::tie(graph, convertedVertices) = buildGraph(verticesToConvert);
+		std::tie(graph, convertedVertices) = buildGraph(verticesToConvert, aParams);
 		initialized = true;
 	}
 };

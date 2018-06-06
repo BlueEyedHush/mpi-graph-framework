@@ -183,7 +183,7 @@ public:
 	};
 
 private:
-	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert) {
+	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert, GBAuxiliaryParams) {
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
 		using namespace details;

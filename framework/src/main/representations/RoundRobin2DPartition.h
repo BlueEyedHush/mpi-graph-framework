@@ -1024,7 +1024,7 @@ public:
 
 protected:
 	virtual std::pair<G*, std::vector<GlobalId>>
-	buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
+	buildGraph(std::vector<OriginalVertexId> verticesToConvert, GBAuxiliaryParams) override {
 		using namespace details::RR2D;
 
 		int nodeCount, nodeId;
