@@ -44,7 +44,7 @@ void callEachGhFunction(TGraphBuilder* builder) {
 }
 
 template <typename TGraphPartition>
-void callEachGpFunction(TGraphPartition& gp) {
+void callEachGpFunction(TGraphPartition* gp) {
 	IMPORT_ALIASES(TGraphPartition)
 
 	GlobalId globalId;
@@ -55,32 +55,34 @@ void callEachGpFunction(TGraphPartition& gp) {
 	auto globalIdconsumer = [](const GlobalId) {return ITER_PROGRESS::STOP;};
 	auto localAndGlobalIdConsumer = [](const LocalId, const GlobalId) {return ITER_PROGRESS::STOP;};
 
-	gp.getGlobalVertexIdDatatype();
-	gp.toLocalId(globalId, &vtype);
-	gp.toMasterNodeId(globalId);
-	gp.toGlobalId(localId);
-	gp.toNumeric(globalId);
-	gp.toNumeric(localId);
-	gp.idToString(globalId);
-	gp.idToString(localId);
-	gp.isSame(globalId, globalId);
-	gp.isValid(globalId);
-	gp.foreachMasterVertex(localIdconsumer);
-	gp.masterVerticesCount();
-	gp.masterVerticesMaxCount();
-	gp.foreachCoOwner(localId, true, nodeIdConsumer);
-	gp.foreachNeighbouringVertex(localId, globalIdconsumer);
-	gp.foreachShadowVertex(localAndGlobalIdConsumer);
-	gp.shadowVerticesCount();
+	gp->getGlobalVertexIdDatatype();
+	gp->toLocalId(globalId, &vtype);
+	gp->toMasterNodeId(globalId);
+	gp->toGlobalId(localId);
+	gp->toNumeric(globalId);
+	gp->toNumeric(localId);
+	gp->idToString(globalId);
+	gp->idToString(localId);
+	gp->isSame(globalId, globalId);
+	gp->isValid(globalId);
+	gp->foreachMasterVertex(localIdconsumer);
+	gp->masterVerticesCount();
+	gp->masterVerticesMaxCount();
+	gp->foreachCoOwner(localId, true, nodeIdConsumer);
+	gp->foreachNeighbouringVertex(localId, globalIdconsumer);
+	gp->foreachShadowVertex(localAndGlobalIdConsumer);
+	gp->shadowVerticesCount();
 }
 
 void testBuildersAndGraphs() {
-	callEachGpFunction(*uglyInstantiation<ABCP_GP>());
-	callEachGpFunction(*uglyInstantiation<ABCP_GP_U>());
-	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
-	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
-	callEachGpFunction(*uglyInstantiation<RR2D_GP>());
-	callEachGpFunction(*uglyInstantiation<RR2D_GP_U>());
+	auto* adjList = new std::vector<TGVID>();
+	callEachGpFunction(new ABCP_GP(new std::vector<ABCP_GP::GidType>(), 0, 0, 0, 0, 0, 0));
+	callEachGpFunction(new ABCP_GP_U(new std::vector<ABCP_GP_U::GidType>(), 0, 0, 0, 0, 0, 0));
+	callEachGpFunction(new ALHP_GP(details::GraphData<int, ALHP_GP::GidType>()));
+	callEachGpFunction(new ALHP_GP_U(details::GraphData<size_t, ALHP_GP_U::GidType>()));
+	details::RR2D::MpiTypes mtypes;
+	callEachGpFunction(new RR2D_GP(new details::RR2D::GraphData<int, int>(0, 0, 0, 0, 0, 0, 0, mtypes)));
+	callEachGpFunction(new RR2D_GP_U(new details::RR2D::GraphData<size_t, size_t>(0, 0, 0, 0, 0, 0, 0, mtypes)));
 
 	auto vToConv = std::vector<OriginalVertexId>();
 	callEachGhFunction(new ABCP_GB("", 0, 0, vToConv));

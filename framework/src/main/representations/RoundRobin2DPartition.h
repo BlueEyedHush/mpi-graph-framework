@@ -779,9 +779,9 @@ class RoundRobin2DPartition : public GraphPartition<RR2DGlobalId<TLocalId>, TLoc
 	using P = GraphPartition<RR2DGlobalId<TLocalId>, TLocalId, TNumId>;
 	IMPORT_ALIASES(P)
 
+public:
 	RoundRobin2DPartition(details::RR2D::GraphData<LocalId, NumericId> *graphData) : graphData(graphData) {}
 
-public:
 	MPI_Datatype getGlobalVertexIdDatatype() { return graphData->globalIdDt; }
 
 	LocalId toLocalId(const GlobalId gid, VERTEX_TYPE* vtype = nullptr) {
