@@ -5,7 +5,7 @@
 #include <boost/program_options/variables_map.hpp>
 #include "Executor.h"
 
-Executor::Executor(std::function<void(Assembly*)> ac) : assemblyCleaner(ac) {
+Executor::Executor(ConfigMap config, std::function<void(Assembly*)> ac) : configuration(config), assemblyCleaner(ac) {
 	MPI_Init(NULL, NULL);
 
 	int currentNodeId;
@@ -31,7 +31,7 @@ bool Executor::executeAssembly(const std::string key) {
 	if (assemblies.find(key) != assemblies.end()) {
 		LOG(INFO) << "Executing assembly: " << key;
 		auto* assembly = assemblies.at(key);
-		assembly->run();
+		assembly->run(configuration);
 		return true;
 	} else {
 		return false;
