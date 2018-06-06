@@ -10,11 +10,13 @@
 #include <functional>
 #include "Assembly.h"
 
+using AssemblyCleaner = std::function<void(Assembly*)>;
+
 class Executor {
 	static void defaultCleaner(Assembly* assembly) {delete assembly;}
 
 public:
-	Executor(std::function<void(Assembly*)> assemblyCleaner = defaultCleaner);
+	Executor(AssemblyCleaner assemblyCleaner = defaultCleaner);
 	~Executor();
 
 	/**
@@ -27,6 +29,7 @@ public:
 	bool executeAssembly(const std::string key);
 private:
 	std::unordered_map<std::string, Assembly*> assemblies;
+	AssemblyCleaner assemblyCleaner;
 };
 
 

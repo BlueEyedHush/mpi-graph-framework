@@ -5,7 +5,7 @@
 #include <boost/program_options/variables_map.hpp>
 #include "Executor.h"
 
-Executor::Executor(std::function<void(Assembly*)> assemblyCleaner) {
+Executor::Executor(std::function<void(Assembly*)> ac) : assemblyCleaner(ac) {
 	MPI_Init(NULL, NULL);
 
 	int currentNodeId;
@@ -16,6 +16,10 @@ Executor::Executor(std::function<void(Assembly*)> assemblyCleaner) {
 }
 
 Executor::~Executor() {
+	for(auto pair: assemblies) {
+		assemblyCleaner(pair.second);
+	}
+
 	MPI_Finalize();
 }
 
