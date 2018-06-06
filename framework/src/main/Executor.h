@@ -8,13 +8,16 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
+#include <utils/Config.h>
 #include "Assembly.h"
+
+using AssemblyCleaner = std::function<void(Assembly*)>;
 
 class Executor {
 	static void defaultCleaner(Assembly* assembly) {delete assembly;}
 
 public:
-	Executor(std::function<void(Assembly*)> assemblyCleaner = defaultCleaner);
+	Executor(ConfigMap configuration = ConfigMap(), AssemblyCleaner assemblyCleaner = defaultCleaner);
 	~Executor();
 
 	/**
@@ -27,6 +30,8 @@ public:
 	bool executeAssembly(const std::string key);
 private:
 	std::unordered_map<std::string, Assembly*> assemblies;
+	AssemblyCleaner assemblyCleaner;
+	ConfigMap configuration;
 };
 
 

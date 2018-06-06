@@ -8,13 +8,14 @@
 #include <mpi.h>
 #include <glog/logging.h>
 #include <utils/Probe.h>
+#include <utils/Config.h>
 #include "GraphPartition.h"
 #include "Algorithm.h"
 #include "Validator.h"
 
 class Assembly {
 public:
-	virtual void run() = 0;
+	virtual void run(ConfigMap) = 0;
 	virtual ~Assembly() {};
 };
 
@@ -39,7 +40,7 @@ public:
 	bool algorithmSucceeded = false;
 	bool validationSucceeded = false;
 
-	virtual void run() override {
+	virtual void run(ConfigMap config) override {
 		int rank, size;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 		MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -57,9 +58,12 @@ public:
 	    MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.start();
 
+		AAuxiliaryParams aaParams;
+		aaParams.config = config;
+
 		algorithmExecutionProbe.start();
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
-		algorithmSucceeded = algorithm.run(&graph);
+		algorithmSucceeded = algorithm.run(&graph, aaParams);
 		algorithmExecutionProbe.stop();
 
 		MPI_Barrier(MPI_COMM_WORLD);

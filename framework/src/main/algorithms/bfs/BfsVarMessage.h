@@ -20,7 +20,7 @@ public:
 
 	~Bfs_Mp_VarMsgLen_1D_2CommRounds() {};
 
-	bool run(TGraphPartition *g) {
+	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		int currentNodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
 		int worldSize;

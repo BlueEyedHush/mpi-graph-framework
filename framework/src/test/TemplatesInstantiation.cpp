@@ -37,14 +37,14 @@ using RR2D_GB_U = RR2DHandle<size_t,size_t>;
 using RR2D_GP_U = RoundRobin2DPartition<size_t,size_t>;
 
 template <typename TGraphBuilder>
-void callEachGhFunction(TGraphBuilder &builder) {
-	builder.getGraph();
-	builder.getConvertedVertices();
-	builder.releaseGraph();
+void callEachGhFunction(TGraphBuilder* builder) {
+	builder->getGraph();
+	builder->getConvertedVertices();
+	builder->releaseGraph();
 }
 
 template <typename TGraphPartition>
-void callEachGpFunction(TGraphPartition& gp) {
+void callEachGpFunction(TGraphPartition* gp) {
 	IMPORT_ALIASES(TGraphPartition)
 
 	GlobalId globalId;
@@ -55,39 +55,42 @@ void callEachGpFunction(TGraphPartition& gp) {
 	auto globalIdconsumer = [](const GlobalId) {return ITER_PROGRESS::STOP;};
 	auto localAndGlobalIdConsumer = [](const LocalId, const GlobalId) {return ITER_PROGRESS::STOP;};
 
-	gp.getGlobalVertexIdDatatype();
-	gp.toLocalId(globalId, &vtype);
-	gp.toMasterNodeId(globalId);
-	gp.toGlobalId(localId);
-	gp.toNumeric(globalId);
-	gp.toNumeric(localId);
-	gp.idToString(globalId);
-	gp.idToString(localId);
-	gp.isSame(globalId, globalId);
-	gp.isValid(globalId);
-	gp.foreachMasterVertex(localIdconsumer);
-	gp.masterVerticesCount();
-	gp.masterVerticesMaxCount();
-	gp.foreachCoOwner(localId, true, nodeIdConsumer);
-	gp.foreachNeighbouringVertex(localId, globalIdconsumer);
-	gp.foreachShadowVertex(localAndGlobalIdConsumer);
-	gp.shadowVerticesCount();
+	gp->getGlobalVertexIdDatatype();
+	gp->toLocalId(globalId, &vtype);
+	gp->toMasterNodeId(globalId);
+	gp->toGlobalId(localId);
+	gp->toNumeric(globalId);
+	gp->toNumeric(localId);
+	gp->idToString(globalId);
+	gp->idToString(localId);
+	gp->isSame(globalId, globalId);
+	gp->isValid(globalId);
+	gp->foreachMasterVertex(localIdconsumer);
+	gp->masterVerticesCount();
+	gp->masterVerticesMaxCount();
+	gp->foreachCoOwner(localId, true, nodeIdConsumer);
+	gp->foreachNeighbouringVertex(localId, globalIdconsumer);
+	gp->foreachShadowVertex(localAndGlobalIdConsumer);
+	gp->shadowVerticesCount();
 }
 
 void testBuildersAndGraphs() {
-	callEachGpFunction(*uglyInstantiation<ABCP_GP>());
-	callEachGpFunction(*uglyInstantiation<ABCP_GP_U>());
-	callEachGpFunction(*uglyInstantiation<ALHP_GP>());
-	callEachGpFunction(*uglyInstantiation<ALHP_GP_U>());
-	callEachGpFunction(*uglyInstantiation<RR2D_GP>());
-	callEachGpFunction(*uglyInstantiation<RR2D_GP_U>());
+	auto* adjList = new std::vector<TGVID>();
+	callEachGpFunction(new ABCP_GP(new std::vector<ABCP_GP::GidType>(), 0, 0, 0, 0, 0, 0));
+	callEachGpFunction(new ABCP_GP_U(new std::vector<ABCP_GP_U::GidType>(), 0, 0, 0, 0, 0, 0));
+	callEachGpFunction(new ALHP_GP(details::GraphData<int, ALHP_GP::GidType>()));
+	callEachGpFunction(new ALHP_GP_U(details::GraphData<size_t, ALHP_GP_U::GidType>()));
+	details::RR2D::MpiTypes mtypes;
+	callEachGpFunction(new RR2D_GP(new details::RR2D::GraphData<int, int>(0, 0, 0, 0, 0, 0, 0, mtypes)));
+	callEachGpFunction(new RR2D_GP_U(new details::RR2D::GraphData<size_t, size_t>(0, 0, 0, 0, 0, 0, 0, mtypes)));
 
-	callEachGhFunction(*uglyInstantiation<ABCP_GB>());
-	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GB>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GB_U>());
+	auto vToConv = std::vector<OriginalVertexId>();
+	callEachGhFunction(new ABCP_GB("", 0, 0, vToConv));
+	callEachGhFunction(new ABCP_GB_U("", 0, 0, vToConv));
+	callEachGhFunction(new ALHP_GB("", vToConv));
+	callEachGhFunction(new ALHP_GB_U("", vToConv));
+	callEachGhFunction(new RR2D_GB("", vToConv));
+	callEachGhFunction(new RR2D_GB_U("", vToConv));
 }
 
 /*
@@ -109,18 +112,20 @@ using COLOUR_MP = GraphColouringMp<TestGP>;
 using COLOUR_MP_ASYNC = GraphColouringMPAsync<TestGP>;
 
 
-template <typename TAlgo> void callEachAlgoFunctions(TAlgo& algo) {
+template <typename TAlgo> void callEachAlgoFunctions(TAlgo* algo) {
 	auto G = TestGP();
-	algo.run(&G);
-	algo.getResult();
+	algo->run(&G, AAuxiliaryParams());
+	algo->getResult();
 }
 
 void testAlgorithms() {
-	callEachAlgoFunctions(*uglyInstantiation<BFS_VM>());
-	callEachAlgoFunctions(*uglyInstantiation<BFS_FM>());
-	callEachAlgoFunctions(*uglyInstantiation<BFS_1C>());
-	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP>());
-	callEachAlgoFunctions(*uglyInstantiation<COLOUR_MP_ASYNC>());
+	auto bfsRoot = TGVID();
+	callEachAlgoFunctions(new BFS_VM(bfsRoot));
+	callEachAlgoFunctions(new BFS_FM(bfsRoot));
+	callEachAlgoFunctions(new BFS_1C(bfsRoot));
+
+	callEachAlgoFunctions(new COLOUR_MP());
+	callEachAlgoFunctions(new COLOUR_MP_ASYNC());
 }
 
 /*
@@ -133,16 +138,15 @@ using V_BFS = BfsValidator<TestGP>;
 using V_COLOUR = ColouringValidator<TestGP>;
 
 template <typename TValidator>
-void callEachValidatorFunctions(TValidator& algo) {
+void callEachValidatorFunctions(TValidator* algo) {
 	auto G = TestGP();
 	using R = typename TValidator::ResultType;
 	auto result = *uglyInstantiation<R>();
-	algo.validate(&G, result);
+	algo->validate(&G, result);
 }
 
 void testValidators() {
-	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
-	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
-	callEachValidatorFunctions(*uglyInstantiation<V_BFS>());
-	callEachValidatorFunctions(*uglyInstantiation<V_COLOUR>());
+	auto bfsRoot = TGVID();
+	callEachValidatorFunctions(new V_BFS(bfsRoot));
+	callEachValidatorFunctions(new V_COLOUR());
 }

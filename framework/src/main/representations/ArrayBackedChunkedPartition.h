@@ -183,7 +183,7 @@ public:
 	};
 
 protected:
-	std::pair<G*, std::vector<GlobalId>>  buildGraph(std::vector<OriginalVertexId> verticesToConvert) override {
+	std::pair<G*, std::vector<GlobalId>>  buildGraph(std::vector<OriginalVertexId> verticesToConvert, GBAuxiliaryParams) override {
 		using namespace IndexPartitioner;
 
 		/* read headers to learn how much vertices present */
