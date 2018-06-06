@@ -37,10 +37,10 @@ using RR2D_GB_U = RR2DHandle<size_t,size_t>;
 using RR2D_GP_U = RoundRobin2DPartition<size_t,size_t>;
 
 template <typename TGraphBuilder>
-void callEachGhFunction(TGraphBuilder &builder) {
-	builder.getGraph();
-	builder.getConvertedVertices();
-	builder.releaseGraph();
+void callEachGhFunction(TGraphBuilder* builder) {
+	builder->getGraph();
+	builder->getConvertedVertices();
+	builder->releaseGraph();
 }
 
 template <typename TGraphPartition>
@@ -82,12 +82,13 @@ void testBuildersAndGraphs() {
 	callEachGpFunction(*uglyInstantiation<RR2D_GP>());
 	callEachGpFunction(*uglyInstantiation<RR2D_GP_U>());
 
-	callEachGhFunction(*uglyInstantiation<ABCP_GB>());
-	callEachGhFunction(*uglyInstantiation<ABCP_GB_U>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB>());
-	callEachGhFunction(*uglyInstantiation<ALHP_GB_U>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GB>());
-	callEachGhFunction(*uglyInstantiation<RR2D_GB_U>());
+	auto vToConv = std::vector<OriginalVertexId>();
+	callEachGhFunction(new ABCP_GB("", 0, 0, vToConv));
+	callEachGhFunction(new ABCP_GB_U("", 0, 0, vToConv));
+	callEachGhFunction(new ALHP_GB("", vToConv));
+	callEachGhFunction(new ALHP_GB_U("", vToConv));
+	callEachGhFunction(new RR2D_GB("", vToConv));
+	callEachGhFunction(new RR2D_GB_U("", vToConv));
 }
 
 /*
