@@ -9,8 +9,8 @@
 #include <vector>
 #include <type_traits>
 #include <Prerequisites.h>
+#include <utils/Config.h>
 #include "GraphPartition.h"
-#include "Config.h"
 
 struct GBAuxiliaryParams {
 	ConfigMap configMap = ConfigMap();

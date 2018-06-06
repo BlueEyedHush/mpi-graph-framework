@@ -5,7 +5,7 @@
 #ifndef FRAMEWORK_ALGORITHM_H
 #define FRAMEWORK_ALGORITHM_H
 
-#include "Config.h"
+#include <utils/Config.h>
 #include "GraphPartition.h"
 
 struct AAuxiliaryParams {

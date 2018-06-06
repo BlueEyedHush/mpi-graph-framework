@@ -8,7 +8,7 @@
 #include <mpi.h>
 #include <glog/logging.h>
 #include <utils/Probe.h>
-#include "Config.h"
+#include <utils/Config.h>
 #include "GraphPartition.h"
 #include "Algorithm.h"
 #include "Validator.h"

@@ -8,7 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
-#include "Config.h"
+#include <utils/Config.h>
 #include "Assembly.h"
 
 using AssemblyCleaner = std::function<void(Assembly*)>;
