@@ -9,4 +9,6 @@
 
 using ConfigMap = std::unordered_map<std::string, std::string>;
 
+ConfigMap parseCli(const int argc, const char** argv);
+
 #endif //FRAMEWORK_CONFIG_H
