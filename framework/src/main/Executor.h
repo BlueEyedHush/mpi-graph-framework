@@ -17,7 +17,7 @@ class Executor {
 	static void defaultCleaner(Assembly* assembly) {delete assembly;}
 
 public:
-	Executor(ConfigMap configuration = ConfigMap(), AssemblyCleaner assemblyCleaner = defaultCleaner);
+	Executor(ConfigMap configuration, AssemblyCleaner assemblyCleaner = defaultCleaner);
 	~Executor();
 
 	/**

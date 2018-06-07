@@ -39,7 +39,7 @@ int main(const int argc, const char** argv) {
 	auto assemblyName = cm["a"];
 	auto graphFilePath = cm["g"];
 	
-	Executor executor;
+	Executor executor(cm);
 
 	using THandle = ALHGraphHandle<int,int>;
 	auto *graphHandle = new THandle(graphFilePath, {0L});

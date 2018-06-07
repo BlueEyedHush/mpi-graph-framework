@@ -11,7 +11,8 @@
 class RepeatingAssembly : public Assembly {
 public:
 	void doRun(ConfigMap cmap) override {
-		int n = std::stoi(cmap["ra-n"]);
+		std::string strN = cmap["ra-n"];
+		int n = std::stoi(strN);
 		std::string innerAssemblyName = cmap["ra-name"];
 
 		for(int i = 0; i < n; i++) {
