@@ -5,6 +5,7 @@ import org.apache.spark._
 import org.apache.spark.graphx._
 
 object Main {
+
   object Algorithm extends Enumeration {
     type Algorithm = Value
     val Bfs, Colouring = Value
@@ -15,14 +16,16 @@ object Main {
     // Suppress unnecessary logging
     Logger.getRootLogger.setLevel(Level.ERROR)
 
-    val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath))
-
-    // Calculate centralities.
-
-    println(s"\n### $algo\n")
-
     val durations = for (i <- 0 until iterationCount) yield {
-      algo match {
+      val graphLoadingStart = System.nanoTime()
+      val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath))
+      val graphLoadingTime = System.nanoTime() - graphLoadingStart;
+
+      // Calculate centralities.
+
+      println(s"\n### $algo\n")
+
+      val algoExecutionTime = algo match {
         case Algorithm.Bfs =>
           val bg = g.mapVertices((vid, _) => false)
           val (startVertexId, _) = g.vertices.take(1)(0)
@@ -36,9 +39,10 @@ object Main {
           Colouring.run(g)
           System.nanoTime() - start
       }
+
+      (graphLoadingTime, algoExecutionTime)
     }
 
-    durations.foreach(d => println(s"$d ns"))
-
+    durations.foreach { case (graphTime, algoTime) => println(s"graph $graphTime\nalgo $algoTime\n")}
   }
 }

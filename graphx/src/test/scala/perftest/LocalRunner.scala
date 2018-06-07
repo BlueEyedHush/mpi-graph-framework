@@ -8,7 +8,7 @@ object LocalRunner {
     val sparkConf = new SparkConf().setAppName("example-graphx").setMaster("local[2]")
     implicit val sc = new SparkContext(sparkConf)
 
-    Main.run(Algorithm.Colouring, 1, "../graphs/data/SimpleTestGraph.elt")
+    Main.run(Algorithm.Colouring, 3, "../graphs/data/SimpleTestGraph.elt")
 
     sc.stop()
   }

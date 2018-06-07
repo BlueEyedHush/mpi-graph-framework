@@ -13,10 +13,31 @@
 #include "Algorithm.h"
 #include "Validator.h"
 
+class Executor;
+
 class Assembly {
 public:
-	virtual void run(ConfigMap) = 0;
+	void setExecutor(Executor *e) {
+		if (parentExecutor != nullptr)
+			throw std::runtime_error("Assembly cannot be assigned to different executor");
+
+		parentExecutor = e;
+	}
+
+	void run(ConfigMap cmap) {
+		if (parentExecutor == nullptr)
+			throw std::runtime_error("Executor must be set before running assembly");
+
+		doRun(cmap);
+	};
+
 	virtual ~Assembly() {};
+
+protected:
+	virtual void doRun(ConfigMap) = 0;
+
+protected:
+	Executor* parentExecutor = nullptr;
 };
 
 /**
@@ -40,7 +61,7 @@ public:
 	bool algorithmSucceeded = false;
 	bool validationSucceeded = false;
 
-	virtual void run(ConfigMap config) override {
+	void doRun(ConfigMap config) override {
 		int rank, size;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 		MPI_Comm_size(MPI_COMM_WORLD, &size);
