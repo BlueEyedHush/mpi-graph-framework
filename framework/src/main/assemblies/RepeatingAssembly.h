@@ -6,21 +6,18 @@
 #define FRAMEWORK_REPEATINGASSEMBLY_H
 
 #include <Assembly.h>
+#include <Executor.h>
 
 class RepeatingAssembly : public Assembly {
 public:
-	RepeatingAssembly(Assembly *innerAssembly) : innerAssembly(innerAssembly) {}
-
-	void run(ConfigMap cmap) override {
-		int n = std::stoi(cmap["n"]);
+	void doRun(ConfigMap cmap) override {
+		int n = std::stoi(cmap["ra-n"]);
+		std::string innerAssemblyName = cmap["ra-name"];
 
 		for(int i = 0; i < n; i++) {
-			innerAssembly->run(cmap);
+			parentExecutor->executeAssembly(innerAssemblyName);
 		}
 	};
-
-private:
-	Assembly *innerAssembly;
 };
 
 #endif //FRAMEWORK_REPEATINGASSEMBLY_H

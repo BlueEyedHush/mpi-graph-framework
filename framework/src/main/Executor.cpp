@@ -24,6 +24,7 @@ Executor::~Executor() {
 }
 
 void Executor::registerAssembly(const std::string key, Assembly* assembly) {
+	assembly->setExecutor(this);
 	assemblies.emplace(key, assembly);
 }
 

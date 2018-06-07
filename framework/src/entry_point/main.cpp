@@ -12,6 +12,7 @@
 #include "validators/ColouringValidator.h"
 #include <assemblies/ColouringAssembly.h>
 #include "assemblies/BfsAssembly.h"
+#include <assemblies/RepeatingAssembly.h>
 #include "validators/BfsValidator.h"
 
 #define WAIT_FOR_DEBUGGER 0
@@ -44,6 +45,7 @@ int main(const int argc, const char** argv) {
 	auto *graphHandle = new THandle(graphFilePath, {0L});
 	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
 	executor.registerAssembly("bfs", new BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle>(*graphHandle));
+	executor.registerAssembly("repeating", new RepeatingAssembly());
 
 	if(assemblyName.empty() || !executor.executeAssembly(assemblyName)) {
 		std::cout << "Assembly with name '" << assemblyName << "' not found!" << std::endl;
