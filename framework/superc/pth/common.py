@@ -53,11 +53,13 @@ def run_batch_string(cmds,
                      mem_per_task = "1gb",
                      queue="plgrid-short",
                      log_prefix="framework",
-                     time="00:20:00"):
+                     time="00:20:00",
+                     profiling_on=False):
     p = get_paths()
     script = os.path.join(p.script_dir, "executor.py")
     cmds_arg_str = ' "' + '" "'.join(cmds) + '"'
     work_dir = ' "{}"'.format(p.base_dir)
+    profiler_cli = " --profile=task " if profiling_on else ""
 
     cmd = ("sbatch"
     " -J framework"
@@ -70,7 +72,7 @@ def run_batch_string(cmds,
     " --output " + log_prefix + ".so"
     " --error " + log_prefix + ".se"
     " --mail-type=END,FAIL"
-    " --mail-user=knawara112@gmail.com " + script + work_dir + cmds_arg_str)
+    " --mail-user=knawara112@gmail.com " + profiler_cli + script + work_dir + cmds_arg_str)
 
     print cmd
     return cmd
