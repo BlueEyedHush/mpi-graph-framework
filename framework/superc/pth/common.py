@@ -57,9 +57,15 @@ def run_batch_string(cmds,
                      profiling_on=False):
     p = get_paths()
     script = os.path.join(p.script_dir, "executor.py")
+
+    if profiling_on:
+        profiler_cli = " --profile=task --acctg-freq 5 "
+        cmds = cmds + ["sh5util -j #SLURM_JOB_ID -o {}.h5".format(log_prefix)]
+    else:
+        profiler_cli = ""
+
     cmds_arg_str = ' "' + '" "'.join(cmds) + '"'
     work_dir = ' "{}"'.format(p.base_dir)
-    profiler_cli = " --profile=task --acctg-freq 5 " if profiling_on else ""
 
     cmd = ("sbatch"
     " -J framework"
@@ -103,6 +109,7 @@ def import_modules_string():
 
 def run_commands(cmds):
     cmd = "; ".join(cmds)
+    cmd = cmd.replace("#", "$")
     err(cmd)
     os.system(cmd)
 
