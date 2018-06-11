@@ -36,12 +36,16 @@ def output_graph(filename_prefix, nx_graph, include_test_formats=False):
     formats = bench_formats if not include_test_formats else bench_formats + testonly_format
 
     for ext, writer in formats:
-        f = open(filename_prefix + ext, "w")
+        f = open("data/" + filename_prefix + ext, "w")
         writer(nx_graph, f)
         f.close()
 
+def gen_powerlaw(vertices, edges_per_vertex):
+    g = nx.powerlaw_cluster_graph(vertices, edges_per_vertex, 0.5, 876)
+    fname = "powergraph_{}_{}".format(vertices, len(g.edges()))
+    output_graph(fname, g)
 
 if __name__ == '__main__':
-    g = nx.powerlaw_cluster_graph(25, 2, 0.5, 876)
-
-    output_graph(sys.argv[1] if len(sys.argv) > 1 else "graph", g)
+    # gen_powerlaw(100000, 10)
+    # gen_powerlaw(10000, 10)
+    gen_powerlaw(1000, 10)
