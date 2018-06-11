@@ -29,12 +29,13 @@ def output_edge_list_t(nx_graph, file):
         file.write("{}\t{}\n".format(start, end))
         file.write("{}\t{}\n".format(end, start))
 
-def output_graph(filename_prefix, nx_graph):
+def output_graph(filename_prefix, nx_graph, include_test_formats=False):
+    bench_formats = [(".adjl", output_adjacency_list), (".elt", output_edge_list_t)]
+    testonly_format = [(".vl", output_vertex_list), (".el", output_edge_list)]
 
-    for ext, writer in [(".adjl", output_adjacency_list),
-                        (".vl", output_vertex_list),
-                        (".el", output_edge_list),
-                        (".elt", output_edge_list_t)]:
+    formats = bench_formats if not include_test_formats else bench_formats + testonly_format
+
+    for ext, writer in formats:
         f = open(filename_prefix + ext, "w")
         writer(nx_graph, f)
         f.close()
