@@ -1038,7 +1038,7 @@ protected:
 		                                                           EDGES_MAX_COUNT,
 		                                                           VERTEX_MAX_COUNT,
 		                                                           COOWNERS_MAX_COUNT*VERTEX_MAX_COUNT,
-		                                                           COOWNERS_MAX_COUNT,
+		                                                           VERTEX_MAX_COUNT,
 		                                                           verticesToConvert.size(),
 		                                                           types);
 		gd->nodeId = nodeId;
