@@ -53,9 +53,17 @@ def run_batch_string(cmds,
                      mem_per_task = "1gb",
                      queue="plgrid-short",
                      log_prefix="framework",
-                     time="00:20:00"):
+                     time="00:20:00",
+                     profiling_on=False):
     p = get_paths()
     script = os.path.join(p.script_dir, "executor.py")
+
+    if profiling_on:
+        profiler_cli = " --profile=task --acctg-freq 5 "
+        cmds = cmds + ["sh5util -j #SLURM_JOB_ID -o {}.h5".format(log_prefix)]
+    else:
+        profiler_cli = ""
+
     cmds_arg_str = ' "' + '" "'.join(cmds) + '"'
     work_dir = ' "{}"'.format(p.base_dir)
 
@@ -70,7 +78,7 @@ def run_batch_string(cmds,
     " --output " + log_prefix + ".so"
     " --error " + log_prefix + ".se"
     " --mail-type=END,FAIL"
-    " --mail-user=knawara112@gmail.com " + script + work_dir + cmds_arg_str)
+    " --mail-user=knawara112@gmail.com " + profiler_cli + script + work_dir + cmds_arg_str)
 
     print cmd
     return cmd
@@ -101,6 +109,7 @@ def import_modules_string():
 
 def run_commands(cmds):
     cmd = "; ".join(cmds)
+    cmd = cmd.replace("#", "$")
     err(cmd)
     os.system(cmd)
 
