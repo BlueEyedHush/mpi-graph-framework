@@ -17,7 +17,7 @@ static void executeTest(std::string graphPath)
 	auto *graphHandle = new TGraphBuilder(graphPath, {});
 
 	ConfigMap cm;
-	Executor executor(cm);
+	Executor executor(cm, false);
 
 	auto* assembly = new ColouringAssembly<TAlgo, TGraphBuilder>(*graphHandle);
 	executor.registerAssembly("t", assembly);

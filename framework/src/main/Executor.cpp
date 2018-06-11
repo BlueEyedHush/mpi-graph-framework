@@ -5,14 +5,18 @@
 #include <boost/program_options/variables_map.hpp>
 #include "Executor.h"
 
-Executor::Executor(ConfigMap config, std::function<void(Assembly*)> ac) : configuration(config), assemblyCleaner(ac) {
-	MPI_Init(NULL, NULL);
+Executor::Executor(ConfigMap config, bool performMpiInit, std::function<void(Assembly*)> ac)
+		: configuration(config), responsibleForMpi(performMpiInit), assemblyCleaner(ac)
+{
+	if (responsibleForMpi) {
+		MPI_Init(NULL, NULL);
 
-	int currentNodeId;
-	MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
-	int worldSize;
-	MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
-	LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
+		int currentNodeId;
+		MPI_Comm_rank(MPI_COMM_WORLD, &currentNodeId);
+		int worldSize;
+		MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+		LOG(INFO) << "NODE_ID: " << currentNodeId << " WORLD_SIZE: " << worldSize;
+	}
 }
 
 Executor::~Executor() {
@@ -20,7 +24,7 @@ Executor::~Executor() {
 		assemblyCleaner(pair.second);
 	}
 
-	MPI_Finalize();
+	if (responsibleForMpi) MPI_Finalize();
 }
 
 void Executor::registerAssembly(const std::string key, Assembly* assembly) {

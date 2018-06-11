@@ -17,7 +17,7 @@ class Executor {
 	static void defaultCleaner(Assembly* assembly) {delete assembly;}
 
 public:
-	Executor(ConfigMap configuration, AssemblyCleaner assemblyCleaner = defaultCleaner);
+	Executor(ConfigMap configuration, bool performMpiInit = true, AssemblyCleaner assemblyCleaner = defaultCleaner);
 	~Executor();
 
 	/**
@@ -31,6 +31,7 @@ public:
 private:
 	std::unordered_map<std::string, Assembly*> assemblies;
 	AssemblyCleaner assemblyCleaner;
+	bool responsibleForMpi;
 	ConfigMap configuration;
 };
 

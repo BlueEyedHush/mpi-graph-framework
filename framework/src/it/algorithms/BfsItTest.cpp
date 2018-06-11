@@ -17,7 +17,7 @@ static void executeTest(std::string graphPath, ull originalRootId)
 	auto *graphHandle = new TGraphBuilder(graphPath, {originalRootId});
 
 	ConfigMap cm;
-	Executor executor(cm);
+	Executor executor(cm, false);
 
 	auto* assembly = new BfsAssembly<TAlgo, TGraphBuilder>(*graphHandle);
 	executor.registerAssembly("t", assembly);
