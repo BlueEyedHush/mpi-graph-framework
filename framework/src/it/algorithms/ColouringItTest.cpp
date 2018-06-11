@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <utils/TestUtils.h>
+#include <Executor.h>
 #include <Assembly.h>
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/colouring/GraphColouringMp.h>
@@ -14,11 +15,16 @@ template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath)
 {
 	auto *graphHandle = new TGraphBuilder(graphPath, {});
-	ColouringAssembly<TAlgo, TGraphBuilder> assembly(*graphHandle);
-	assembly.run();
 
-	ASSERT_TRUE(assembly.algorithmSucceeded);
-	ASSERT_TRUE(assembly.validationSucceeded);
+	ConfigMap cm;
+	Executor executor(cm);
+
+	auto* assembly = new ColouringAssembly<TAlgo, TGraphBuilder>(*graphHandle);
+	executor.registerAssembly("t", assembly);
+	executor.executeAssembly("t");
+
+	ASSERT_TRUE(assembly->algorithmSucceeded);
+	ASSERT_TRUE(assembly->validationSucceeded);
 
 	delete graphHandle;
 }

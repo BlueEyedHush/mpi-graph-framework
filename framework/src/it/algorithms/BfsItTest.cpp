@@ -1,6 +1,7 @@
 
 #include <gtest/gtest.h>
 #include <utils/TestUtils.h>
+#include <Executor.h>
 #include <Assembly.h>
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/bfs/Bfs1CommsRound.h>
@@ -14,11 +15,16 @@ template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath, ull originalRootId)
 {
 	auto *graphHandle = new TGraphBuilder(graphPath, {originalRootId});
-	BfsAssembly<TAlgo, TGraphBuilder> assembly(*graphHandle);
-	assembly.run();
 
-	ASSERT_TRUE(assembly.algorithmSucceeded);
-	ASSERT_TRUE(assembly.validationSucceeded);
+	ConfigMap cm;
+	Executor executor(cm);
+
+	auto* assembly = new BfsAssembly<TAlgo, TGraphBuilder>(*graphHandle);
+	executor.registerAssembly("t", assembly);
+	executor.executeAssembly("t");
+
+	ASSERT_TRUE(assembly->algorithmSucceeded);
+	ASSERT_TRUE(assembly->validationSucceeded);
 
 	delete graphHandle;
 }
