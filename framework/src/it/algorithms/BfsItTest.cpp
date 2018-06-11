@@ -14,11 +14,14 @@ using GH = ALHGraphHandle<int, int>;
 template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath, ull originalRootId)
 {
-	auto *graphHandle = new TGraphBuilder(graphPath, {originalRootId});
-
 	ConfigMap cm;
 	cm.emplace(GH::E_DIV_OPT, "1");
 	cm.emplace(GH::V_DIV_OPT, "1");
+
+	GBAuxiliaryParams auxParams;
+	auxParams.configMap = cm;
+	auto *graphHandle = new TGraphBuilder(graphPath, {originalRootId}, auxParams);
+
 	Executor executor(cm, false);
 
 	auto* assembly = new BfsAssembly<TAlgo, TGraphBuilder>(*graphHandle);

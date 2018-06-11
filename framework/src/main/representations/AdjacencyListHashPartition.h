@@ -178,8 +178,10 @@ private:
 	using Gd = details::GraphData<LocalId, GlobalId>;
 
 public:
-	ALHGraphHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: P(verticesToConv, destroyGraph), path(path)
+	ALHGraphHandle(std::string path,
+	               std::vector<OriginalVertexId> verticesToConv,
+	               GBAuxiliaryParams auxParams = GBAuxiliaryParams())
+			: P(verticesToConv, destroyGraph, auxParams), path(path)
 	{
 
 	};
