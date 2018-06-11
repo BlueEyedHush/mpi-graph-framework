@@ -10,6 +10,7 @@
 #include <cstring>
 #include <boost/pool/pool.hpp>
 #include <boost/format.hpp>
+#include <glog/logging.h>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/MpiTypemap.h>
@@ -203,7 +204,7 @@ private:
 		d.gIdDatatype = GlobalId::mpiDatatype();
 		MPI_Type_commit(&d.gIdDatatype);
 
-		ull sizes[2];
+		ull sizes[2] = {0L, 0L};
 		ull& nodeEdgeLimit = sizes[0];
 		ull& nodeVertexLimit = sizes[1];
 
@@ -211,8 +212,12 @@ private:
 
 		/* rank 0 reads graph file 'header' and then broadcasts sizes across cluster */
 		if (world_rank == 0) {
-			nodeEdgeLimit = alReader.getEdgeCount() / world_size + 1;
-			nodeVertexLimit = alReader.getVertexCount() / world_size + 1;
+			auto eCount = alReader.getEdgeCount();
+			auto vCount = alReader.getVertexCount();
+			LOG(INFO) << "Loading graph with V=" << vCount << " and E=" << eCount;
+
+			nodeEdgeLimit = eCount/world_size + 1;
+			nodeVertexLimit = vCount/world_size + 1;
 		}
 
 		MPI_Bcast(sizes, 2, mpi_ull, 0, MPI_COMM_WORLD);
@@ -293,17 +298,15 @@ private:
 
 						/* perform range checks */
 						if (oinfo.vertexCount > nodeVertexLimit) throw std::runtime_error(
-									(boost::format("vertex limit (%1%) exceeded, processed %2%/%3% vertices")
+									(boost::format("vertex limit (%1%) exceeded, processed %2% vertices")
 									 % nodeVertexLimit
-									 % processedVerticesCount
-									 % nodeVertexLimit).str());
+									 % processedVerticesCount).str());
 
 						processedEdgesCount += neighCount;
 						if (oinfo.adjListOffset > nodeEdgeLimit) throw std::runtime_error(
-									(boost::format("edge limit (%1%) exceeded, processed %2%/%3% edges")
+									(boost::format("edge limit (%1%) exceeded, processed %2% edges")
 									 % nodeEdgeLimit
-									 % processedEdgesCount
-									 % nodeEdgeLimit).str());
+									 % processedEdgesCount).str());
 
 						/* 2nd, register new mapping in remappingTable */
 						remappingTable[vInfo.vertexId] = vertexGid;
