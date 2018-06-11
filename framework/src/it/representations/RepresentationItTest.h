@@ -113,7 +113,6 @@ void representationTest(std::function<TGraphHandle(NodeId /*size*/,
 	int size = -1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	LOG(INFO) << "Initialized MPI";
 
 	std::vector<OriginalVertexId> vertexIds = loadVertexListFromFile(datafilesPathPrefix + ".vl");
 	auto expectedEdges = loadEdgeListFromFile(datafilesPathPrefix + ".el");
