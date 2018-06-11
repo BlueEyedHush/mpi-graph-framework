@@ -184,8 +184,13 @@ public:
 
 	};
 
+	static const std::string E_DIV_OPT;
+	static const std::string V_DIV_OPT;
+
 private:
-	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert, GBAuxiliaryParams) {
+	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert,
+	                                                GBAuxiliaryParams auxParams)
+	{
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
 		using namespace details;
@@ -200,6 +205,8 @@ private:
 		LocalId *vertexEdgeWinMem = nullptr;
 		LocalId *offsetTableWinMem = nullptr;
 		GlobalId *adjListWinMem = nullptr;
+
+		auto& cm = auxParams.configMap;
 
 		d.gIdDatatype = GlobalId::mpiDatatype();
 		MPI_Type_commit(&d.gIdDatatype);
@@ -216,8 +223,16 @@ private:
 			auto vCount = alReader.getVertexCount();
 			LOG(INFO) << "Loading graph with V=" << vCount << " and E=" << eCount;
 
-			nodeEdgeLimit = eCount/world_size + 1;
-			nodeVertexLimit = vCount/world_size + 1;
+			int eDivider = world_size;
+			int vDivider = world_size;
+			if (cm.find(E_DIV_OPT) != cm.end())
+				eDivider = std::stoi(auxParams.configMap[E_DIV_OPT]);
+			if (cm.find(V_DIV_OPT) != cm.end())
+				vDivider = std::stoi(auxParams.configMap[V_DIV_OPT]);
+			LOG(INFO) << "vDivider=" << vDivider << ", eDivider=" << eDivider;
+
+			nodeEdgeLimit = eCount/eDivider + 1;
+			nodeVertexLimit = vCount/vDivider + 1;
 		}
 
 		MPI_Bcast(sizes, 2, mpi_ull, 0, MPI_COMM_WORLD);
@@ -463,5 +478,10 @@ private:
 		delete g;
 	}
 };
+
+template <typename T1, typename T2>
+const std::string ALHGraphHandle<T1,T2>::E_DIV_OPT = "ediv";
+template <typename T1, typename T2>
+const std::string ALHGraphHandle<T1,T2>::V_DIV_OPT = "vdiv";
 
 #endif //FRAMEWORK_ADJACENCYLISTHASHPARTITION_H
