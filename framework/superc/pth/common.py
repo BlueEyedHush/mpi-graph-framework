@@ -55,7 +55,7 @@ def run_batch_string(cmds,
                      mem_per_task = "1gb",
                      queue="plgrid-short",
                      log_prefix="framework",
-                     time="00:20:00",
+                     time="00:10:00",
                      profiling_on=False):
     p = get_paths()
     script = os.path.join(p.script_dir, "executor.py")

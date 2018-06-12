@@ -19,12 +19,12 @@ def bench_set(nc, tpn, g_aliases, algo):
         jname = "fr_{}_{}_{}_{}_{}".format(build_type, g_alias, nc, tpn, mpt)
         os.system(run_batch_string(cmds,
                                    job_name=jname,
-                                   queue="plgrid-testing",
+                                   queue="plgrid-short",
                                    mem_per_task=mpt,
                                    tasks_per_node=tpn,
                                    node_count=nc,
                                    log_prefix=log_prefix,
                                    profiling_on=False))
 
-graph_vcounts = [5, 10, 15, 20, 25, 30, 35]
+graph_vcounts = [5, 10, 15, 20, 25, 30]
 bench_set(1, 1, map(lambda vc: "p{}k".format(vc), graph_vcounts), "colouring")
