@@ -69,12 +69,15 @@ public:
 		MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 		Probe graphLoadingProbe("GraphLoading");
+		Probe graphGlobalProbe("GraphLoading", true);
 		Probe algorithmExecutionProbe("Algorithm");
 		Probe algorithmGlobalProbe("Algorithm", true);
 		Probe validationProbe("Validation");
 
 		LOG(INFO) << "About to start graph loading";
 
+		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank == 0) graphGlobalProbe.start();
 		graphLoadingProbe.start();
 		TGHandle& handle = getHandle();
 		auto& graph = handle.getGraph();
@@ -83,7 +86,10 @@ public:
 		LOG(INFO) << "Graph has been loaded";
 
 	    MPI_Barrier(MPI_COMM_WORLD);
-		if (rank == 0) algorithmGlobalProbe.start();
+		if (rank == 0) {
+			graphGlobalProbe.stop();
+			algorithmGlobalProbe.start();
+		}
 
 		AAuxiliaryParams aaParams;
 		aaParams.config = config;
