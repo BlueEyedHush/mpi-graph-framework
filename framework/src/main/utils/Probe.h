@@ -38,4 +38,11 @@ private:
 };
 
 
+class MemProbe {
+public:
+	static void reportFraction(std::string name, size_t x, size_t from) {
+		LOG(WARNING) << "[P:MF:" << name << ":" << x << "/" << from << "]";
+	}
+};
+
 #endif //FRAMEWORK_PROBE_H

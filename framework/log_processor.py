@@ -30,28 +30,49 @@ def splitter(sentence, mapping):
     return mapping
 
 def measurements_processor(node_to_log_map):
-    local_time_probes = []
-    global_time_probes = []
+    probes = {}
+
+    def add_measurement(type, measurement):
+        if type not in probes:
+            probes[type] = []
+
+        probes[type].append(measurement)
+
+    p_local_time = "Local times"
+    p_global_time = "Global times"
+    p_memory_frac = "Memory utilization"
+    p_misc = "Miscellanous"
 
     for node, lines in node_to_log_map.iteritems():
         for line in lines:
             for m in re.finditer("\[P:(.+?):(.+?):(.+?)\]", line):
                 probe_type = m.group(1).lower()
                 probe_name = m.group(2)
-                probe_value = int(m.group(3))
-                value_in_sec = float(probe_value)/1000000000
+                probe_value = m.group(3)
 
                 if probe_type == "tl":
-                    local_time_probes.append("[{}] {}: {}ns ({}s)\n".format(node, probe_name, probe_value, value_in_sec))
+                    value_in_sec = float(probe_value)/1000000000
+                    add_measurement(p_local_time,
+                                    "[{}] {}: {}ns ({:.2f}s)".format(node, probe_name, probe_value, value_in_sec))
                 elif probe_type == "tg":
-                    global_time_probes.append("{}: {} ({}s)\n".format(probe_name, probe_value, value_in_sec))
+                    value_in_sec = float(probe_value)/1000000000
+                    add_measurement(p_global_time,
+                                    "{}: {} ({:.2f}s)".format(probe_name, probe_value, value_in_sec))
+                elif probe_type == "mf":
+                    x, all = map(lambda x: int(x), probe_value.split("/"))
+                    frac = float(all)/x
+                    add_measurement(p_memory_frac,
+                                    "[{}] {}: {} (1/{:.2f})".format(node, probe_name, probe_value, frac))
                 else:
-                    raise Exception("Unknown probe type encountered")
+                    add_measurement(p_misc, "[{}] {}: {}".format(node, probe_name, probe_value))
 
-    node_to_log_map["probes"] = ["Global times:\n"] + \
-                                global_time_probes + \
-                                ["\nLocal times:\n"] + \
-                                local_time_probes
+    lines = []
+
+    for type, measurements in probes.iteritems():
+        lines.append("\n\n" + type + ":\n\n")
+        lines.append("\n".join(measurements))
+
+    node_to_log_map["probes"] = lines
 
 
 if __name__ == "__main__":

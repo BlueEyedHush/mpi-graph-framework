@@ -15,6 +15,7 @@
 #include <GraphPartition.h>
 #include <utils/MpiTypemap.h>
 #include <utils/AdjacencyListReader.h>
+#include <utils/Probe.h>
 #include "shared.h"
 
 
@@ -459,6 +460,9 @@ private:
 		MPI_Win_unlock_all(adjListWin);
 		MPI_Win_unlock_all(offsetTableWin);
 		/* adjacency list and offset list should be available */
+
+		MemProbe::reportFraction("v_occup", vertexEdgeWinMem[0], nodeVertexLimit);
+		MemProbe::reportFraction("e_occup", vertexEdgeWinMem[1], nodeEdgeLimit);
 
 		d.adjListWinSize = nodeEdgeLimit;
 		d.offsetTableWinSize = nodeVertexLimit;
