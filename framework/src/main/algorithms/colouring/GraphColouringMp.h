@@ -30,6 +30,8 @@ class GraphColouringMp : public GraphColouring<TGraphPartition> {
 private:
 	IMPORT_ALIASES(TGraphPartition)
 
+	static const int V_LOG_LVL;
+
 public:
 	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		using namespace details;
@@ -62,21 +64,21 @@ public:
 
 			vertexDataMap[v_id] = new VertexTempData();
 
-			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
+			VLOG(V_LOG_LVL) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
 			g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
 				auto neigh_num = g->toNumeric(neigh_id);
-				LOG(INFO) << "Looking @ " << g->idToString(neigh_id) << "(" << neigh_num << ")";
+				VLOG(V_LOG_LVL) << "Looking @ " << g->idToString(neigh_id) << "(" << neigh_num << ")";
 				if (neigh_num > v_id_num) {
 					vertexDataMap[v_id]->wait_counter++;
-					LOG(INFO) << "Qualified!";
+					VLOG(V_LOG_LVL+1) << "Qualified!";
 				} else {
-					LOG(INFO) << "Rejected!";
+					VLOG(V_LOG_LVL+1) << "Rejected!";
 				}
 
 				return ITER_PROGRESS::CONTINUE;
 			});
 
-			LOG(INFO) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " vertices to establish colouring";
+			VLOG(V_LOG_LVL) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " vertices to establish colouring";
 
 			return ITER_PROGRESS::CONTINUE;
 		});
@@ -89,7 +91,7 @@ public:
 			/* process vertices with count == 0 */
 			g->foreachMasterVertex([&, nodeId, this](const LocalId v_id) {
 				auto wc = vertexDataMap[v_id]->wait_counter;
-				LOG(INFO) << g->idToString(v_id) << " current wait_counter: " << wc;
+				VLOG(V_LOG_LVL+1) << g->idToString(v_id) << " current wait_counter: " << wc;
 
 				if(wc == 0) {
 					auto v_id_num = g->toNumeric(v_id);
@@ -106,8 +108,8 @@ public:
 					int chosen_colour = previous_used_colour + 1;
 					this->finalColouring[v_id] = chosen_colour;
 
-					LOG(INFO) << "!!! All neighbours of " << g->idToString(v_id) << "(" << v_id_num
-					          << ") chosen colours, we choose " << chosen_colour;
+					VLOG(V_LOG_LVL) << "!!! All neighbours of " << g->idToString(v_id) << "(" << v_id_num
+					                << ") chosen colours, we choose " << chosen_colour;
 
 					/* inform neighbours */
 					g->foreachNeighbouringVertex(v_id, [&, g, nodeId](const GlobalId neigh_id) {
@@ -119,7 +121,7 @@ public:
 							if(neighNodeId == nodeId) {
 								vertexDataMap[neighLocalId]->wait_counter -= 1;
 								vertexDataMap[neighLocalId]->used_colours.insert(chosen_colour);
-								LOG(INFO) << g->idToString(neigh_id) << "(" << neigh_num
+								VLOG(V_LOG_LVL+1) << g->idToString(neigh_id) << "(" << neigh_num
 								          << ") is local, informing about colour "<< chosen_colour;
 							} else {
 								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
@@ -128,7 +130,7 @@ public:
 
 								MPI_Isend(&b->buffer, 1, mpi_message_type, neighNodeId, MPI_TAG, MPI_COMM_WORLD, &b->request);
 
-								LOG(INFO) << "Isend to " << g->idToString(neigh_id) << "(" << neigh_num << ") info that "
+								VLOG(V_LOG_LVL+1) << "Isend to " << g->idToString(neigh_id) << "(" << neigh_num << ") info that "
 								          << g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 								          << chosen_colour;
 							}
@@ -136,7 +138,7 @@ public:
 
 						return ITER_PROGRESS::CONTINUE;
 					});
-					LOG(INFO) << "Informed neighbours about colour being chosen";
+					VLOG(V_LOG_LVL+1) << "Informed neighbours about colour being chosen";
 
 					vertexDataMap[v_id]->wait_counter = -1;
 					coloured_count += 1;
@@ -146,8 +148,8 @@ public:
 
 				return ITER_PROGRESS::CONTINUE;
 			});
-			LOG(INFO) << "Finished processing of 0-wait-count vertices ("
-			          << coloured_count << "/" << all_count << " done)";
+			VLOG(V_LOG_LVL) << "Finished processing of 0-wait-count vertices ("
+			                << coloured_count << "/" << all_count << " done)";
 
 			/* check if any outstanding receive request completed */
 			int receive_result;
@@ -161,7 +163,8 @@ public:
 					int t_id = b->buffer.receiving_node_id;
 					vertexDataMap[t_id]->wait_counter -= 1;
 					vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-					LOG(INFO) << "Received: node = " << b->buffer.receiving_node_id << ", colour = " << b->buffer.used_colour;
+					VLOG(V_LOG_LVL+1) << "Received: node = " << b->buffer.receiving_node_id << ", colour = "
+					                  << b->buffer.used_colour;
 
 					/* post new request */
 					MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
@@ -170,7 +173,7 @@ public:
 				/* one way or another, buffer doesn't change it's status */
 				return false;
 			});
-			LOG(INFO) << "Finished (for current iteration) processing of outstanding receive requests";
+			VLOG(V_LOG_LVL) << "Finished (for current iteration) processing of outstanding receive requests";
 
 			/* wait for send requests and clean them up */
 			sendBuffers.foreachUsed([](BufferAndRequest<LocalId> *b) {
@@ -183,7 +186,7 @@ public:
 					return false;
 				}
 			});
-			LOG(INFO) << "Finished (for current iteration) waiting for send buffers";
+			VLOG(V_LOG_LVL) << "Finished (for current iteration) waiting for send buffers";
 		}
 
 		/* clean up */
@@ -202,5 +205,8 @@ public:
 		return true;
 	}
 };
+
+template <typename T>
+const int GraphColouringMp<T>::V_LOG_LVL = 5;
 
 #endif //FRAMEWORK_GRAPHCOLOURING_H
