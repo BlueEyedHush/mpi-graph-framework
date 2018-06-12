@@ -29,18 +29,23 @@ def output_edge_list_t(nx_graph, file):
         file.write("{}\t{}\n".format(start, end))
         file.write("{}\t{}\n".format(end, start))
 
-def output_graph(filename_prefix, nx_graph):
+def output_graph(filename_prefix, nx_graph, include_test_formats=False):
+    bench_formats = [(".adjl", output_adjacency_list), (".elt", output_edge_list_t)]
+    testonly_format = [(".vl", output_vertex_list), (".el", output_edge_list)]
 
-    for ext, writer in [(".adjl", output_adjacency_list),
-                        (".vl", output_vertex_list),
-                        (".el", output_edge_list),
-                        (".elt", output_edge_list_t)]:
-        f = open(filename_prefix + ext, "w")
+    formats = bench_formats if not include_test_formats else bench_formats + testonly_format
+
+    for ext, writer in formats:
+        f = open("data/" + filename_prefix + ext, "w")
         writer(nx_graph, f)
         f.close()
 
+def gen_powerlaw(vertices, edges_per_vertex):
+    g = nx.powerlaw_cluster_graph(vertices, edges_per_vertex, 0.5, 876)
+    fname = "powergraph_{}_{}".format(vertices, len(g.edges()))
+    output_graph(fname, g)
 
 if __name__ == '__main__':
-    g = nx.powerlaw_cluster_graph(25, 2, 0.5, 876)
-
-    output_graph(sys.argv[1] if len(sys.argv) > 1 else "graph", g)
+    # gen_powerlaw(100000, 10)
+    # gen_powerlaw(10000, 10)
+    gen_powerlaw(1000, 10)

@@ -40,9 +40,12 @@ int main(const int argc, const char** argv) {
 	auto graphFilePath = cm["g"];
 	
 	Executor executor(cm);
-
+	
+	GBAuxiliaryParams gbAuxParams;
+	gbAuxParams.configMap = cm;
 	using THandle = ALHGraphHandle<int,int>;
-	auto *graphHandle = new THandle(graphFilePath, {0L});
+	auto *graphHandle = new THandle(graphFilePath, {0L}, gbAuxParams);
+
 	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
 	executor.registerAssembly("bfs", new BfsAssembly<Bfs_Mp_VarMsgLen_1D_1CommsTag, THandle>(*graphHandle));
 	executor.registerAssembly("repeating", new RepeatingAssembly());

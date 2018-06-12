@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
 #include <utils/TestUtils.h>
+#include <Executor.h>
 #include <Assembly.h>
 #include <representations/AdjacencyListHashPartition.h>
 #include <algorithms/colouring/GraphColouringMp.h>
@@ -13,12 +14,22 @@ using GH = ALHGraphHandle<int, int>;
 template <typename TGraphBuilder, template<typename> class TAlgo>
 static void executeTest(std::string graphPath)
 {
-	auto *graphHandle = new TGraphBuilder(graphPath, {});
-	ColouringAssembly<TAlgo, TGraphBuilder> assembly(*graphHandle);
-	assembly.run();
+	ConfigMap cm;
+	cm.emplace(GH::E_DIV_OPT, "1");
+	cm.emplace(GH::V_DIV_OPT, "1");
 
-	ASSERT_TRUE(assembly.algorithmSucceeded);
-	ASSERT_TRUE(assembly.validationSucceeded);
+	GBAuxiliaryParams auxParams;
+	auxParams.configMap = cm;
+	auto *graphHandle = new TGraphBuilder(graphPath, {}, auxParams);
+
+	Executor executor(cm, false);
+
+	auto* assembly = new ColouringAssembly<TAlgo, TGraphBuilder>(*graphHandle);
+	executor.registerAssembly("t", assembly);
+	executor.executeAssembly("t");
+
+	ASSERT_TRUE(assembly->algorithmSucceeded);
+	ASSERT_TRUE(assembly->validationSucceeded);
 
 	delete graphHandle;
 }

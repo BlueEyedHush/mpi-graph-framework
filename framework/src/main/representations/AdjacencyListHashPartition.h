@@ -9,6 +9,8 @@
 #include <sstream>
 #include <cstring>
 #include <boost/pool/pool.hpp>
+#include <boost/format.hpp>
+#include <glog/logging.h>
 #include <GraphPartitionHandle.h>
 #include <GraphPartition.h>
 #include <utils/MpiTypemap.h>
@@ -176,17 +178,26 @@ private:
 	using Gd = details::GraphData<LocalId, GlobalId>;
 
 public:
-	ALHGraphHandle(std::string path, std::vector<OriginalVertexId> verticesToConv)
-			: P(verticesToConv, destroyGraph), path(path)
+	ALHGraphHandle(std::string path,
+	               std::vector<OriginalVertexId> verticesToConv,
+	               GBAuxiliaryParams auxParams = GBAuxiliaryParams())
+			: P(verticesToConv, destroyGraph, auxParams), path(path)
 	{
 
 	};
 
+	static const std::string E_DIV_OPT;
+	static const std::string V_DIV_OPT;
+
 private:
-	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert, GBAuxiliaryParams) {
+	std::pair<G*, std::vector<GlobalId>> buildGraph(std::vector<OriginalVertexId> verticesToConvert,
+	                                                GBAuxiliaryParams auxParams)
+	{
 		/* rank 0 node partitions graph data across cluster in round-robin fashin
 		 * other nodes are completly passive */
 		using namespace details;
+
+		LOG(INFO) << "Using ALHP graph representation";
 
 		int world_size;
 		MPI_Comm_size(MPI_COMM_WORLD, &world_size);
@@ -199,26 +210,47 @@ private:
 		LocalId *offsetTableWinMem = nullptr;
 		GlobalId *adjListWinMem = nullptr;
 
+		auto& cm = auxParams.configMap;
+
 		d.gIdDatatype = GlobalId::mpiDatatype();
 		MPI_Type_commit(&d.gIdDatatype);
 
-		ull sizes[2]; // 1st - edge list window size (adjList), 2nd - offset table window size
+		ull sizes[2] = {0L, 0L};
+		ull& nodeEdgeLimit = sizes[0];
+		ull& nodeVertexLimit = sizes[1];
+
+		LOG(INFO) << "Loading size information and propagating it through cluster";
 
 		AdjacencyListReader<LocalId> alReader(path);
 
+		LOG(INFO) << "CSV reader initialized";
+
 		/* rank 0 reads graph file 'header' and then broadcasts sizes across cluster */
 		if (world_rank == 0) {
-			sizes[0] = alReader.getEdgeCount() / world_size + 1;
-			sizes[1] = alReader.getVertexCount() / world_size + 1;
+			auto eCount = alReader.getEdgeCount();
+			auto vCount = alReader.getVertexCount();
+			LOG(INFO) << "Loading graph with V=" << vCount << " and E=" << eCount;
+
+			int eDivider = world_size;
+			int vDivider = world_size;
+			if (cm.find(E_DIV_OPT) != cm.end())
+				eDivider = std::stoi(auxParams.configMap[E_DIV_OPT]);
+			if (cm.find(V_DIV_OPT) != cm.end())
+				vDivider = std::stoi(auxParams.configMap[V_DIV_OPT]);
+			LOG(INFO) << "vDivider=" << vDivider << ", eDivider=" << eDivider;
+
+			nodeEdgeLimit = eCount/eDivider + 1;
+			nodeVertexLimit = vCount/vDivider + 1;
 		}
 
 		MPI_Bcast(sizes, 2, mpi_ull, 0, MPI_COMM_WORLD);
+		/* at this point all nodes can access size information */
 
 		MPI_Win_allocate(2*sizeof(LocalId), sizeof(LocalId), MPI_INFO_NULL, MPI_COMM_WORLD,
 		                 &vertexEdgeWinMem, &vertexEdgeWin);
-		MPI_Win_allocate(sizes[0]*sizeof(GlobalId), sizeof(GlobalId), MPI_INFO_NULL, MPI_COMM_WORLD,
+		MPI_Win_allocate(nodeEdgeLimit*sizeof(GlobalId), sizeof(GlobalId), MPI_INFO_NULL, MPI_COMM_WORLD,
 		                 &adjListWinMem, &adjListWin);
-		MPI_Win_allocate(sizes[1]*sizeof(LocalId), sizeof(LocalId), MPI_INFO_NULL, MPI_COMM_WORLD,
+		MPI_Win_allocate(nodeVertexLimit*sizeof(LocalId), sizeof(LocalId), MPI_INFO_NULL, MPI_COMM_WORLD,
 		                 &offsetTableWinMem, &offsetTableWin);
 
 		MPI_Win_lock_all(0, vertexEdgeWin);
@@ -259,10 +291,12 @@ private:
 
 			bool allProcessed = false;
 			NodeId nextNodeId = 0;
+			ull processedVerticesCount = 0;
+			ull processedEdgesCount = 0;
 			/* this loop is executed until we reach end of file */
 			while(!allProcessed) {
 				/* below loop is for batching purposes (we flush only every FLUSH_EVERY) */
-				for(int i = 0; i < FLUSH_EVERY && !allProcessed; i++) {
+				for(int i = 0; i < FLUSH_EVERY && !allProcessed; i++, processedVerticesCount++) {
 
 					auto vInfoOpt = alReader.getNextVertex();
 					if(vInfoOpt) {
@@ -285,10 +319,22 @@ private:
 						oinfo.adjListOffset += neighCount;
 						nodeToOffsetInfo[vertexGid.nodeId] = oinfo;
 
+						/* perform range checks */
+						if (oinfo.vertexCount > nodeVertexLimit) throw std::runtime_error(
+									(boost::format("vertex limit (%1%) exceeded, processed %2% vertices")
+									 % nodeVertexLimit
+									 % processedVerticesCount).str());
+
+						processedEdgesCount += neighCount;
+						if (oinfo.adjListOffset > nodeEdgeLimit) throw std::runtime_error(
+									(boost::format("edge limit (%1%) exceeded, processed %2% edges")
+									 % nodeEdgeLimit
+									 % processedEdgesCount).str());
+
 						/* 2nd, register new mapping in remappingTable */
 						remappingTable[vInfo.vertexId] = vertexGid;
 
-						/* 3rd, choose node for next vertex */
+						/* 3rd, choose node for next vertex - could be also done at the end */
 						nextNodeId++;
 						if(nextNodeId >= world_size) {
 							nextNodeId = 0;
@@ -414,8 +460,8 @@ private:
 		MPI_Win_unlock_all(offsetTableWin);
 		/* adjacency list and offset list should be available */
 
-		d.adjListWinSize = sizes[0];
-		d.offsetTableWinSize = sizes[1];
+		d.adjListWinSize = nodeEdgeLimit;
+		d.offsetTableWinSize = nodeVertexLimit;
 		d.adjListWin = adjListWin;
 		d.adjListWinMem = adjListWinMem;
 		d.vertexEdgeWin = vertexEdgeWin;
@@ -440,5 +486,10 @@ private:
 		delete g;
 	}
 };
+
+template <typename T1, typename T2>
+const std::string ALHGraphHandle<T1,T2>::E_DIV_OPT = "ediv";
+template <typename T1, typename T2>
+const std::string ALHGraphHandle<T1,T2>::V_DIV_OPT = "vdiv";
 
 #endif //FRAMEWORK_ADJACENCYLISTHASHPARTITION_H

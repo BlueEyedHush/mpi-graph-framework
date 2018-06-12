@@ -60,10 +60,16 @@ private:
 	bool initialized;
 
 	void initialize() {
-		auto vertexLine = *csvReader.getNextLine();
-		vertexCount = vertexLine[0];
-		auto edgeLine = *csvReader.getNextLine();
-		edgeCount = edgeLine[0];
+		auto optionalVertexLine = csvReader.getNextLine();
+		if (!optionalVertexLine.is_initialized())
+			throw std::runtime_error("csvReader failed to return line (expected vertex count)");
+
+		auto optionalEdgeLine = csvReader.getNextLine();
+		if (!optionalEdgeLine.is_initialized())
+			throw std::runtime_error("csvReader failed to return line (expected edge count)");
+
+		vertexCount = (*optionalVertexLine)[0];
+		edgeCount = (*optionalEdgeLine)[0];
 
 		initialized = true;
 	}
