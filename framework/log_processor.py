@@ -36,7 +36,7 @@ def measurements_processor(node_to_log_map):
         if type not in probes:
             probes[type] = []
 
-        probes[type] += measurement + "\n"
+        probes[type].append(measurement)
 
     p_local_time = "Local times"
     p_global_time = "Global times"
@@ -53,23 +53,23 @@ def measurements_processor(node_to_log_map):
                 if probe_type == "tl":
                     value_in_sec = float(probe_value)/1000000000
                     add_measurement(p_local_time,
-                                    "[{}] {}: {}ns ({}s)".format(node, probe_name, probe_value, value_in_sec))
+                                    "[{}] {}: {}ns ({:.2f}s)".format(node, probe_name, probe_value, value_in_sec))
                 elif probe_type == "tg":
                     value_in_sec = float(probe_value)/1000000000
                     add_measurement(p_global_time,
-                                    "{}: {} ({}s)".format(probe_name, probe_value, value_in_sec))
+                                    "{}: {} ({:.2f}s)".format(probe_name, probe_value, value_in_sec))
                 elif probe_type == "mf":
                     x, all = map(lambda x: int(x), probe_value.split("/"))
                     frac = float(all)/x
                     add_measurement(p_memory_frac,
-                                    "[{}] {}: {} (1/{})".format(node, probe_name, probe_value, frac))
+                                    "[{}] {}: {} (1/{:.2f})".format(node, probe_name, probe_value, frac))
                 else:
                     add_measurement(p_misc, "[{}] {}: {}".format(node, probe_name, probe_value))
 
     lines = []
 
-    for type, measurements in probes:
-        lines.append("\n" + type + ":\n")
+    for type, measurements in probes.iteritems():
+        lines.append("\n\n" + type + ":\n\n")
         lines.append("\n".join(measurements))
 
     node_to_log_map["probes"] = lines
