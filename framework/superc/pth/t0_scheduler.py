@@ -2,22 +2,29 @@
 import os
 from common import *
 
-nc = 2
-tpn = 3
-g_alias = "p50k"
-algo = "colouring"
+# problem complexity - 1 process, changing problem size
+
 build_type = "release"
+mpt = "2gb"
 
-log_dir = prepare_log_dir("{}_{}_{}".format(g_alias, nc, tpn))
-log_prefix = os.path.join(log_dir, "fr_" + build_type)
+def bench_set(nc, tpn, g_aliases, algo):
+    cpus = nc*tpn
+    div = max([1,cpus-1])
 
-cpus = nc*tpn
-div = max([1,cpus-1])
-cmds = [framework_cli(build_type, std_g(g_alias), algo, log_dir, vdiv=div, ediv=div)]
+    for g_alias in g_aliases:
+        log_dir = prepare_log_dir("{}_{}_{}".format(g_alias, nc, tpn))
+        log_prefix = os.path.join(log_dir, "fr_" + build_type)
+        cmds = [framework_cli(build_type, std_g(g_alias), algo, log_dir, vdiv=div, ediv=div)]
 
-os.system(run_batch_string(cmds,
-                           queue="plgrid-testing",
-                           tasks_per_node=tpn,
-                           node_count=nc,
-                           log_prefix=log_prefix,
-                           profiling_on=False))
+        jname = "fr_{}_{}_{}_{}_{}".format(build_type, g_alias, nc, tpn, mpt)
+        os.system(run_batch_string(cmds,
+                                   job_name=jname,
+                                   queue="plgrid-testing",
+                                   mem_per_task=mpt,
+                                   tasks_per_node=tpn,
+                                   node_count=nc,
+                                   log_prefix=log_prefix,
+                                   profiling_on=False))
+
+graph_vcounts = [5, 10, 15, 20, 25, 30, 35]
+bench_set(1, 1, map(lambda vc: "p{}k".format(vc), graph_vcounts), "colouring")
