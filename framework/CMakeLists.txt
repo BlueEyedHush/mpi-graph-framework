@@ -48,7 +48,7 @@ endif()
 # MPI
 find_package(MPI REQUIRED)
 if(MPI_C_FOUND)
-    message(STATUS "Found MPI")
+    message(STATUS "Found MPI.\n Includes: ${MPI_INCLUDE_PATH}\n Libs: ${MPI_C_LIBRARIES}")
     include_directories(SYSTEM ${MPI_INCLUDE_PATH})
     target_link_libraries(framework ${MPI_C_LIBRARIES})
 else()
