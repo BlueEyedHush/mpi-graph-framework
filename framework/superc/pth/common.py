@@ -43,11 +43,13 @@ def get_paths():
 def prepare_log_dir(date_prefix=""):
     p = get_paths()
     datetime_component = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = os.path.join(p.log_dir, date_prefix + "_" + datetime_component)
+    date_prefix = (date_prefix + "_") if len(date_prefix) > 0 else date_prefix
+    log_dir = os.path.join(p.log_dir, date_prefix + datetime_component)
     ensure_dir_exists(log_dir)
     return log_dir
 
 def run_batch_string(cmds,
+                     job_name="framework",
                      node_count = 1,
                      tasks_per_node = 1,
                      mem_per_task = "1gb",
@@ -68,7 +70,7 @@ def run_batch_string(cmds,
     work_dir = ' "{}"'.format(p.base_dir)
 
     cmd = ("sbatch"
-    " -J framework"
+    " -J " + job_name +
     " -N " + str(node_count) +
     " --ntasks-per-node " + str(tasks_per_node) +
     " --mem-per-cpu " + mem_per_task +
@@ -99,8 +101,19 @@ def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1,
 
 g_aliases = {
     "p1k": "powergraph_1000_9864",
+    "p5k": "powergraph_5000_49816",
     "p10k": "powergraph_10000_99794",
+    "p15k": "powergraph_15000_149784",
+    "p20k": "powergraph_20000_199771",
+    "p25k": "powergraph_25000_249765",
+    "p30k": "powergraph_30000_299761",
+    "p35k": "powergraph_35000_349755",
+    "p40k": "powergraph_40000_399751",
     "p50k": "powergraph_50000_499745",
+    "p60k": "powergraph_60000_599742",
+    "p70k": "powergraph_70000_699736",
+    "p80k": "powergraph_80000_799727",
+    "p90k": "powergraph_90000_899721",
     "p100k": "powergraph_100000_999719",
     "p200k": "powergraph_200000_1999678"
 }
