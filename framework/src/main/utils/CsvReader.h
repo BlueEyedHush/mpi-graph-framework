@@ -21,6 +21,8 @@ class CsvReader {
 public:
 	CsvReader(std::string path) {
 		ifs.open(path, std::ifstream::in);
+		if (ifs.fail())
+			throw std::runtime_error("Failed to open " + path + " (probably doesn't exist)");
 	}
 
 	~CsvReader() {

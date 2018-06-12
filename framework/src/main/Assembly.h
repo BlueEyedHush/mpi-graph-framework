@@ -62,6 +62,8 @@ public:
 	bool validationSucceeded = false;
 
 	void doRun(ConfigMap config) override {
+		LOG(INFO) << "Started executing AlgorithmAssembly";
+
 		int rank, size;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 		MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -71,10 +73,14 @@ public:
 		Probe algorithmGlobalProbe("Algorithm", true);
 		Probe validationProbe("Validation");
 
+		LOG(INFO) << "About to start graph loading";
+
 		graphLoadingProbe.start();
 		TGHandle& handle = getHandle();
 		auto& graph = handle.getGraph();
 		graphLoadingProbe.stop();
+
+		LOG(INFO) << "Graph has been loaded";
 
 	    MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.start();
@@ -86,6 +92,8 @@ public:
 		TAlgorithm<G>& algorithm = getAlgorithm(handle);
 		algorithmSucceeded = algorithm.run(&graph, aaParams);
 		algorithmExecutionProbe.stop();
+
+		LOG(INFO) << "Algorithm has been executed";
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.stop();

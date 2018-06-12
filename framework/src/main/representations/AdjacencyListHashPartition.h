@@ -197,6 +197,8 @@ private:
 		 * other nodes are completly passive */
 		using namespace details;
 
+		LOG(INFO) << "Using ALHP graph representation";
+
 		int world_size;
 		MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 		int world_rank;
@@ -217,7 +219,11 @@ private:
 		ull& nodeEdgeLimit = sizes[0];
 		ull& nodeVertexLimit = sizes[1];
 
+		LOG(INFO) << "Loading size information and propagating it through cluster";
+
 		AdjacencyListReader<LocalId> alReader(path);
+
+		LOG(INFO) << "CSV reader initialized";
 
 		/* rank 0 reads graph file 'header' and then broadcasts sizes across cluster */
 		if (world_rank == 0) {
