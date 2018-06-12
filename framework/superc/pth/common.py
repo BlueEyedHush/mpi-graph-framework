@@ -40,10 +40,10 @@ def get_paths():
 # Meant for scheduler
 # -------------------
 
-def prepare_log_dir():
+def prepare_log_dir(date_prefix=""):
     p = get_paths()
     datetime_component = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = os.path.join(p.log_dir, datetime_component)
+    log_dir = os.path.join(p.log_dir, date_prefix + "_" + datetime_component)
     ensure_dir_exists(log_dir)
     return log_dir
 
@@ -100,7 +100,9 @@ def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1,
 g_aliases = {
     "p1k": "powergraph_1000_9864",
     "p10k": "powergraph_10000_99794",
-    "p100k": "powergraph_100000_999719"
+    "p50k": "powergraph_50000_499745",
+    "p100k": "powergraph_100000_999719",
+    "p200k": "powergraph_200000_1999678"
 }
 
 def std_g(alias):

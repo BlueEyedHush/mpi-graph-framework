@@ -48,4 +48,10 @@ def gen_powerlaw(vertices, edges_per_vertex):
 if __name__ == '__main__':
     # gen_powerlaw(100000, 10)
     # gen_powerlaw(10000, 10)
-    gen_powerlaw(1000, 10)
+    # gen_powerlaw(1000, 10)
+    # gen_powerlaw(200000, 10)
+    # gen_powerlaw(50000, 10)
+    gen_powerlaw(60000, 10)
+    gen_powerlaw(70000, 10)
+    gen_powerlaw(80000, 10)
+    gen_powerlaw(90000, 10)
