@@ -97,6 +97,16 @@ def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1,
         log_processor)
     return cmd
 
+g_aliases = {
+    "p1k": "powergraph_1000_9864",
+    "p10k": "powergraph_10000_99794",
+    "p100k": "powergraph_100000_999719"
+}
+
+def std_g(alias):
+    return "../graphs/data/{}.adjl".format(g_aliases[alias])
+
+
 
 # -------------------
 # Meant for executor

@@ -5,7 +5,7 @@ from common import *
 log_dir = prepare_log_dir()
 log_prefix = os.path.join(log_dir, "framework")
 
-cmds = [framework_cli("debug", "../graphs/data/powergraph_1000_9864.adjl", "colouring", log_dir)]
+cmds = [framework_cli("debug", std_g("p1k"), "colouring", log_dir)]
 
 os.system(run_batch_string(cmds,
                            queue="plgrid-testing",
