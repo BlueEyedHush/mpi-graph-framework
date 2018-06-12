@@ -47,8 +47,12 @@ def measurements_processor(node_to_log_map):
                 elif probe_type == "tg":
                     value_in_sec = float(probe_value)/1000000000
                     global_time_probes.append("{}: {} ({}s)\n".format(probe_name, probe_value, value_in_sec))
+                elif probe_type == "mf":
+                    x, all = map(lambda x: int(x), probe_value.split("/"))
+                    frac = float(all)/x
+                    misc_probes.append("[{}] {}: {} (1/{})".format(node, probe_name, probe_value, frac))
                 else:
-                    misc_probes.append("{}: {}\n".format(probe_name, probe_value))
+                    misc_probes.append("[{}] {}: {}\n".format(node, probe_name, probe_value))
 
     node_to_log_map["probes"] = ["Global times:\n"] + \
                                 global_time_probes + \
