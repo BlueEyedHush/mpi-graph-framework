@@ -143,9 +143,9 @@ def import_modules_string():
     ]
 
 def run_commands(cmds):
-    cmd = "; ".join(cmds)
+    cmd = "\n".join(cmds)
     cmd = cmd.replace("#", "$")
-    err(cmd)
+    err("\n" + cmd + "\n")
     os.system(cmd)
 
 def get_workdir():
