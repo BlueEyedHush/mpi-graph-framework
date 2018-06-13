@@ -89,9 +89,13 @@ public:
 		size_t all_count = g->masterVerticesCount();
 		while(coloured_count < all_count) {
 			/* process vertices with count == 0 */
+			size_t coloured_this_iter = 0;
+			size_t still_waiting = 0;
 			g->foreachMasterVertex([&, nodeId, this](const LocalId v_id) {
 				auto wc = vertexDataMap[v_id]->wait_counter;
 				VLOG(V_LOG_LVL+1) << g->idToString(v_id) << " current wait_counter: " << wc;
+
+				assert(wc >= -1);
 
 				if(wc == 0) {
 					auto v_id_num = g->toNumeric(v_id);
@@ -140,16 +144,20 @@ public:
 					});
 					VLOG(V_LOG_LVL+1) << "Informed neighbours about colour being chosen";
 
-					vertexDataMap[v_id]->wait_counter = -1;
+					vertexDataMap[v_id]->wait_counter = -1; // so that we don't process it over and over again
+					coloured_this_iter += 1;
 					coloured_count += 1;
 
 					return ITER_PROGRESS::CONTINUE;
+				} else if (wc != -1) {
+					still_waiting += 1;
 				}
 
 				return ITER_PROGRESS::CONTINUE;
 			});
-			VLOG(V_LOG_LVL) << "Finished processing of 0-wait-count vertices ("
-			                << coloured_count << "/" << all_count << " done)";
+
+			VLOG(V_LOG_LVL-2) << "0-wait processing finished. Coloured " << coloured_this_iter << ". On this node "
+			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
 			int receive_result;
@@ -176,16 +184,19 @@ public:
 			VLOG(V_LOG_LVL) << "Finished (for current iteration) processing of outstanding receive requests";
 
 			/* wait for send requests and clean them up */
-			sendBuffers.foreachUsed([](BufferAndRequest<LocalId> *b) {
+			size_t hanging_sends = 0;
+			sendBuffers.foreachUsed([&hanging_sends](BufferAndRequest<LocalId> *b) {
 				int result = 0;
 				MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
 				if (result != 0) {
 					MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 					return true;
 				} else {
+					hanging_sends += 1;
 					return false;
 				}
 			});
+			VLOG(V_LOG_LVL-2) << "Got " << hanging_sends << " hanging sends";
 			VLOG(V_LOG_LVL) << "Finished (for current iteration) waiting for send buffers";
 		}
 
