@@ -89,16 +89,20 @@ def run_batch_string(cmds,
 def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1, vdiv=1, ediv=1):
     paths = get_paths()
     framework_path = os.path.join(paths.build_dir(build_type), "framework")
-    log_processor = "python {} {}".format(os.path.join(paths.base_dir, "log_processor.py"), log_dir)
-    cmd = mpiexec_prefix + "{} -g {} -a repeating -ra-n {} -ra-name {} -vdiv {} -ediv {} |& {}".format(
+
+    create_tmp_file_cmd = 'TMP_FILE=`mktemp "$SCRATCH"/fr_out.XXXXXXXX`'
+
+    framework_cmd = mpiexec_prefix + '{} -g {} -a repeating -ra-n {} -ra-name {} -vdiv {} -ediv {} |& tee "$TMP_FILE"'.format(
         framework_path,
         graph_file,
         repetitions,
         assembly_name,
         vdiv,
-        ediv,
-        log_processor)
-    return cmd
+        ediv)
+
+    log_processor_cmd = 'cat "$TMP_FILE" | "python {} {}'.format(os.path.join(paths.base_dir, "log_processor.py"), log_dir)
+
+    return [create_tmp_file_cmd, framework_cmd, log_processor_cmd]
 
 g_aliases = {
     "p1k": "powergraph_1000_9864",
