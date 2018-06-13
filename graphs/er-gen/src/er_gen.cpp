@@ -3,8 +3,9 @@
 #include <unordered_map>
 #include <vector>
 #include <fstream>
+#include <iostream>
 
-typedef unsigned long long TVertexId;
+typedef unsigned int TVertexId;
 
 class BackEdgeMap {
 public:
@@ -12,7 +13,6 @@ public:
 	std::vector<TVertexId>& get_back_edges(TVertexId v_id) { return map[v_id]; }
 	void forget_vertex(TVertexId v_id) { map.erase(v_id); }
 
-private:
 	std::unordered_map<TVertexId, std::vector<TVertexId>> map;
 };
 
@@ -27,6 +27,7 @@ void g(TVertexId v_count, double p, std::ofstream& f_adjl, std::ofstream& f_elt,
 
 	BackEdgeMap be_map;
 
+	TVertexId mask = 0xf;
 	for(TVertexId src_v_id = 0; src_v_id < v_count; src_v_id++) {
 		/* graphs for framework are requred to: for each (u, v) in G: (v, u) in G */
 		/* to avoid duplicates, we only add edges to higher vertex ids */
@@ -52,6 +53,9 @@ void g(TVertexId v_count, double p, std::ofstream& f_adjl, std::ofstream& f_elt,
 		}
 
 		f_adjl << '\n';
+
+		if ((src_v_id & mask) == 0)
+			std::cout << src_v_id << "/" << v_count << '\n';
 	}
 }
 
