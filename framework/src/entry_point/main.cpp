@@ -25,6 +25,8 @@
 int main(const int argc, const char** argv) {
 	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
+	FLAGS_v = 0;
+	google::InitGoogleLogging(argv[0]);
 
 	#if WAIT_FOR_DEBUGGER == 1
 	int world_rank;
@@ -43,7 +45,7 @@ int main(const int argc, const char** argv) {
 	
 	GBAuxiliaryParams gbAuxParams;
 	gbAuxParams.configMap = cm;
-	using THandle = ALHGraphHandle<int,int>;
+	using THandle = ALHGraphHandle<int, unsigned long long>;
 	auto *graphHandle = new THandle(graphFilePath, {0L}, gbAuxParams);
 
 	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
