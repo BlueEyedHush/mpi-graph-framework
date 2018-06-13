@@ -23,7 +23,6 @@
 #endif
 
 int main(const int argc, const char** argv) {
-	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
 	FLAGS_v = 0;
 	google::InitGoogleLogging(argv[0]);
