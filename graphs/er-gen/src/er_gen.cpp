@@ -6,9 +6,6 @@
 
 typedef unsigned long long ull;
 
-ull v_count = 1000000;
-double p = 0.4;
-
 class BackEdgeMap {
 public:
 	void add_back_edge(ull from, ull to) { map[from].push_back(to); }
@@ -21,7 +18,7 @@ private:
 
 void write_neighbour(std::ofstream& f_adjl, std::ofstream& f_elt, ull src, ull dest) {
 	f_adjl << src << ' ';
-	f_elt << src << '\t' << dest << std::endl;
+	f_elt << src << '\t' << dest << '\n';
 }
 
 void g(ull v_count, double p, std::ofstream& f_adjl, std::ofstream& f_elt, unsigned int seed) {
@@ -54,7 +51,7 @@ void g(ull v_count, double p, std::ofstream& f_adjl, std::ofstream& f_elt, unsig
 			}
 		}
 
-		f_adjl << std::endl;
+		f_adjl << '\n';
 	}
 }
 
