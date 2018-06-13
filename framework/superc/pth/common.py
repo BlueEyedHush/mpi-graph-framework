@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 
+# mpiexec_prefix = "mpiexec -ordered-output -prepend-rank -genv I_MPI_DEBUG=100 -genv I_MPI_HYDRA_DEBUG=1 "
 mpiexec_prefix = "mpiexec -ordered-output -prepend-rank "
 
 # -------------------
@@ -115,7 +116,10 @@ g_aliases = {
     "p80k": "powergraph_80000_799727",
     "p90k": "powergraph_90000_899721",
     "p100k": "powergraph_100000_999719",
-    "p200k": "powergraph_200000_1999678"
+    "p200k": "powergraph_200000_1999678",
+    "p300k": "powergraph_300000_2999660",
+    "p400k": "powergraph_400000_3999643",
+    "p500k": "powergraph_500000_4999634"
 }
 
 def std_g(alias):
