@@ -2,8 +2,8 @@
 import os
 from common import *
 
-nc = 1
-tpn = 1
+nc = 2
+tpn = 4
 g_alias = "p35k"
 algo = "colouring"
 build_type = "debug"
@@ -22,4 +22,4 @@ os.system(run_batch_string(cmds,
                            tasks_per_node=tpn,
                            node_count=nc,
                            log_prefix=log_prefix,
-                           profiling_on=False))
+                           profiling_on=True))

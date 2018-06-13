@@ -4,7 +4,7 @@ import sys
 import datetime
 
 # mpiexec_prefix = "mpiexec -ordered-output -prepend-rank -genv I_MPI_DEBUG=100 -genv I_MPI_HYDRA_DEBUG=1 "
-mpiexec_prefix = "mpiexec -ordered-output -prepend-rank "
+mpiexec_prefix = "export I_MPI_PMI_LIBRARY=/net/slurm/releases/production/lib/libpmi.so; srun "
 
 # -------------------
 # Environment agnostic
