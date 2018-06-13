@@ -4,9 +4,9 @@ from common import *
 
 nc = 1
 tpn = 1
-g_alias = "p100k"
+g_alias = "p35k"
 algo = "colouring"
-build_type = "release"
+build_type = "debug"
 
 log_dir = prepare_log_dir("{}_{}_{}".format(g_alias, nc, tpn))
 log_prefix = os.path.join(log_dir, "fr_" + build_type)
