@@ -12,4 +12,4 @@ if [ ! -z "$1" ]; then
 fi
 
 echo "Syncing files"
-rsync -avzr --exclude pass "$DIR"/* "$LOGIN_STR":"$REMOTE_DIR"
+rsync -avzr --exclude pass --exclude er-gen/ "$DIR"/* "$LOGIN_STR":"$REMOTE_DIR"

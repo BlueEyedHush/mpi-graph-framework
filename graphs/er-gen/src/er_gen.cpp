@@ -1,12 +1,13 @@
 
 #include <cstdlib>
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <fstream>
 #include <iostream>
 #include <random>
 
-typedef unsigned int TVertexId;
+typedef uint32_t TVertexId;
 
 class BackEdgeMap {
 public:
@@ -25,7 +26,7 @@ void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, s
 	BackEdgeMap be_map;
 
 	size_t edge_count = 0;
-	TVertexId mask = 0xf;
+	TVertexId mask = 0xff;
 	for(TVertexId src_v_id = 0; src_v_id < v_count; src_v_id++) {
 		/* graphs for framework are requred to: for each (u, v) in G: (v, u) in G */
 		/* to avoid duplicates, we only add edges to higher vertex ids */
@@ -70,11 +71,16 @@ void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, s
 }
 
 int main(int argc, const char **argv) {
-	TVertexId vCount = 1000000;
-	size_t edgesPerVertex = 20;
+	if (argc < 3) {
+		printf("Usage: er_gen <vertex_count> <edges_per_vertex>\n");
+		exit(1);
+	}
+
+	TVertexId vCount = std::stoull(argv[1]);
+	size_t edgesPerVertex = std::stoull(argv[2]);
 	std::string graphName("cst_" + std::to_string(vCount) + "_" + std::to_string(edgesPerVertex));
 
-	std::ofstream adjl("../../data/" + graphName + ".adjl");
-	std::ofstream elt("../../data/" + graphName + ".elt");
+	std::ofstream adjl(graphName + ".adjl");
+	std::ofstream elt(graphName + ".elt");
 	g(vCount, edgesPerVertex, adjl, elt, 6537);
 }
