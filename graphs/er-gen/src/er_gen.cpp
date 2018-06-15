@@ -70,7 +70,11 @@ void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, s
 }
 
 int main(int argc, const char **argv) {
-	std::ofstream adjl("tgraph.adjl");
-	std::ofstream elt("tgraph.elt");
-	g(1000000, 10, adjl, elt, 6537);
+	TVertexId vCount = 1000000;
+	size_t edgesPerVertex = 20;
+	std::string graphName("cst_" + std::to_string(vCount) + "_" + std::to_string(edgesPerVertex));
+
+	std::ofstream adjl("../../data/" + graphName + ".adjl");
+	std::ofstream elt("../../data/" + graphName + ".elt");
+	g(vCount, edgesPerVertex, adjl, elt, 6537);
 }
