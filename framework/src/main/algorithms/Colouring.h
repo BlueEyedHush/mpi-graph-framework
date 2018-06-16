@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <mpi.h>
 #include <Algorithm.h>
+#include <utils/MpiTypemap.h>
 
 typedef int VertexColour;
 const MPI_Datatype VERTEX_COLOUR_MPI_TYPE = MPI_INT;
@@ -25,7 +26,7 @@ namespace details {
 			MPI_Datatype d;
 			int blocklengths[] = {1, 1};
 			MPI_Aint displacements[] = {offsetof(Message, receiving_node_id), offsetof(Message, used_colour)};
-			MPI_Datatype building_types[] = {MPI_INT, MPI_INT};
+			MPI_Datatype building_types[] = {getDatatypeFor<LocalId>(), MPI_INT};
 			MPI_Type_create_struct(2, blocklengths, displacements, building_types, &d);
 
 			return d;
@@ -36,7 +37,7 @@ namespace details {
 		VertexTempData() : wait_counter(0) {}
 
 		std::set<VertexColour> used_colours;
-		int wait_counter;
+		size_t wait_counter;
 	};
 }
 

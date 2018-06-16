@@ -117,7 +117,7 @@ public:
 
 					/* inform neighbours */
 					g->foreachNeighbouringVertex(v_id, [&, g, nodeId](const GlobalId neigh_id) {
-						unsigned long long neigh_num = g->toNumeric(neigh_id);
+						NumericId neigh_num = g->toNumeric(neigh_id);
 						if (neigh_num < v_id_num) {
 							/* if it's larger it already has colour and is not interested */
 							auto neighNodeId = g->toMasterNodeId(neigh_id);

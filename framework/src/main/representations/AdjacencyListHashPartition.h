@@ -49,8 +49,8 @@ namespace details {
 		int world_rank;
 
 		MPI_Win vertexEdgeWin, adjListWin, offsetTableWin;
-		int offsetTableWinSize;
-		int adjListWinSize;
+		size_t offsetTableWinSize;
+		size_t adjListWinSize;
 		TLocalId *vertexEdgeWinMem;
 		TLocalId *offsetTableWinMem;
 		TGlobalId *adjListWinMem;

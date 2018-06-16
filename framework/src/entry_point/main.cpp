@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #include <iostream>
 #include <glog/logging.h>
 #include <utils/Config.h>
@@ -46,7 +47,7 @@ int main(const int argc, const char** argv) {
 	
 	GBAuxiliaryParams gbAuxParams;
 	gbAuxParams.configMap = cm;
-	using THandle = ALHGraphHandle<int, unsigned long long>;
+	using THandle = ALHGraphHandle<uint32_t, uint64_t>;
 	auto *graphHandle = new THandle(graphFilePath, {0L}, gbAuxParams);
 
 	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));
