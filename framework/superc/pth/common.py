@@ -126,6 +126,9 @@ g_aliases = {
     "p500k": "powergraph_500000_4999634"
 }
 
+def cst_g(v_count_m, e_m):
+    return "c{}m{}".format(v_count_m, e_m), "../graphs/data/cst_{}000000_{}.adjl".format(v_count_m, e_m)
+
 def std_g(alias):
     return "../graphs/data/{}.adjl".format(g_aliases[alias])
 
