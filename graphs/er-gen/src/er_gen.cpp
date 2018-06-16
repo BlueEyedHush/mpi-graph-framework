@@ -22,6 +22,15 @@ public:
 void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, std::ofstream& f_elt, std::mt19937::result_type seed)
 {
 	std::mt19937 gen{std::random_device{}()};
+	auto to_generate_multip = 1.5;
+
+	/* write vertex count at the beginning of adjl */
+	f_adjl << v_count << '\n';
+	/* write placeholder for edge count, save file position to replace it later */
+	auto max_e_count = static_cast<size_t>(v_count*edges_per_vertex_soft*(to_generate_multip + 0.1));
+	auto edge_count_spos = f_adjl.tellp();
+	f_adjl << max_e_count << '\n';
+	auto edge_count_epos = f_adjl.tellp();
 
 	BackEdgeMap be_map;
 
@@ -38,9 +47,7 @@ void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, s
 
 		/* generate some additional edges if needed */
 		if (back_edges.size() < edges_per_vertex_soft) {
-			auto to_generate = edges_per_vertex_soft - back_edges.size();
-			to_generate *= 3;
-			to_generate /= 2;
+			auto to_generate = static_cast<size_t>((edges_per_vertex_soft - back_edges.size())*to_generate_multip);
 
 			std::uniform_int_distribution<TVertexId> distribution(src_v_id+1, v_count-1);
 			for(size_t i = 0; i < to_generate; i++) {
@@ -66,6 +73,14 @@ void g(TVertexId v_count, size_t edges_per_vertex_soft, std::ofstream& f_adjl, s
 		if ((src_v_id & mask) == 0)
 			std::cout << src_v_id << "/" << v_count << '\n';
 	}
+
+	/* write correct edge count */
+	auto placeholder_len = edge_count_epos - edge_count_spos;
+	std::string placeholder(std::to_string(edge_count));
+	while (placeholder.size() < placeholder_len - 1)
+		placeholder.push_back(' ');
+	f_adjl.seekp(edge_count_spos);
+	f_adjl << placeholder << '\n';
 
 	std::cout << "edge_count = " << edge_count << '\n';
 }
