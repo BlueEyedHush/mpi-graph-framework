@@ -1,13 +1,13 @@
 #!/usr/bin/bash
-# SBATCH -A ccbmc6
-# SBATCH -N 1
-# SBATCH --ntasks-per-node 1
-# SBATCH --mem-per-cpu 1g
-# SBATCH --time 00:20:00
-# SBATCH -J gg
-# SBATCH -p plgrid-testing
 
+# can't do it like this, slurm
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [ ! -z "$3" ]; then
+    # for sbatch we have to set workdir manually, because slurm copies script
+    DIR="$3"
+fi
+
 WD="$DIR"/data/
 GENERATOR="$DIR"/er-gen/cmake-build-release/er_gen
 
