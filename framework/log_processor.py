@@ -8,22 +8,11 @@ def splitter(sentence, mapping):
             mapping[node_id] = []
         mapping[node_id].append(line)
 
-    split = re.split("\[[0-9]+?\]", sentence)
+    m = re.match("([0-9])+?:", sentence)
 
-    if len(split) > 1:
-        groups = []
-        for m in re.finditer("\[([0-9]+?)\]", sentence):
-            groups.append(m.group(1))
-
-        if split[0]:
-            # if first is non-empty, line didn't start with node id indicator
-            append("_", "{} (???)\n".format(split[0]))
-
-        for node_id, str in zip(groups, split[1:]):
-            if str[0] == ' ':
-                str = str[1:]
-            append(node_id, str)
-
+    if m is not None:
+        node_id = m.group(1)
+        append(node_id, sentence)
     else:
         append("_", sentence)
 
