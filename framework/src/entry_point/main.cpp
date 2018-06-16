@@ -37,6 +37,8 @@ int main(const int argc, const char** argv) {
 	#endif
 
 	ConfigMap cm = parseCli(argc, argv);
+	std::cout << '\n' << configurationToString(cm) << std::endl;
+
 	auto assemblyName = cm["a"];
 	auto graphFilePath = cm["g"];
 	

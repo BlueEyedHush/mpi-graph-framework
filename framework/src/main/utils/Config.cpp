@@ -3,6 +3,7 @@
 //
 
 #include <boost/format.hpp>
+#include <sstream>
 #include "Config.h"
 
 ConfigMap parseCli(const int argc, const char** argv) {
@@ -24,4 +25,12 @@ ConfigMap parseCli(const int argc, const char** argv) {
 	}
 
 	return cmap;
+}
+
+std::string configurationToString(ConfigMap& cmap) {
+	std::stringstream ss;
+	ss << '(';
+	for(auto p: cmap) ss << p.first << ": " << p.second << ",";
+	ss << ')';
+	return ss.str();
 }
