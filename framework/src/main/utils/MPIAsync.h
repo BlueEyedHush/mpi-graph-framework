@@ -44,6 +44,7 @@ public:
 	void submitWaitingTask(MPI_Request *request, std::function<void(void)> callback);
 	bool pollNext(size_t x);
 	bool pollAll();
+	size_t getQueueSize();
 	void shutdown();
 
 private:

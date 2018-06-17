@@ -11,6 +11,8 @@
 #include <Validator.h>
 #include <algorithms/Colouring.h>
 
+#define CV_LOCAL_SHORTCIRCUIT 0
+
 template <typename TGraphPartition>
 class ColouringValidator : public Validator<TGraphPartition, VertexColour *> {
 private:
@@ -33,10 +35,12 @@ public: /* @todo: finish rewriting validator */
 		LOG(INFO) << "Starting local vertex scan";
 		bool solutionCorrect = true;
 		int processed = 0;
+		size_t requestsMade = 0;
 		/* @todo: correct indentation & wrapping - tweak CLion rules */
-		g->foreachMasterVertex([g, &solutionCorrect, &partialSolutionWin, &scheduler, partialSolution, &processed, nodeId](const LocalId v_id) {
-			g->foreachNeighbouringVertex(v_id, [g, nodeId, partialSolution, v_id, &partialSolutionWin, &solutionCorrect, &scheduler, &processed](const GlobalId neigh_id) {
+		g->foreachMasterVertex([&, g, partialSolution, nodeId](const LocalId v_id) {
+			g->foreachNeighbouringVertex(v_id, [&, g, nodeId, partialSolution, v_id](const GlobalId neigh_id) {
 				auto neighLocalId = g->toLocalId(neigh_id);
+				#if CV_LOCAL_SHORTCIRCUIT == 1
 				if(g->toMasterNodeId(neigh_id) == nodeId) {
 					/* colours for both vertices on this node */
 					if(partialSolution[neighLocalId] == partialSolution[v_id]) {
@@ -52,6 +56,7 @@ public: /* @todo: finish rewriting validator */
 
 					processed += 1;
 				} else {
+				#endif
 					/* need to query other node */
 					int *colour = new int;
 					MPI_Request	*rq = new MPI_Request;
@@ -65,10 +70,21 @@ public: /* @todo: finish rewriting validator */
 
 						processed += 1;
 					});
+				#if CV_LOCAL_SHORTCIRCUIT == 1
 				}
+				#endif
+
+				requestsMade += 1;
 
 				return ITER_PROGRESS::CONTINUE;
 			});
+
+			if (requestsMade >= 1000) {
+				auto s_before = scheduler.getQueueSize();
+				scheduler.pollAll();
+				requestsMade = 0;
+				LOG(INFO) << "Queue flush, went from " << s_before << " to " << scheduler.getQueueSize();
+			}
 
 			return ITER_PROGRESS::CONTINUE;
 		});

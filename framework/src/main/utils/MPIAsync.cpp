@@ -107,3 +107,7 @@ void MPIAsync::submitWaitingTask(MPI_Request *request, std::function<void(void)>
 	el.fun = callback;
 	taskList->push_back(el);
 }
+
+size_t MPIAsync::getQueueSize() {
+	return taskList->size();
+}
