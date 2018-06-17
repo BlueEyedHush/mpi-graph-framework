@@ -27,6 +27,12 @@ namespace details {
 	};
 }
 
+/*
+ * todo:
+ * * swap with last (maybe don't use separate list for free buffers?
+ * * keep limit of free buffers! (decide what to do in iterate?
+ */
+
 template <class TGraphPartition>
 class GraphColouringMp : public GraphColouring<TGraphPartition> {
 private:
@@ -47,7 +53,18 @@ public:
 		MPI_Datatype mpi_message_type = Message<LocalId>::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
 
-		BufferPool<BufferAndRequest<LocalId>> sendBuffers;
+		auto mpiWaitCallback = [](BufferAndRequest<LocalId> *b) {
+			int result = 0;
+			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
+			if (result != 0) {
+				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
+				return true;
+			} else {
+				return false;
+			}
+		};
+
+		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(1000, mpiWaitCallback);
 		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
 		LOG(INFO) << "Finished initialization";
@@ -132,7 +149,7 @@ public:
 								          << ") is local, informing about colour "<< chosen_colour;
 							} else {
 							#endif
-								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
+								BufferAndRequest<LocalId> *b = sendBuffers.get();
 								b->buffer.receiving_node_id = neighLocalId;
 								b->buffer.used_colour = chosen_colour;
 
@@ -159,6 +176,8 @@ public:
 					still_waiting += 1;
 				}
 
+				sendBuffers.tryFree();
+
 				return ITER_PROGRESS::CONTINUE;
 			});
 
@@ -166,9 +185,8 @@ public:
 			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
-			int receive_result;
-			receiveBuffers.foreachUsed([&](BufferAndRequest<LocalId> *b) {
-				receive_result = 0;
+			receiveBuffers.foreachUsed([&vertexDataMap, &mpi_message_type](BufferAndRequest<LocalId> *b) {
+				int receive_result = 0;
 				MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
 
 				if (receive_result != 0) {
@@ -190,19 +208,7 @@ public:
 			VLOG(V_LOG_LVL) << "Finished (for current iteration) processing of outstanding receive requests";
 
 			/* wait for send requests and clean them up */
-			size_t hanging_sends = 0;
-			sendBuffers.foreachUsed([&hanging_sends](BufferAndRequest<LocalId> *b) {
-				int result = 0;
-				MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
-				if (result != 0) {
-					MPI_Wait(&b->request, MPI_STATUS_IGNORE);
-					return true;
-				} else {
-					hanging_sends += 1;
-					return false;
-				}
-			});
-			VLOG(V_LOG_LVL-2) << "Got " << hanging_sends << " hanging sends";
+			sendBuffers.tryFree();
 			VLOG(V_LOG_LVL) << "Finished (for current iteration) waiting for send buffers";
 		}
 

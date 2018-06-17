@@ -8,6 +8,61 @@
 #include <functional>
 #include <list>
 
+template <class T>
+class AutoFreeingBuffer {
+	std::list<T*> freeBuffers;
+	std::list<T*> allocatedBuffers;
+
+	const std::function<bool(T *)> freerer;
+	size_t freeThreshold;
+
+public:
+	/**
+	 *
+	 * @param softSpaceConsumptionLimit
+	 * @param freerer - callback should returns true if buffer can be considered free or false otherwise
+	 */
+	AutoFreeingBuffer(size_t softSpaceConsumptionLimit, const std::function<bool(T *)> freerer)
+			: freeThreshold(softSpaceConsumptionLimit), freerer(freerer)
+	{}
+
+	/**
+	 * Always returns free buffer, even if it has to be allocated first
+	 * @return
+	 */
+	T* get() {
+		T *b = nullptr;
+		if (freeBuffers.empty()) {
+			b = new T();
+		} else {
+			b = freeBuffers.front();
+			freeBuffers.pop_front();
+		}
+		allocatedBuffers.push_front(b);
+		return b;
+	}
+
+	void tryFree() {
+		if (allocatedBuffers.size() > freeThreshold) {
+			for (auto it = allocatedBuffers.begin(); it != allocatedBuffers.end();) {
+				if (freerer(*it)) {
+					/* buffer has been freed */
+					if (freeBuffers.size() > freeThreshold)
+						delete *it;
+					else
+						freeBuffers.push_front(*it);
+
+					it = allocatedBuffers.erase(it);
+				} else {
+					it++;
+				}
+			}
+		}
+	}
+};
+
+
+
 template <class T> class BufferPool {
 private:
 	std::list<T*> freeBuffers;
@@ -31,22 +86,6 @@ public:
 				delete b;
 			}
 		}
-	}
-
-	/**
-	 * Always returns free buffer, even if it has to be allocated first
-	 * @return
-	 */
-	T *getNew() {
-		T *b = nullptr;
-		if (freeBuffers.empty()) {
-			b = new T();
-		} else {
-			b = freeBuffers.front();
-			freeBuffers.pop_front();
-		}
-		allocatedBuffers.push_front(b);
-		return b;
 	}
 
 	/**
