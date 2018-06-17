@@ -17,6 +17,8 @@
 #include <algorithms/Colouring.h>
 #include <utils/BufferPool.h>
 
+#define GCM_LOCAL_SHORTCIRCUIT 0
+
 namespace details {
 	template<typename TLocalId>
 	struct BufferAndRequest {
@@ -122,12 +124,14 @@ public:
 							/* if it's larger it already has colour and is not interested */
 							auto neighNodeId = g->toMasterNodeId(neigh_id);
 							auto neighLocalId = g->toLocalId(neigh_id);
+							#if GCM_LOCAL_SHORTCIRCUIT == 1
 							if(neighNodeId == nodeId) {
 								vertexDataMap[neighLocalId]->wait_counter -= 1;
 								vertexDataMap[neighLocalId]->used_colours.insert(chosen_colour);
 								VLOG(V_LOG_LVL+1) << g->idToString(neigh_id) << "(" << neigh_num
 								          << ") is local, informing about colour "<< chosen_colour;
 							} else {
+							#endif
 								BufferAndRequest<LocalId> *b = sendBuffers.getNew();
 								b->buffer.receiving_node_id = neighLocalId;
 								b->buffer.used_colour = chosen_colour;
@@ -137,7 +141,9 @@ public:
 								VLOG(V_LOG_LVL+1) << "Isend to " << g->idToString(neigh_id) << "(" << neigh_num << ") info that "
 								          << g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 								          << chosen_colour;
+							#if GCM_LOCAL_SHORTCIRCUIT == 1
 							}
+							#endif
 						}
 
 						return ITER_PROGRESS::CONTINUE;
