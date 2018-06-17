@@ -260,7 +260,7 @@ public:
 			                  << " receives succesfully waited on during current iteration";
 
 			/* wait for send requests and clean them up */
-			sendBuffers.tryFree();
+			sendBuffers.wait();
 			VLOG(V_LOG_LVL) << "Finished (for current iteration) waiting for send buffers";
 		}
 

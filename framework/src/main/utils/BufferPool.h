@@ -16,7 +16,7 @@ class AutoFreeingBuffer {
 
 	std::function<bool (T *)> softFreerer;
 	size_t softThreshold;
-	std::function<void (T *)> hardFreerer;
+	std::function<bool (T *)> hardFreerer;
 	size_t hardThreshold;
 
 public:
@@ -32,7 +32,7 @@ public:
 			: softThreshold(softThreshold),
 			  hardThreshold(hardThreshold),
 			  softFreerer(softFreerer),
-			  hardFreerer(hardFreerer)
+			  hardFreerer([=](T* t) {hardFreerer(t); return true;})
 	{}
 
 	/**
@@ -53,30 +53,38 @@ public:
 
 	void tryFree() {
 		auto abs = allocatedBuffers.size();
-		if (abs > softThreshold) {
+		if ((abs > hardThreshold)) {
 			auto it = allocatedBuffers.begin();
-			std::function<bool(T *)> freerer = softFreerer;
+			std::advance(it, abs - softThreshold);
 
-			if (abs > hardThreshold) {
-				std::advance(it, abs - softThreshold);
-				freerer = [this](T* t) {hardFreerer(t); return true;};
-			}
+			doIter(it, hardFreerer);
+		} else if (abs > softThreshold) {
+			doIter(allocatedBuffers.begin(), softFreerer);
+		}
+	}
 
-			while(it != allocatedBuffers.end()) {
-				if (freerer(*it)) {
-					/* buffer has been freed */
-					if (freeBuffers.size() > softThreshold)
-						delete *it;
-					else
-						freeBuffers.push_front(*it);
+	void wait(bool hard = false) {
+		if (hard) doIter(allocatedBuffers.begin(), hardFreerer);
+		else doIter(allocatedBuffers.begin(), softFreerer);
+	}
 
-					it = allocatedBuffers.erase(it);
-				} else {
-					it++;
-				}
+private:
+	void doIter(typename std::list<T*>::iterator it, std::function<bool(T *)> freerer) {
+		while(it != allocatedBuffers.end()) {
+			if (freerer(*it)) {
+				/* buffer has been freed */
+				if (freeBuffers.size() > softThreshold)
+					delete *it;
+				else
+					freeBuffers.push_front(*it);
+
+				it = allocatedBuffers.erase(it);
+			} else {
+				it++;
 			}
 		}
 	}
+
 };
 
 
