@@ -53,7 +53,7 @@ public:
 		MPI_Datatype mpi_message_type = Message<LocalId>::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
 
-		auto mpiWaitCallback = [](BufferAndRequest<LocalId> *b) {
+		auto mpiWaitIfFinished = [](BufferAndRequest<LocalId> *b) {
 			int result = 0;
 			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
 			if (result != 0) {
@@ -64,7 +64,12 @@ public:
 			}
 		};
 
-		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(1000, mpiWaitCallback);
+		auto mpiHardWaitCb = [](BufferAndRequest<LocalId> *b) {
+			MPI_Wait(&b->request, MPI_STATUS_IGNORE);
+		};
+
+		size_t sendSoft = 1000;
+		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(sendSoft, 2*sendSoft, mpiWaitIfFinished, mpiHardWaitCb);
 		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
 
 		LOG(INFO) << "Finished initialization";

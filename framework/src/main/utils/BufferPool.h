@@ -7,14 +7,17 @@
 
 #include <functional>
 #include <list>
+#include <iterator>
 
 template <class T>
 class AutoFreeingBuffer {
 	std::list<T*> freeBuffers;
 	std::list<T*> allocatedBuffers;
 
-	const std::function<bool(T *)> freerer;
-	size_t freeThreshold;
+	std::function<bool (T *)> softFreerer;
+	size_t softThreshold;
+	std::function<void (T *)> hardFreerer;
+	size_t hardThreshold;
 
 public:
 	/**
@@ -22,8 +25,14 @@ public:
 	 * @param softSpaceConsumptionLimit
 	 * @param freerer - callback should returns true if buffer can be considered free or false otherwise
 	 */
-	AutoFreeingBuffer(size_t softSpaceConsumptionLimit, const std::function<bool(T *)> freerer)
-			: freeThreshold(softSpaceConsumptionLimit), freerer(freerer)
+	AutoFreeingBuffer(size_t softThreshold,
+	                  size_t hardThreshold,
+	                  std::function<bool(T *)> softFreerer,
+	                  std::function<void(T *)> hardFreerer)
+			: softThreshold(softThreshold),
+			  hardThreshold(hardThreshold),
+			  softFreerer(softFreerer),
+			  hardFreerer(hardFreerer)
 	{}
 
 	/**
@@ -43,11 +52,20 @@ public:
 	}
 
 	void tryFree() {
-		if (allocatedBuffers.size() > freeThreshold) {
-			for (auto it = allocatedBuffers.begin(); it != allocatedBuffers.end();) {
+		auto abs = allocatedBuffers.size();
+		if (abs > softThreshold) {
+			auto it = allocatedBuffers.begin();
+			std::function<bool(T *)> freerer = softFreerer;
+
+			if (abs > hardThreshold) {
+				std::advance(it, abs - softThreshold);
+				freerer = [this](T* t) {hardFreerer(t); return true;};
+			}
+
+			while(it != allocatedBuffers.end()) {
 				if (freerer(*it)) {
 					/* buffer has been freed */
-					if (freeBuffers.size() > freeThreshold)
+					if (freeBuffers.size() > softThreshold)
 						delete *it;
 					else
 						freeBuffers.push_front(*it);
