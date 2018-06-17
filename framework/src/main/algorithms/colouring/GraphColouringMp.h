@@ -190,7 +190,8 @@ public:
 			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
-			receiveBuffers.foreachUsed([&vertexDataMap, &mpi_message_type](BufferAndRequest<LocalId> *b) {
+			size_t receivesFinished = 0;
+			receiveBuffers.foreachUsed([&vertexDataMap, &mpi_message_type, &receivesFinished](BufferAndRequest<LocalId> *b) {
 				int receive_result = 0;
 				MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
 
@@ -200,17 +201,19 @@ public:
 					int t_id = b->buffer.receiving_node_id;
 					vertexDataMap[t_id]->wait_counter -= 1;
 					vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-					VLOG(V_LOG_LVL+1) << "Received: node = " << b->buffer.receiving_node_id << ", colour = "
+					VLOG(V_LOG_LVL) << "Received: node = " << b->buffer.receiving_node_id << ", colour = "
 					                  << b->buffer.used_colour;
 
 					/* post new request */
 					MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
+					receivesFinished += 1;
 				}
 
 				/* one way or another, buffer doesn't change it's status */
 				return false;
 			});
-			VLOG(V_LOG_LVL) << "Finished (for current iteration) processing of outstanding receive requests";
+			VLOG(V_LOG_LVL-1) << receivesFinished << '/' << OUTSTANDING_RECEIVE_REQUESTS
+			                  << " receives succesfully waited on during current iteration";
 
 			/* wait for send requests and clean them up */
 			sendBuffers.tryFree();
