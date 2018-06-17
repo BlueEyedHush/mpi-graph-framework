@@ -42,7 +42,8 @@ namespace details { namespace GraphColouringMp {
 
 	template <typename T>
 	size_t mbToCount(size_t mbs) {
-		return (mbs*1024*1024)/(sizeof(T)*CHAR_BIT);
+		// takes into account around 24B overhead per std::list element
+		return (mbs*1024*1024)/((sizeof(T)+24)*CHAR_BIT);
 	}
 
 	template <typename TLocalId>
