@@ -37,7 +37,7 @@ namespace details {
 		VertexTempData() : wait_counter(0) {}
 
 		std::set<VertexColour> used_colours;
-		size_t wait_counter;
+		long long int wait_counter;
 	};
 }
 
