@@ -12,6 +12,7 @@
 #include <set>
 #include <list>
 #include <unordered_map>
+#include <sstream>
 #include <mpi.h>
 #include <glog/logging.h>
 #include <algorithms/Colouring.h>
@@ -19,13 +20,51 @@
 
 #define GCM_LOCAL_SHORTCIRCUIT 0
 
-namespace details {
+namespace details { namespace GraphColouringMp {
+	/* values in mB */
+	const std::string IN_REQ_SOFT_OPT = "gcm-in-rs";
+	const std::string IN_REQ_HARD_OPT = "gcm-in-rh";
+	const std::string OUT_REQ_OPT = "gcm-out";
+
+	struct Config {
+		/* counts, not mB */
+		size_t inRequestsSoft = 1000;
+		size_t inRequestsHard = 2000;
+		size_t outRequests = 1000;
+
+		std::string to_string() {
+			std::stringstream ss;
+			ss << "GraphColouringMp | inSoft: " << inRequestsSoft << ", inHard: " << inRequestsHard
+			   << ", out: " << outRequests;
+			return ss.str();
+		}
+	};
+
+	template <typename T>
+	size_t mbToCount(size_t mbs) {
+		return (mbs*1024*1024)/(sizeof(T)*CHAR_BIT);
+	}
+
+	template <typename TLocalId>
+	Config buildConfig(ConfigMap cm) {
+		Config c;
+
+		if (cm.find(IN_REQ_SOFT_OPT) != cm.end())
+			c.inRequestsSoft = mbToCount<TLocalId>(std::stoull(cm[IN_REQ_SOFT_OPT]));
+		if (cm.find(IN_REQ_HARD_OPT) != cm.end())
+			c.inRequestsHard = mbToCount<TLocalId>(std::stoull(cm[IN_REQ_HARD_OPT]));
+		if (cm.find(OUT_REQ_OPT) != cm.end())
+			c.outRequests = mbToCount<TLocalId>(std::stoull(cm[OUT_REQ_OPT]));
+
+		return c;
+	}
+
 	template<typename TLocalId>
 	struct BufferAndRequest {
 		MPI_Request request;
 		Message<TLocalId> buffer;
 	};
-}
+}}
 
 /*
  * todo:
@@ -43,6 +82,10 @@ private:
 public:
 	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		using namespace details;
+		using namespace details::GraphColouringMp;
+
+		Config parsedConf = buildConfig<LocalId>(aParams.config);
+		LOG(INFO) << parsedConf.to_string();
 
 		int nodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
@@ -68,9 +111,9 @@ public:
 			MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 		};
 
-		size_t sendSoft = 1000;
-		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(sendSoft, 2*sendSoft, mpiWaitIfFinished, mpiHardWaitCb);
-		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(OUTSTANDING_RECEIVE_REQUESTS);
+		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(parsedConf.inRequestsSoft, parsedConf.inRequestsHard,
+		                                                         mpiWaitIfFinished, mpiHardWaitCb);
+		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(parsedConf.outRequests);
 
 		LOG(INFO) << "Finished initialization";
 
@@ -212,7 +255,7 @@ public:
 				/* one way or another, buffer doesn't change it's status */
 				return false;
 			});
-			VLOG(V_LOG_LVL-1) << receivesFinished << '/' << OUTSTANDING_RECEIVE_REQUESTS
+			VLOG(V_LOG_LVL-1) << receivesFinished << '/' << parsedConf.outRequests
 			                  << " receives succesfully waited on during current iteration";
 
 			/* wait for send requests and clean them up */
