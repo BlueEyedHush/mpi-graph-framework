@@ -25,7 +25,7 @@
 
 int main(const int argc, const char** argv) {
 	FLAGS_logtostderr = true;
-	FLAGS_v = 0;
+	FLAGS_v = 4;
 	google::InitGoogleLogging(argv[0]);
 
 	#if WAIT_FOR_DEBUGGER == 1

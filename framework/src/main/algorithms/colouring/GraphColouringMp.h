@@ -230,7 +230,7 @@ public:
 				return ITER_PROGRESS::CONTINUE;
 			});
 
-			VLOG(V_LOG_LVL-2) << "0-wait processing finished. Coloured " << coloured_this_iter << ". On this node "
+			VLOG(V_LOG_LVL-1) << "0-wait processing finished. Coloured " << coloured_this_iter << ". On this node "
 			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
@@ -256,7 +256,7 @@ public:
 				/* one way or another, buffer doesn't change it's status */
 				return false;
 			});
-			VLOG(V_LOG_LVL-1) << receivesFinished << '/' << parsedConf.outRequests
+			VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests
 			                  << " receives succesfully waited on during current iteration";
 
 			/* wait for send requests and clean them up */
