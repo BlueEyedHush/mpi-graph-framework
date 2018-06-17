@@ -68,6 +68,7 @@ public: /* @todo: finish rewriting validator */
 							solutionCorrect = false;
 						}
 
+						delete colour;
 						processed += 1;
 					});
 				#if CV_LOCAL_SHORTCIRCUIT == 1
