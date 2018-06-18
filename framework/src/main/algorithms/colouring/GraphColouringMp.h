@@ -47,15 +47,24 @@ namespace details { namespace GraphColouringMp {
 	}
 
 	template <typename TLocalId>
-	Config buildConfig(ConfigMap cm) {
+	Config buildConfig(ConfigMap cm, size_t v_count) {
 		Config c;
 
 		if (cm.find(IN_REQ_SOFT_OPT) != cm.end())
 			c.inRequestsSoft = mbToCount<TLocalId>(std::stoull(cm[IN_REQ_SOFT_OPT]));
 		if (cm.find(IN_REQ_HARD_OPT) != cm.end())
 			c.inRequestsHard = mbToCount<TLocalId>(std::stoull(cm[IN_REQ_HARD_OPT]));
-		if (cm.find(OUT_REQ_OPT) != cm.end())
-			c.outRequests = mbToCount<TLocalId>(std::stoull(cm[OUT_REQ_OPT]));
+		if (cm.find(OUT_REQ_OPT) != cm.end()) {
+			auto v = cm[OUT_REQ_OPT];
+			size_t ombs = 0;
+
+			if (v != "a")
+				ombs = std::stoull(v);
+			else
+				ombs = std::max((size_t) 1, (v_count/9500)*4);
+
+			c.outRequests = mbToCount<TLocalId>(ombs);
+		}
 
 		return c;
 	}
@@ -85,7 +94,7 @@ public:
 		using namespace details;
 		using namespace details::GraphColouringMp;
 
-		Config parsedConf = buildConfig<LocalId>(aParams.config);
+		Config parsedConf = buildConfig<LocalId>(aParams.config, g->masterVerticesCount());
 		LOG(INFO) << parsedConf.to_string();
 
 		int nodeId;

@@ -86,7 +86,7 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1, vdiv=1, ediv=1, in_rs=1, in_rh=2, out=4):
+def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1, vdiv=1, ediv=1, in_rs=1, in_rh=2, out="a"):
     paths = get_paths()
     framework_path = os.path.join(paths.build_dir(build_type), "framework")
 
