@@ -97,6 +97,33 @@ public:
 		MPI_Datatype mpi_message_type = Message<LocalId>::mpiDatatype();
 		MPI_Type_commit(&mpi_message_type);
 
+		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(parsedConf.outRequests);
+
+		size_t receivesFinished = 0;
+		auto tryFreeReceiveCb = [&vertexDataMap, &mpi_message_type, &receivesFinished](BufferAndRequest<LocalId> *b) {
+			int receive_result = 0;
+			MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
+
+			if (receive_result != 0) {
+				/* completed */
+				MPI_Wait(&b->request, MPI_STATUS_IGNORE);
+				int t_id = b->buffer.receiving_node_id;
+				vertexDataMap[t_id]->wait_counter -= 1;
+				vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
+				VLOG(V_LOG_LVL) << "Received: node = " << b->buffer.receiving_node_id << ", colour = "
+				                << b->buffer.used_colour;
+
+				/* post new request */
+				MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
+				receivesFinished += 1;
+			}
+
+			/* one way or another, buffer doesn't change it's status */
+			return false;
+		};
+
+
+
 		auto mpiWaitIfFinished = [](BufferAndRequest<LocalId> *b) {
 			int result = 0;
 			MPI_Test(&b->request, &result, MPI_STATUS_IGNORE);
@@ -112,9 +139,14 @@ public:
 			MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 		};
 
+		auto oneOffHardCb = [&receivesFinished, &tryFreeReceiveCb, &receiveBuffers]() {
+			receivesFinished = 0;
+			receiveBuffers.foreachUsed(tryFreeReceiveCb);
+			VLOG(V_LOG_LVL-2) << "Emergency hard wait, flushed " << receivesFinished << " receive operations";
+		};
+
 		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(parsedConf.inRequestsSoft, parsedConf.inRequestsHard,
-		                                                         mpiWaitIfFinished, mpiHardWaitCb);
-		BufferPool<BufferAndRequest<LocalId>> receiveBuffers(parsedConf.outRequests);
+		                                                         mpiWaitIfFinished, mpiHardWaitCb, oneOffHardCb);
 
 		LOG(INFO) << "Finished initialization";
 
@@ -234,28 +266,8 @@ public:
 			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
-			size_t receivesFinished = 0;
-			receiveBuffers.foreachUsed([&vertexDataMap, &mpi_message_type, &receivesFinished](BufferAndRequest<LocalId> *b) {
-				int receive_result = 0;
-				MPI_Test(&b->request, &receive_result, MPI_STATUS_IGNORE);
-
-				if (receive_result != 0) {
-					/* completed */
-					MPI_Wait(&b->request, MPI_STATUS_IGNORE);
-					int t_id = b->buffer.receiving_node_id;
-					vertexDataMap[t_id]->wait_counter -= 1;
-					vertexDataMap[t_id]->used_colours.insert(b->buffer.used_colour);
-					VLOG(V_LOG_LVL) << "Received: node = " << b->buffer.receiving_node_id << ", colour = "
-					                  << b->buffer.used_colour;
-
-					/* post new request */
-					MPI_Irecv(&b->buffer, 1, mpi_message_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &b->request);
-					receivesFinished += 1;
-				}
-
-				/* one way or another, buffer doesn't change it's status */
-				return false;
-			});
+			receivesFinished = 0;
+			receiveBuffers.foreachUsed(tryFreeReceiveCb);
 			VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests
 			                  << " receives succesfully waited on during current iteration";
 

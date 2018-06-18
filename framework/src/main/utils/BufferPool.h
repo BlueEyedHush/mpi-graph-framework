@@ -17,6 +17,7 @@ class AutoFreeingBuffer {
 	std::function<bool (T *)> softFreerer;
 	size_t softThreshold;
 	std::function<bool (T *)> hardFreerer;
+	std::function<void ()> oneOffHardFreerer;
 	size_t hardThreshold;
 
 public:
@@ -28,11 +29,13 @@ public:
 	AutoFreeingBuffer(size_t softThreshold,
 	                  size_t hardThreshold,
 	                  std::function<bool(T *)> softFreerer,
-	                  std::function<void(T *)> hardFreerer)
+	                  std::function<void(T *)> hardFreerer,
+	                  std::function<void()> oneOffHardFreerer)
 			: softThreshold(softThreshold),
 			  hardThreshold(hardThreshold),
 			  softFreerer(softFreerer),
-			  hardFreerer([=](T* t) {hardFreerer(t); return true;})
+			  hardFreerer([=](T* t) {hardFreerer(t); return true;}),
+			  oneOffHardFreerer(oneOffHardFreerer)
 	{}
 
 	/**
@@ -57,6 +60,7 @@ public:
 			auto it = allocatedBuffers.begin();
 			std::advance(it, abs - softThreshold);
 
+			oneOffHardFreerer();
 			doIter(it, hardFreerer);
 		} else if (abs > softThreshold) {
 			doIter(allocatedBuffers.begin(), softFreerer);
@@ -65,7 +69,10 @@ public:
 
 	void wait(bool hard = false) {
 		if (hard) doIter(allocatedBuffers.begin(), hardFreerer);
-		else doIter(allocatedBuffers.begin(), softFreerer);
+		else {
+			oneOffHardFreerer();
+			doIter(allocatedBuffers.begin(), softFreerer);
+		}
 	}
 
 private:
