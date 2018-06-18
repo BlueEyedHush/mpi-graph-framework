@@ -284,13 +284,14 @@ public:
 
 			/* check if any outstanding receive request completed */
 			receivesFinished = parsedConf.outRequests; // just to enter 0 iteration of a looop
-			for(uint32_t i = 0; receivesFinished == parsedConf.outRequests; i++)
-			{
+			uint32_t cycleCount = 0;
+			while(receivesFinished == parsedConf.outRequests) {
 				receivesFinished = 0;
 				receiveBuffers.foreachUsed(tryFreeReceiveCb);
-				VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests
-				                  << " receives succesfully waited on during current iteration (cycle " << i << ")";
+				cycleCount += 1;
 			}
+			VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests << " (" << cycleCount
+			                  << " cycles) receives succesfully waited on";
 
 			/* wait for send requests and clean them up */
 			sendBuffers.wait();
