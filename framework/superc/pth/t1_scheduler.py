@@ -5,13 +5,12 @@ from common import *
 # scaling within single node
 
 reps=3
-mpt = "5gb"
 g_alias, g_path = cst_g(2, 40)
 algo = "colouring"
 build_type = "release"
 
 def bench_set(exec_specs):
-    for nc, tpn in exec_specs:
+    for nc, tpn, mpt in exec_specs:
         cpus = nc*tpn
         div = max([1,cpus-1])
 
@@ -30,4 +29,5 @@ def bench_set(exec_specs):
                                    log_prefix=log_prefix,
                                    profiling_on=False))
 
-bench_set(map(lambda x: (1,x), [1,2,4,6,8,10,12]))
+exec_specs = map(lambda x: (1,x, "5gb"), [1,4,6,8,10,12]) + [(1, 2, "6gb")] # 2 seems to require slightly more memory
+bench_set(exec_specs)
