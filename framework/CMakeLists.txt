@@ -3,6 +3,8 @@ project(framework)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0 -pedantic -rdynamic") # rdynamic for function names in backtraces
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_NOLOCAL "-O3 -DGCM_NO_LOCAL_SHORTCIRCUIT")
 set(IT_TEST_PROCESS_COUNT 3)
 
 # for absolute includes

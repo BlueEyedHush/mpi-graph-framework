@@ -18,8 +18,6 @@
 #include <algorithms/Colouring.h>
 #include <utils/BufferPool.h>
 
-#define GCM_LOCAL_SHORTCIRCUIT 1
-
 namespace details { namespace GraphColouringMp {
 	/* values in mB */
 	const std::string IN_REQ_SOFT_OPT = "gcm-in-rs";
@@ -94,6 +92,10 @@ public:
 		using namespace details;
 		using namespace details::GraphColouringMp;
 
+		#ifdef GCM_NO_LOCAL_SHORTCIRCUIT
+		LOG(INFO) << "GCM_NO_LOCAL_SHORTCIRCUIT enabled";
+		#endif
+
 		Config parsedConf = buildConfig<LocalId>(aParams.config, g->masterVerticesCount());
 		LOG(INFO) << parsedConf.to_string();
 
@@ -148,7 +150,7 @@ public:
 			MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 		};
 
-		#if GCM_LOCAL_SHORTCIRCUIT == 0
+		#ifdef GCM_NO_LOCAL_SHORTCIRCUIT
 		auto oneOffHardCb = [&receivesFinished, &tryFreeReceiveCb, &receiveBuffers]() {
 			receivesFinished = 0;
 			receiveBuffers.foreachUsed(tryFreeReceiveCb);
@@ -237,7 +239,7 @@ public:
 							/* if it's larger it already has colour and is not interested */
 							auto neighNodeId = g->toMasterNodeId(neigh_id);
 							auto neighLocalId = g->toLocalId(neigh_id);
-							#if GCM_LOCAL_SHORTCIRCUIT == 1
+							#ifndef GCM_NO_LOCAL_SHORTCIRCUIT
 							if(neighNodeId == nodeId) {
 								vertexDataMap[neighLocalId]->wait_counter -= 1;
 								vertexDataMap[neighLocalId]->used_colours.insert(chosen_colour);
@@ -254,7 +256,7 @@ public:
 								VLOG(V_LOG_LVL+1) << "Isend to " << g->idToString(neigh_id) << "(" << neigh_num << ") info that "
 								          << g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 								          << chosen_colour;
-							#if GCM_LOCAL_SHORTCIRCUIT == 1
+							#ifndef GCM_NO_LOCAL_SHORTCIRCUIT
 							}
 							#endif
 						}
