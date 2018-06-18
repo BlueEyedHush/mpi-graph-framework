@@ -8,8 +8,13 @@ REMOTE_DIR="ml-graphs/graphs/"
 
 if [ ! -z "$1" ]; then
     echo "Creating directory"
-    sshpass -p "$PASS" ssh "$LOGIN_STR" mkdir -p "$REMOTE_DIR"
+    ssh "$LOGIN_STR" mkdir -p "$REMOTE_DIR"
 fi
 
 echo "Syncing files"
-rsync -avzr --exclude pass "$DIR"/* "$LOGIN_STR":"$REMOTE_DIR"
+rsync -avzr --exclude pass \
+    --exclude data/ \
+    --exclude er-gen/cmake-build-debug \
+    --exclude er-gen/cmake-build-release \
+    --exclude er-gen/.idea/ \
+    "$DIR"/* "$LOGIN_STR":"$REMOTE_DIR"

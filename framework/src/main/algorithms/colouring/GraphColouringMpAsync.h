@@ -19,7 +19,9 @@
 #include <utils/MPIAsync.h>
 #include <utils/CliColours.h>
 
-namespace details {
+namespace details { namespace ColouringMpAsync {
+	static const int V_LOG_LVL = 5;
+
 	/* each of those callbacks must be templetized */
 
 	template<typename TLocalId>
@@ -95,7 +97,7 @@ namespace details {
 
 			gd->vertexDataMap->at(v_id)->wait_counter = -1;
 
-			LOG(INFO) << CLI_BOLD "All neighbours of " << gd->g->idToString(v_id) << "(" << v_id_num
+			VLOG(V_LOG_LVL) << CLI_BOLD "All neighbours of " << gd->g->idToString(v_id) << "(" << v_id_num
 			          << ") chosen colours, we choose " << chosen_colour << CLI_RESET;
 
 			/* inform neighbours */
@@ -108,14 +110,14 @@ namespace details {
 					if(neighNodeId == gd->nodeId) {
 						gd->vertexDataMap->at(neighLocalId)->wait_counter -= 1;
 						gd->vertexDataMap->at(neighLocalId)->used_colours.insert(chosen_colour);
-						LOG(INFO) << gd->g->idToString(neigh_id) << "(" << neigh_num
+						VLOG(V_LOG_LVL+1) << gd->g->idToString(neigh_id) << "(" << neigh_num
 						          << ") is local, scheduling callback " << chosen_colour;
 
 						/* it might be already processed, then it's wait_counter'll < 0 */
 						if (gd->vertexDataMap->at(neighLocalId)->wait_counter == 0) {
 							ColourVertex *cb = gd->colourVertexCbPool->construct(neighLocalId, gd);
 							gd->am->submitTask(cb);
-							LOG(INFO) << "Scheduled";
+							VLOG(V_LOG_LVL+2) << "Scheduled";
 						}
 					} else {
 						Message<LocalId> *b = gd->sendPool->construct();
@@ -125,7 +127,7 @@ namespace details {
 						MPI_Request *rq = reinterpret_cast<MPI_Request *>(gd->mpiRequestPool->malloc());
 						MPI_Isend(b, 1, *gd->mpi_message_type, neighNodeId, MPI_TAG, MPI_COMM_WORLD, rq);
 
-						LOG(INFO) << "Isend to " << gd->g->idToString(neigh_id) << "(" << neigh_num << ") info that "
+						VLOG(V_LOG_LVL+1) << "Isend to " << gd->g->idToString(neigh_id) << "(" << neigh_num << ") info that "
 						          << gd->g->idToString(v_id) << "(" << v_id_num << ") has been coloured with "
 						          << chosen_colour << " scheduled";
 
@@ -136,7 +138,7 @@ namespace details {
 
 				return ITER_PROGRESS::CONTINUE;
 			});
-			LOG(INFO) << "Informed neighbours about colour being chosen";
+			VLOG(V_LOG_LVL) << "Informed neighbours about colour being chosen";
 			*gd->coloured_count += 1;
 
 			gd->colourVertexCbPool->destroy(this);
@@ -154,7 +156,7 @@ namespace details {
 
 		virtual void operator()() override {
 			auto t_id = b->receiving_node_id;
-			LOG(INFO) << "Received: node = " << t_id << ", colour = " << b->used_colour;
+			VLOG(V_LOG_LVL) << "Received: node = " << t_id << ", colour = " << b->used_colour;
 
 			gd->vertexDataMap->at(t_id)->wait_counter -= 1;
 			gd->vertexDataMap->at(t_id)->used_colours.insert(b->used_colour);
@@ -183,7 +185,7 @@ namespace details {
 			rqPool.free(r);
 		};
 	};
-}
+}}
 
 template <class TGraphPartition>
 class GraphColouringMPAsync : public GraphColouring<TGraphPartition> {
@@ -193,6 +195,7 @@ private:
 public:
 	bool run(TGraphPartition *g, AAuxiliaryParams aParams) {
 		using namespace details;
+		using namespace details::ColouringMpAsync;
 
 		int nodeId;
 		MPI_Comm_rank(MPI_COMM_WORLD, &nodeId);
@@ -246,15 +249,15 @@ public:
 			vertexDataMap[v_id] = new VertexTempData();
 			int wait_counter = 0;
 
-			LOG(INFO) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
+			VLOG(V_LOG_LVL) << "Looking @ " << g->idToString(v_id) << "(" << v_id_num << ") neighbours";
 			g->foreachNeighbouringVertex(v_id, [&](const GlobalId neigh_id) {
 				auto neigh_num = g->toNumeric(neigh_id);
-				LOG(INFO) << "N: " << g->idToString(neigh_id) << "(" << neigh_num << ")";
+				VLOG(V_LOG_LVL+1) << "N: " << g->idToString(neigh_id) << "(" << neigh_num << ")";
 				if (neigh_num > v_id_num) {
 					wait_counter++;
-					LOG(INFO) << "Qualified!";
+					VLOG(V_LOG_LVL+1) << "Qualified!";
 				} else {
-					LOG(INFO) << "Rejected!";
+					VLOG(V_LOG_LVL+1) << "Rejected!";
 				}
 
 				return ITER_PROGRESS::CONTINUE;
@@ -265,7 +268,7 @@ public:
 				am.submitTask(colourVertexCbPool.construct(v_id, &globalData));
 			}
 
-			LOG(INFO) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " nodes to establish colouring";
+			VLOG(V_LOG_LVL) << "Waiting for " << vertexDataMap[v_id]->wait_counter << " nodes to establish colouring";
 
 			return ITER_PROGRESS::CONTINUE;
 		});
@@ -275,7 +278,7 @@ public:
 		while(coloured_count < g->masterVerticesCount()) {
 			/* check if any outstanding receive request completed */
 			am.pollAll();
-			LOG(INFO) << "Finished current iteration of task queue processing";
+			VLOG(V_LOG_LVL) << "Finished current iteration of task queue processing";
 		}
 
 		/* clean up */

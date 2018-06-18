@@ -36,6 +36,10 @@ rsync -avzr --prune-empty-dirs \
     --exclude /*.a \
     --exclude Makefile \
     --exclude *.cmake \
+    --exclude *.pyc \
+    --exclude cmake-build-debug/ \
+    --exclude cmake-build-release/ \
+    --exclude cmake-build-relwithdebinfo/ \
     --exclude sync_with_superc.sh \
     "$DIR"/. plgblueeyedhush@$MACHINE:ml-graphs/framework
 

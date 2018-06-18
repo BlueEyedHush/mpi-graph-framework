@@ -15,6 +15,7 @@
 #include <Validator.h>
 #include <utils/MPIAsync.h>
 #include <utils/GrouppingMpiAsync.h>
+#include <utils/MpiTypemap.h>
 
 namespace details {
 	/**
@@ -23,8 +24,8 @@ namespace details {
 	template <typename TGraphPartition, typename TGlobalId>
 	class Comms {
 	public:
-		Comms(TGraphPartition *_g, std::pair<TGlobalId*, int*> partialSolution) : g(_g) {
-			MPI_Win_create(partialSolution.second, g->masterVerticesMaxCount()*sizeof(int), sizeof(int),
+		Comms(TGraphPartition *_g, std::pair<TGlobalId*, GraphDist*> partialSolution) : g(_g) {
+			MPI_Win_create(partialSolution.second, g->masterVerticesMaxCount()*sizeof(GraphDist), sizeof(GraphDist),
 			               MPI_INFO_NULL, MPI_COMM_WORLD, &solutionWin);
 			MPI_Win_lock_all(0, solutionWin);
 		}
@@ -34,10 +35,11 @@ namespace details {
 		 * @param id
 		 * @return when no longer needed use delete (no delete[] !!!) on both buffer and MPI_Request
 		 */
-		std::pair<int*, MPI_Request*> getDistance(const TGlobalId id) const {
-			int* buffer = new int(0);
+		std::pair<GraphDist*, MPI_Request*> getDistance(const TGlobalId id) const {
+			GraphDist* buffer = new GraphDist(0);
 			MPI_Request *rq = new MPI_Request;
-			MPI_Rget(buffer, 1, MPI_INT, g->toMasterNodeId(id), g->toLocalId(id), 1, MPI_INT, solutionWin, rq);
+			auto gdMpiType = getDatatypeFor<GraphDist>();
+			MPI_Rget(buffer, 1, gdMpiType, g->toMasterNodeId(id), g->toLocalId(id), 1, gdMpiType, solutionWin, rq);
 			return std::make_pair(buffer, rq);
 		}
 
@@ -71,7 +73,7 @@ namespace details {
 		                TGraphPartition& g)
 				: mpiAsync(_asyncExecutor), comms(_comms), g(g) {}
 
-		void scheduleGetDistance(const TGlobalId id, std::function<void(int)> cb) {
+		void scheduleGetDistance(const TGlobalId id, std::function<void(GraphDist)> cb) {
 			ull numId = g.toNumeric(id);
 			auto it = distanceMap.find(numId);
 			if (it != distanceMap.end()) {
@@ -86,7 +88,7 @@ namespace details {
 					groupId = itPending->second;
 				} else {
 					auto p = comms.getDistance(id);
-					int* buffer = p.first;
+					GraphDist* buffer = p.first;
 					MPI_Request *rq = p.second;
 					/* create group and schedule housekeepng callback */
 					groupId = mpiAsync.createWaitingGroup(rq, [buffer, numId, this]() {
@@ -99,7 +101,7 @@ namespace details {
 
 				/* add actual verification callback */
 				auto verificationCb = [numId, cb, this](){
-					int actualDist = this->distanceMap.at(numId);
+					GraphDist actualDist = this->distanceMap.at(numId);
 					cb(actualDist);
 				};
 				mpiAsync.addToGroup(groupId, verificationCb);
@@ -107,7 +109,7 @@ namespace details {
 		}
 
 	private:
-		std::unordered_map<ull, int> distanceMap;
+		std::unordered_map<ull, GraphDist> distanceMap;
 		std::unordered_map<ull, UniqueIdGenerator::Id> pending;
 		GrouppingMpiAsync& mpiAsync;
 		Comms<TGraphPartition, TGlobalId> &comms;
@@ -116,7 +118,7 @@ namespace details {
 }
 
 template <class TGraphPartition>
-class BfsValidator : public Validator<TGraphPartition, std::pair<typename TGraphPartition::GidType*, int*>*> {
+class BfsValidator : public Validator<TGraphPartition, std::pair<typename TGraphPartition::GidType*, GraphDist*>*> {
 private:
 	IMPORT_ALIASES(TGraphPartition)
 
@@ -124,7 +126,7 @@ public:
 	BfsValidator(const GlobalId _root) : root(_root) {};
 
 	// @ToDo - (types) path length should be parametrizable + registering type with MPI
-	bool validate(TGraphPartition *g, std::pair<GlobalId*, int*> *partialSolution) {
+	bool validate(TGraphPartition *g, std::pair<GlobalId*, GraphDist*> *partialSolution) {
 		GrouppingMpiAsync executor;
 		details::Comms<TGraphPartition, GlobalId> comms(g, *partialSolution);
 		details::DistanceChecker<TGraphPartition, GlobalId> dc(executor, comms, *g);
@@ -134,7 +136,7 @@ public:
 		g->foreachMasterVertex([&dc, &valid, &checkedCount, partialSolution, g, this](const LocalId id) {
 			const GlobalId currGID = g->toGlobalId(id);
 			const GlobalId predecessor = partialSolution->first[id];
-			int actualDistance = partialSolution->second[id];
+			GraphDist actualDistance = partialSolution->second[id];
 
 			/* check if distance positive */
 			if(actualDistance < 0) {
@@ -146,8 +148,8 @@ public:
 			/* check if difference in predecessor and successor distance equals 1 (or if correct node is root) */
 			if(!g->isSame(predecessor, currGID)) {
 				auto checkDistCb =
-				[&valid, &checkedCount, g, &currGID, &predecessor, actualDistance](int predecessorDistance) {
-					int expectedPrecedessorDist = actualDistance-1;
+				[&valid, &checkedCount, g, &currGID, &predecessor, actualDistance](GraphDist predecessorDistance) {
+					GraphDist expectedPrecedessorDist = actualDistance-1;
 					bool thisValid = expectedPrecedessorDist == predecessorDistance;
 
 					if(!thisValid) {

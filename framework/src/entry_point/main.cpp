@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #include <iostream>
 #include <glog/logging.h>
 #include <utils/Config.h>
@@ -23,8 +24,9 @@
 #endif
 
 int main(const int argc, const char** argv) {
-	google::InitGoogleLogging(argv[0]);
 	FLAGS_logtostderr = true;
+	FLAGS_v = 4;
+	google::InitGoogleLogging(argv[0]);
 
 	#if WAIT_FOR_DEBUGGER == 1
 	int world_rank;
@@ -36,6 +38,8 @@ int main(const int argc, const char** argv) {
 	#endif
 
 	ConfigMap cm = parseCli(argc, argv);
+	std::cout << '\n' << configurationToString(cm) << std::endl;
+
 	auto assemblyName = cm["a"];
 	auto graphFilePath = cm["g"];
 	
@@ -43,7 +47,7 @@ int main(const int argc, const char** argv) {
 	
 	GBAuxiliaryParams gbAuxParams;
 	gbAuxParams.configMap = cm;
-	using THandle = ALHGraphHandle<int,int>;
+	using THandle = ALHGraphHandle<uint32_t, uint64_t>;
 	auto *graphHandle = new THandle(graphFilePath, {0L}, gbAuxParams);
 
 	executor.registerAssembly("colouring", new ColouringAssembly<GraphColouringMp, THandle>(*graphHandle));

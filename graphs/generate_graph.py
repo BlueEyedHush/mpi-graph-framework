@@ -46,6 +46,5 @@ def gen_powerlaw(vertices, edges_per_vertex):
     output_graph(fname, g)
 
 if __name__ == '__main__':
-    # gen_powerlaw(100000, 10)
-    # gen_powerlaw(10000, 10)
-    gen_powerlaw(1000, 10)
+    # powergraphs generated with x10 edges
+    gen_powerlaw(500000, 10)

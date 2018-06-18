@@ -16,14 +16,12 @@ object Main {
     // Suppress unnecessary logging
     Logger.getRootLogger.setLevel(Level.ERROR)
 
+    println(s"graph: $relativeGraphPath algorithm: $algo iterations: $iterationCount")
+
     val durations = for (i <- 0 until iterationCount) yield {
       val graphLoadingStart = System.nanoTime()
       val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath))
-      val graphLoadingTime = System.nanoTime() - graphLoadingStart;
-
-      // Calculate centralities.
-
-      println(s"\n### $algo\n")
+      val graphLoadingTime = System.nanoTime() - graphLoadingStart
 
       val algoExecutionTime = algo match {
         case Algorithm.Bfs =>
@@ -43,6 +41,9 @@ object Main {
       (graphLoadingTime, algoExecutionTime)
     }
 
-    durations.foreach { case (graphTime, algoTime) => println(s"graph $graphTime\nalgo $algoTime\n")}
+    durations.foreach { case (graphTime, algoTime) =>
+      val graphSec = graphTime/1000000000.0
+      val algoSec = algoTime/1000000000.0
+      println(s"graph $graphTime ($graphSec)\nalgo $algoTime ($algoSec)\n")}
   }
 }
