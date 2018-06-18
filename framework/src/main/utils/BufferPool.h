@@ -102,10 +102,8 @@ private:
 	std::list<T*> allocatedBuffers;
 
 public:
-	BufferPool(int initialSize = 0) {
-		for(int i = 0; i < initialSize; i++) {
-			freeBuffers.push_front(new T);
-		}
+	BufferPool(size_t initialSize = 0) {
+		addEmptyBuffers(initialSize);
 	}
 
 	~BufferPool() {
@@ -152,6 +150,12 @@ private:
 			} else {
 				it++;
 			}
+		}
+	}
+
+	void addEmptyBuffers(size_t count) {
+		for(int i = 0; i < count; i++) {
+			freeBuffers.push_front(new T);
 		}
 	}
 };

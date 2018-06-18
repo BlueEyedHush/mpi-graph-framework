@@ -18,7 +18,7 @@
 #include <algorithms/Colouring.h>
 #include <utils/BufferPool.h>
 
-#define GCM_LOCAL_SHORTCIRCUIT 0
+#define GCM_LOCAL_SHORTCIRCUIT 1
 
 namespace details { namespace GraphColouringMp {
 	/* values in mB */
@@ -148,11 +148,17 @@ public:
 			MPI_Wait(&b->request, MPI_STATUS_IGNORE);
 		};
 
+		#if GCM_LOCAL_SHORTCIRCUIT == 0
 		auto oneOffHardCb = [&receivesFinished, &tryFreeReceiveCb, &receiveBuffers]() {
 			receivesFinished = 0;
 			receiveBuffers.foreachUsed(tryFreeReceiveCb);
 			VLOG(V_LOG_LVL-2) << "Emergency hard wait, flushed " << receivesFinished << " receive operations";
 		};
+		#else
+		auto oneOffHardCb = []() {
+			VLOG(V_LOG_LVL-2) << "Emergency hard wait, no flushing";
+		};
+		#endif
 
 		AutoFreeingBuffer<BufferAndRequest<LocalId>> sendBuffers(parsedConf.inRequestsSoft, parsedConf.inRequestsHard,
 		                                                         mpiWaitIfFinished, mpiHardWaitCb, oneOffHardCb);
