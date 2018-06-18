@@ -86,7 +86,7 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1, vdiv=1, ediv=1, in_rs=1, in_rh=2, out="a"):
+def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1, vdiv=1, ediv=1, in_rs=1, in_rh=2, out="a", skip_valid=True):
     paths = get_paths()
     framework_path = os.path.join(paths.build_dir(build_type), "framework")
 
@@ -95,13 +95,15 @@ def framework_cli(build_type, graph_file, assembly_name, log_dir, repetitions=1,
     assembly_conf = "-a repeating -ra-n {} -ra-name {}".format(repetitions, assembly_name)
     div_conf = "-vdiv {} -ediv {}".format(vdiv, ediv)
     gcm_mem = "-gcm-in-rs {} -gcm-in-rh {} -gcm-out {}".format(in_rs, in_rh, out)
+    svalid = "-noval 1" if skip_valid else ""
 
-    framework_cmd = mpiexec_prefix + "{} -g {} {} {} {} |& tee #TMP_FILE".format(
+    framework_cmd = mpiexec_prefix + "{} -g {} {} {} {} {} |& tee #TMP_FILE".format(
         framework_path,
         graph_file,
         assembly_conf,
         div_conf,
-        gcm_mem)
+        gcm_mem,
+        svalid)
 
     log_processor_cmd = "cat #TMP_FILE | python {} {}".format(os.path.join(paths.base_dir, "log_processor.py"), log_dir)
 
