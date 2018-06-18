@@ -281,10 +281,14 @@ public:
 			                  << coloured_count << "/" << all_count << ". Still waiting for: " << still_waiting;
 
 			/* check if any outstanding receive request completed */
-			receivesFinished = 0;
-			receiveBuffers.foreachUsed(tryFreeReceiveCb);
-			VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests
-			                  << " receives succesfully waited on during current iteration";
+			receivesFinished = parsedConf.outRequests; // just to enter 0 iteration of a looop
+			for(uint32_t i = 0; receivesFinished == parsedConf.outRequests; i++)
+			{
+				receivesFinished = 0;
+				receiveBuffers.foreachUsed(tryFreeReceiveCb);
+				VLOG(V_LOG_LVL-2) << receivesFinished << '/' << parsedConf.outRequests
+				                  << " receives succesfully waited on during current iteration (cycle " << i << ")";
+			}
 
 			/* wait for send requests and clean them up */
 			sendBuffers.wait();
