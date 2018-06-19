@@ -3,7 +3,7 @@ import os
 import sys
 import datetime
 
-mpiexec_prefix = "mpiexec -ordered-output -prepend-rank "
+mpiexec_prefix = "export I_MPI_PMI_LIBRARY=/net/slurm/releases/production/lib/libpmi.so; srun --label "
 
 # -------------------
 # Environment agnostic
