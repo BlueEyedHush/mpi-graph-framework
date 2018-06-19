@@ -34,5 +34,5 @@ def bench_set(nc):
                                log_prefix=log_prefix,
                                profiling_on=False))
 
-for nc in [1,2,4,8]:
+for nc in range(1,13):
     bench_set(nc)
