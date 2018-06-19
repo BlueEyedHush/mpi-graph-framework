@@ -13,6 +13,7 @@ tpn = 12
 o_in = 1
 o_out = 6
 build_type = "release"
+time = "00:20:00"
 
 def bench_set(nc):
     cpus = nc*tpn
@@ -26,6 +27,7 @@ def bench_set(nc):
     os.system(run_batch_string(cmds,
                                job_name=jname,
                                queue=q,
+                               time=time,
                                mem_per_task=mpt,
                                tasks_per_node=tpn,
                                node_count=nc,
