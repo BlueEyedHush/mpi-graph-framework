@@ -11,8 +11,6 @@
 #include <Validator.h>
 #include <algorithms/Colouring.h>
 
-#define CV_LOCAL_SHORTCIRCUIT 0
-
 template <typename TGraphPartition>
 class ColouringValidator : public Validator<TGraphPartition, VertexColour *> {
 private:
@@ -40,7 +38,7 @@ public: /* @todo: finish rewriting validator */
 		g->foreachMasterVertex([&, g, partialSolution, nodeId](const LocalId v_id) {
 			g->foreachNeighbouringVertex(v_id, [&, g, nodeId, partialSolution, v_id](const GlobalId neigh_id) {
 				auto neighLocalId = g->toLocalId(neigh_id);
-				#if CV_LOCAL_SHORTCIRCUIT == 1
+				#ifndef GCM_NO_LOCAL_SHORTCIRCUIT
 				if(g->toMasterNodeId(neigh_id) == nodeId) {
 					/* colours for both vertices on this node */
 					if(partialSolution[neighLocalId] == partialSolution[v_id]) {
@@ -71,7 +69,7 @@ public: /* @todo: finish rewriting validator */
 						delete colour;
 						processed += 1;
 					});
-				#if CV_LOCAL_SHORTCIRCUIT == 1
+				#ifndef GCM_NO_LOCAL_SHORTCIRCUIT
 				}
 				#endif
 

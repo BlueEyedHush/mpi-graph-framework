@@ -8,7 +8,7 @@ def splitter(sentence, mapping):
             mapping[node_id] = []
         mapping[node_id].append(line)
 
-    m = re.match("([0-9])+?:", sentence)
+    m = re.match("([0-9]+?):", sentence)
 
     if m is not None:
         node_id = m.group(1)

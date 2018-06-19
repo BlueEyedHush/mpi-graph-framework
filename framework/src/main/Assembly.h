@@ -56,6 +56,7 @@ template <
 		>
 class AlgorithmAssembly : public Assembly {
 	using G = typename TGHandle::GPType;
+	const std::string SKIP_VALID_OPT = "noval";
 
 public:
 	bool algorithmSucceeded = false;
@@ -67,6 +68,10 @@ public:
 		int rank, size;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 		MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+		bool skipValidator = false;
+		if (config.find(SKIP_VALID_OPT) != config.end())
+			skipValidator = true;
 
 		Probe graphLoadingProbe("GraphLoading");
 		Probe graphGlobalProbe("GraphLoading", true);
@@ -104,23 +109,28 @@ public:
 		MPI_Barrier(MPI_COMM_WORLD);
 		if (rank == 0) algorithmGlobalProbe.stop();
 
-		auto solution = algorithm.getResult();
-
-		validationProbe.start();
-		TValidator<G>& validator = getValidator(handle, algorithm);
-		validationSucceeded = validator.validate(&graph, solution);
-		validationProbe.stop();
-
 		if (!algorithmSucceeded) {
 			LOG(ERROR) << "Error occured while executing algorithm";
 		} else {
 			LOG(INFO) << "Algorithm terminated successfully";
 		}
 
-		if(!validationSucceeded) {
-			LOG(ERROR) << "Validation failure";
+
+		if (!skipValidator) {
+			auto solution = algorithm.getResult();
+
+			validationProbe.start();
+			TValidator<G>& validator = getValidator(handle, algorithm);
+			validationSucceeded = validator.validate(&graph, solution);
+			validationProbe.stop();
+
+			if(!validationSucceeded) {
+				LOG(ERROR) << "Validation failure";
+			} else {
+				LOG(INFO) << "Validation success";
+			}
 		} else {
-			LOG(INFO) << "Validation success";
+			LOG(WARNING) << "Validation has been skipped";
 		}
 
 		handle.releaseGraph();

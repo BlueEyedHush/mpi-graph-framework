@@ -10,7 +10,7 @@ def err(msg):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-bt', dest="build_type", default="Debug", choices=["Debug", "Release"])
+    parser.add_argument('-bt', dest="build_type", default="Debug", choices=["Debug", "Release", "Nolocal"])
     parser.add_argument('-r', dest="refresh_cmake", action="store_true", default=False)
     parser.add_argument('-v', dest="verbose", action="store_true", default=False)
 
