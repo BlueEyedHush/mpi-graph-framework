@@ -11,7 +11,7 @@ algo = "colouring"
 
 job_name = "t0_{}_{}g_{}_{}".format(node_count*cores_per_node, mem_per_exec*node_count, g_alias, algo)
 log_dir = prepare_log_dir()
-log_prefix = os.path.join(log_dir, "graphx")
+log_prefix = os.path.join(log_dir, job_name)
 
 cmds = [graphx_test_cli(str(mem_per_exec) + "g", graph=g_path, iterations=iter, algo=algo)]
 
