@@ -299,10 +299,17 @@ public:
 		}
 
 		/* clean up */
+
+		/* for some reason MPI_Cancel hangs sometimes, usually when compiling with GCM_NO_LOCAL_SHORTCIRCUIT enabled
+		 * since no proper cleanup is carried out, running multiple repetitions wihtin single process is probably
+		 * not a good idea
+		 */
+		#ifndef GCM_NO_LOCAL_SHORTCIRCUIT
 		receiveBuffers.foreachUsed([&](BufferAndRequest<LocalId> *b) {
 			MPI_Cancel(&b->request);
 			return true;
 		});
+		#endif
 
 		MPI_Type_free(&mpi_message_type);
 

@@ -8,7 +8,7 @@ mpt = "5gb"
 nc = 1
 q = "plgrid-testing"
 algo = "colouring"
-reps = 3
+reps = 1
 
 def bench_set(build_type, tpn, g_alias, o_in, o_out):
     cpus = nc*tpn
