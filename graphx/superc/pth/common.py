@@ -53,6 +53,7 @@ def prepare_log_dir():
     return log_dir
 
 def run_batch_string(cmds,
+                     job_name = "graphx",
                      node_count = 1,
                      cores_per_node = 1,
                      mem_per_node = "1gb",
@@ -73,7 +74,7 @@ def run_batch_string(cmds,
     work_dir = ' "{}"'.format(p.base_dir)
 
     cmd = ("sbatch"
-    " -J graphx"
+    " -J " + job_name +
     " -N " + str(node_count) +
     " --ntasks-per-node 1" +
     " --cpus-per-task " + str(cores_per_node) +
@@ -135,7 +136,7 @@ def cst_g(v_count_m, e_m):
     return "c{}m{}".format(v_count_m, e_m), "../graphs/data/cst_{}000000_{}.elt".format(v_count_m, e_m)
 
 def std_g(alias):
-    return "../graphs/data/{}.elt".format(g_aliases[alias])
+    return alias, "../graphs/data/{}.elt".format(g_aliases[alias])
 
 # -------------------
 # Meant for executor

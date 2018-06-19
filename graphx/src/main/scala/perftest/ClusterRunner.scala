@@ -12,7 +12,7 @@ object ClusterRunner {
     val slurmJobId = sys.env.getOrElse("SLURM_JOB_ID", "unknownid")
     val slurmJobName = sys.env.getOrElse("SLURM_JOB_NAME", "unknownname")
 
-    val sparkConf = new SparkConf().setAppName(s"${slurmJobId}_${slurmJobName}_${cliArgs.algorithm}")
+    val sparkConf = new SparkConf().setAppName(s"${slurmJobId}_${slurmJobName}")
     implicit val sc = new SparkContext(sparkConf)
 
     Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath)
