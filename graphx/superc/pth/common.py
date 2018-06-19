@@ -53,10 +53,10 @@ def prepare_log_dir():
 
 def run_batch_string(cmds,
                      node_count = 1,
-                     tasks_per_node = 1,
-                     mem_per_task = "1gb",
+                     cores_per_node = 1,
+                     mem_per_node = "1gb",
                      queue="plgrid-short",
-                     log_prefix="framework",
+                     log_prefix="graphx",
                      time="00:20:00",
                      profiling_on=False):
     p = get_paths()
@@ -72,10 +72,11 @@ def run_batch_string(cmds,
     work_dir = ' "{}"'.format(p.base_dir)
 
     cmd = ("sbatch"
-    " -J framework"
+    " -J graphx"
     " -N " + str(node_count) +
-    " --ntasks-per-node " + str(tasks_per_node) +
-    " --mem-per-cpu " + mem_per_task +
+    " --ntasks-per-node 1" +
+    " --cpus-per-task " + str(cores_per_node) +
+    " --mem " + mem_per_node +
     " --time " + time +
     " -A ccbmc6"
     " -p " + queue +
@@ -86,7 +87,7 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def graphx_test_cli(graph=None, algo=None, iterations=None):
+def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None):
     cli_args = ""
     if graph is not None:
         cli_args += " -g " + graph
@@ -96,9 +97,37 @@ def graphx_test_cli(graph=None, algo=None, iterations=None):
         cli_args += " -i {}".format(iterations)
 
     paths = get_paths()
-    cmd = "spark-submit perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar' {}'".format(paths.base_dir, cli_args)
+    cmd = "spark-submit --conf spark.executor.memory {} perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar' {}'".format(mem_per_executor, paths.base_dir, cli_args)
     return cmd
 
+
+g_aliases = {
+    "p1k": "powergraph_1000_9864",
+    "p5k": "powergraph_5000_49816",
+    "p10k": "powergraph_10000_99794",
+    "p15k": "powergraph_15000_149784",
+    "p20k": "powergraph_20000_199771",
+    "p25k": "powergraph_25000_249765",
+    "p30k": "powergraph_30000_299761",
+    "p35k": "powergraph_35000_349755",
+    "p40k": "powergraph_40000_399751",
+    "p50k": "powergraph_50000_499745",
+    "p60k": "powergraph_60000_599742",
+    "p70k": "powergraph_70000_699736",
+    "p80k": "powergraph_80000_799727",
+    "p90k": "powergraph_90000_899721",
+    "p100k": "powergraph_100000_999719",
+    "p200k": "powergraph_200000_1999678",
+    "p300k": "powergraph_300000_2999660",
+    "p400k": "powergraph_400000_3999643",
+    "p500k": "powergraph_500000_4999634"
+}
+
+def cst_g(v_count_m, e_m):
+    return "c{}m{}".format(v_count_m, e_m), "../graphs/data/cst_{}000000_{}.adjl".format(v_count_m, e_m)
+
+def std_g(alias):
+    return "../graphs/data/{}.adjl".format(g_aliases[alias])
 
 # -------------------
 # Meant for executor
