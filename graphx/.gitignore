@@ -1,4 +1,5 @@
 target/
 .idea/
+spark_history/history_data/
 pass
 

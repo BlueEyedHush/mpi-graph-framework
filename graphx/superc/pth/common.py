@@ -4,6 +4,7 @@ import sys
 import datetime
 
 mpiexec_prefix = "export I_MPI_PMI_LIBRARY=/net/slurm/releases/production/lib/libpmi.so; srun --label "
+spark_history_dir = "/net/people/plgblueeyedhush/spark_history"
 
 # -------------------
 # Environment agnostic
@@ -37,7 +38,7 @@ def get_paths():
     return cached_paths
 
 def r(cmd):
-    err(cmd)
+    err('\n' + cmd + '\n')
     os.system(cmd)
 
 # -------------------
@@ -55,7 +56,7 @@ def run_batch_string(cmds,
                      node_count = 1,
                      cores_per_node = 1,
                      mem_per_node = "1gb",
-                     queue="plgrid-short",
+                     queue="plgrid-testing",
                      log_prefix="graphx",
                      time="00:20:00",
                      profiling_on=False):
@@ -97,7 +98,14 @@ def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None):
         cli_args += " -i {}".format(iterations)
 
     paths = get_paths()
-    cmd = "spark-submit --conf spark.executor.memory {} perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar' {}'".format(mem_per_executor, paths.base_dir, cli_args)
+    cmd = "#SPARK_HOME/bin/spark-submit " \
+          "--master spark://#SPARK_MASTER_HOST:#SPARK_MASTER_PORT " \
+          "--conf spark.executor.memory={} " \
+          "--conf spark.eventLog.enabled=true " \
+          "--conf spark.eventLog.dir=file:{} " \
+          "--class perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar {}"\
+        .format(mem_per_executor, spark_history_dir, paths.base_dir, cli_args)
+
     return cmd
 
 
@@ -124,10 +132,10 @@ g_aliases = {
 }
 
 def cst_g(v_count_m, e_m):
-    return "c{}m{}".format(v_count_m, e_m), "../graphs/data/cst_{}000000_{}.adjl".format(v_count_m, e_m)
+    return "c{}m{}".format(v_count_m, e_m), "../graphs/data/cst_{}000000_{}.elt".format(v_count_m, e_m)
 
 def std_g(alias):
-    return "../graphs/data/{}.adjl".format(g_aliases[alias])
+    return "../graphs/data/{}.elt".format(g_aliases[alias])
 
 # -------------------
 # Meant for executor
@@ -144,10 +152,11 @@ def stop_spark_cluster():
 
 def only_on_master(cmds):
     cmd = "; ".join(cmds)
-    return ["if [ $SLURM_NODEID -eq 0 ]; then {}; fi".format(cmd)]
+    return ["if [ $SLURM_NODEID -eq 0 ]; then\n    {};\nfi".format(cmd)]
 
 def run_commands(cmds):
-    cmd = "; ".join(cmds)
+    cmd = "\n".join(cmds)
+    cmd = cmd.replace("#", "$")
     r(cmd)
 
 def get_workdir():
