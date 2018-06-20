@@ -17,6 +17,12 @@ object ClusterRunner {
 
     implicit val sc = new SparkContext(sparkConf)
 
+    val perExecMemStr = sc
+      .getExecutorMemoryStatus
+      .map { case (exec, (total, rem)) => s" $exec: $rem/$total" }
+      .mkString("\n")
+    println(s"memory available for caching per executor:\n$perExecMemStr\n")
+
     Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath)
 
     sc.stop()
