@@ -5,9 +5,11 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 object ClusterRunner {
   def main(args: Array[String]): Unit = {
-    Logger.getRootLogger.setLevel(Level.ERROR)
 
     val cliArgs = CliParser.parseCli(args.toList)
+
+    if (!cliArgs.verbose)
+      Logger.getRootLogger.setLevel(Level.ERROR)
 
     val slurmJobId = sys.env.getOrElse("SLURM_JOB_ID", "unknownid")
     val slurmJobName = sys.env.getOrElse("SLURM_JOB_NAME", "unknownname")

@@ -15,9 +15,6 @@ object Main {
 
   // Start Spark.
   def run(algo: Algorithm.Value, iterationCount: Int, relativeGraphPath: String)(implicit sc: SparkContext) = {
-    // Suppress unnecessary logging
-    Logger.getRootLogger.setLevel(Level.ERROR)
-
     println(s"graph: $relativeGraphPath algorithm: $algo iterations: $iterationCount")
 
     for (i <- 0 until iterationCount) {

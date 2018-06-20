@@ -55,7 +55,8 @@ object Utils {
 object CliParser {
   case class CliArguments(algorithm: Algorithm.Value = Algorithm.Bfs,
                           iterations: Int = 1,
-                          graphPath: String = "../graphs/data/SimpleTestgraph.elt")
+                          graphPath: String = "../graphs/data/SimpleTestgraph.elt",
+                          verbose: Boolean = false)
 
   def parseCli(args: List[String]): CliArguments = parseCliR(args, CliArguments())
 
@@ -73,6 +74,9 @@ object CliParser {
         }
 
         parseCliR(tail, partiallyParsed.copy(algorithm = a))
+
+      case "-v" :: tail =>
+        parseCliR(tail, partiallyParsed.copy(verbose = true))
     }
   }
 }
