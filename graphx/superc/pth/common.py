@@ -89,7 +89,7 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False, kryo=False):
+def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False, kryo=False, use_ramdisk=False):
     cli_args = ""
     if graph is not None:
         cli_args += " -g " + graph
@@ -102,14 +102,17 @@ def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, ve
     if kryo:
         cli_args += " -k"
 
+    ramdisk_opts = "--conf spark.local.dir=/dev/shm/plgblueeyedhush/spark_scratch " if use_ramdisk else " "
+
     paths = get_paths()
     cmd = "#SPARK_HOME/bin/spark-submit " \
           "--master spark://#SPARK_MASTER_HOST:#SPARK_MASTER_PORT " \
           "--conf spark.executor.memory={} " \
           "--conf spark.eventLog.enabled=true " \
           "--conf spark.eventLog.dir=file:{} " \
+          "{} " \
           "--class perftest.ClusterRunner {}/graphx-perf-comp-assembly-*.jar {}"\
-        .format(mem_per_executor, spark_history_dir, paths.base_dir, cli_args)
+        .format(mem_per_executor, spark_history_dir, ramdisk_opts, paths.base_dir, cli_args)
 
     return cmd
 

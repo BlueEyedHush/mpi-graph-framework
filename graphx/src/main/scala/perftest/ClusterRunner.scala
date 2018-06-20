@@ -21,9 +21,10 @@ object ClusterRunner {
 
     implicit val sc = new SparkContext(sparkConf)
 
+    def byteToMB(x: Long) = "%.2f".format(x.asInstanceOf[Double]/(1024*1024))
     val perExecMemStr = sc
       .getExecutorMemoryStatus
-      .map { case (exec, (total, rem)) => s" $exec: $rem/$total" }
+      .map { case (exec, (total, rem)) => s" $exec: ${byteToMB(rem)}/${byteToMB(total)}" }
       .mkString("\n")
     println(s"memory available for caching per executor:\n$perExecMemStr\n")
 
