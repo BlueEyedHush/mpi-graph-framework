@@ -18,17 +18,22 @@ object Utils {
 
   def loadGraph(path: String)(implicit sc: SparkContext): Graph[Int, Int] = {
     println(s"Loading $path")
-    GraphLoader.edgeListFile(
+    val g = GraphLoader.edgeListFile(
       sc,
       path,
       edgeStorageLevel = StorageLevel.MEMORY_AND_DISK,
       vertexStorageLevel = StorageLevel.MEMORY_AND_DISK
     )
+
+    println(s"vPartitions: ${g.vertices.getNumPartitions}, ePartitions: ${g.edges.getNumPartitions}")
+
+    g
   }
 
   def configureKryo(conf: SparkConf): Unit = {
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    conf.set("spark.kryo.registrationRequired", "true")
+      .set("spark.kryo.registrationRequired", "true")
+      .set("spark.kryoserializer.buffer.mb","24")
 
     GraphXUtils.registerKryoClasses(conf)
 
