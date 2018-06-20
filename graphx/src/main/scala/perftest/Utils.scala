@@ -1,7 +1,7 @@
 package perftest
 
-import org.apache.spark.SparkContext
-import org.apache.spark.graphx.{Graph, GraphLoader}
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.graphx.{Graph, GraphLoader, GraphXUtils}
 import org.apache.spark.storage.StorageLevel
 import perftest.Main.Algorithm
 
@@ -24,6 +24,26 @@ object Utils {
       edgeStorageLevel = StorageLevel.MEMORY_AND_DISK,
       vertexStorageLevel = StorageLevel.MEMORY_AND_DISK
     )
+  }
+
+  def configureKryo(conf: SparkConf): Unit = {
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    conf.set("spark.kryo.registrationRequired", "true")
+
+    GraphXUtils.registerKryoClasses(conf)
+
+    conf.registerKryoClasses(Array(
+      Colouring.getClass,
+      classOf[VertexData[_]],
+      classOf[Array[VertexData[_]]],
+      classOf[Message],
+      classOf[NeighbourIdAdvertisment],
+      classOf[NeighbourChoseColour],
+      ColourPropagated.getClass,
+      Dummy.getClass,
+      ColouringPhaseStarted.getClass,
+      Set.empty.getClass
+    ))
   }
 }
 
