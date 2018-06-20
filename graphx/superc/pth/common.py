@@ -89,7 +89,7 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False):
+def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False, kryo=False):
     cli_args = ""
     if graph is not None:
         cli_args += " -g " + graph
@@ -99,6 +99,8 @@ def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, ve
         cli_args += " -i {}".format(iterations)
     if verbose:
         cli_args += " -v"
+    if kryo:
+        cli_args += " -k"
 
     paths = get_paths()
     cmd = "#SPARK_HOME/bin/spark-submit " \

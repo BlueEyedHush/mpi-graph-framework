@@ -31,6 +31,8 @@ object Utils {
   }
 
   def configureKryo(conf: SparkConf): Unit = {
+    println("Configuring Kryo serialization")
+
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryo.registrationRequired", "true")
       .set("spark.kryoserializer.buffer.mb","24")
@@ -56,7 +58,8 @@ object CliParser {
   case class CliArguments(algorithm: Algorithm.Value = Algorithm.Bfs,
                           iterations: Int = 1,
                           graphPath: String = "../graphs/data/SimpleTestgraph.elt",
-                          verbose: Boolean = false)
+                          verbose: Boolean = false,
+                          useKryo: Boolean = false)
 
   def parseCli(args: List[String]): CliArguments = parseCliR(args, CliArguments())
 
@@ -77,6 +80,9 @@ object CliParser {
 
       case "-v" :: tail =>
         parseCliR(tail, partiallyParsed.copy(verbose = true))
+
+      case "-k" :: tail =>
+        parseCliR(tail, partiallyParsed.copy(useKryo = true))
     }
   }
 }

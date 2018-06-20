@@ -15,7 +15,9 @@ object ClusterRunner {
     val slurmJobName = sys.env.getOrElse("SLURM_JOB_NAME", "unknownname")
 
     val sparkConf = new SparkConf().setAppName(s"${slurmJobId}_${slurmJobName}")
-    Utils.configureKryo(sparkConf)
+
+    if (cliArgs.useKryo)
+      Utils.configureKryo(sparkConf)
 
     implicit val sc = new SparkContext(sparkConf)
 
