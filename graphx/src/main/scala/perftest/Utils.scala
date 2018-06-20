@@ -16,13 +16,14 @@ object Utils {
     s"$pwd/$relPath"
   }
 
-  def loadGraph(path: String)(implicit sc: SparkContext): Graph[Int, Int] = {
+  def loadGraph(path: String, partitionNum: Int)(implicit sc: SparkContext): Graph[Int, Int] = {
     println(s"Loading $path")
     val g = GraphLoader.edgeListFile(
       sc,
       path,
       edgeStorageLevel = StorageLevel.MEMORY_AND_DISK,
-      vertexStorageLevel = StorageLevel.MEMORY_AND_DISK
+      vertexStorageLevel = StorageLevel.MEMORY_AND_DISK,
+      numEdgePartitions = partitionNum
     )
 
     println(s"vPartitions: ${g.vertices.getNumPartitions}, ePartitions: ${g.edges.getNumPartitions}")
@@ -59,7 +60,8 @@ object CliParser {
                           iterations: Int = 1,
                           graphPath: String = "../graphs/data/SimpleTestgraph.elt",
                           verbose: Boolean = false,
-                          useKryo: Boolean = false)
+                          useKryo: Boolean = false,
+                          partitionNum: Int = 2)
 
   def parseCli(args: List[String]): CliArguments = parseCliR(args, CliArguments())
 
@@ -83,6 +85,9 @@ object CliParser {
 
       case "-k" :: tail =>
         parseCliR(tail, partiallyParsed.copy(useKryo = true))
+
+      case "-p" :: pNum :: tail =>
+        parseCliR(tail, partiallyParsed.copy(partitionNum = pNum.toInt))
     }
   }
 }

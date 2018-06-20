@@ -9,7 +9,7 @@ object LocalRunner {
     Utils.configureKryo(sparkConf)
     implicit val sc = new SparkContext(sparkConf)
 
-    Main.run(Algorithm.Colouring, 3, "../graphs/data/SimpleTestGraph.elt")
+    Main.run(Algorithm.Colouring, 3, "../graphs/data/SimpleTestGraph.elt", 2)
 
     sc.stop()
   }

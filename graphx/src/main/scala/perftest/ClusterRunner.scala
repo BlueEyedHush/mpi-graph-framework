@@ -28,7 +28,7 @@ object ClusterRunner {
       .mkString("\n")
     println(s"memory available for caching per executor:\n$perExecMemStr\n")
 
-    Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath)
+    Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath, cliArgs.partitionNum)
 
     sc.stop()
   }

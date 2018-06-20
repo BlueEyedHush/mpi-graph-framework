@@ -89,8 +89,8 @@ def run_batch_string(cmds,
     print cmd
     return cmd
 
-def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False, kryo=False, use_ramdisk=False):
-    cli_args = ""
+def graphx_test_cli(mem_per_executor, graph=None, algo=None, iterations=None, verbose=False, kryo=False, use_ramdisk=False, partition_no=2):
+    cli_args = "-p {}".format(partition_no)
     if graph is not None:
         cli_args += " -g " + graph
     if algo is not None:
