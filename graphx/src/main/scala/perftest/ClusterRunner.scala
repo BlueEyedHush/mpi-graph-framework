@@ -13,6 +13,8 @@ object ClusterRunner {
     val slurmJobName = sys.env.getOrElse("SLURM_JOB_NAME", "unknownname")
 
     val sparkConf = new SparkConf().setAppName(s"${slurmJobId}_${slurmJobName}")
+    Utils.configureKryo(sparkConf)
+
     implicit val sc = new SparkContext(sparkConf)
 
     Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath)
