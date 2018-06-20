@@ -65,7 +65,7 @@ def run_batch_string(cmds,
     script = os.path.join(p.script_dir, "executor.py")
 
     if profiling_on:
-        profiler_cli = " --profile=task --acctg-freq 5 "
+        profiler_cli = " --profile=task --acctg-freq=task=5 "
         cmds = cmds + ["sh5util -j #SLURM_JOB_ID -o {}.h5".format(log_prefix)]
     else:
         profiler_cli = ""
