@@ -11,17 +11,19 @@ object Main {
     val Bfs, Colouring = Value
   }
 
-  // Start Spark.
-  def run(algo: Algorithm.Value, iterationCount: Int, relativeGraphPath: String)(implicit sc: SparkContext) = {
-    // Suppress unnecessary logging
-    Logger.getRootLogger.setLevel(Level.ERROR)
+  def printTime(name: String, time: Long) = println(s"$name: $time (${time/1000000000.0})")
 
+  // Start Spark.
+  def run(algo: Algorithm.Value, iterationCount: Int, relativeGraphPath: String, partiitonNum: Int)
+         (implicit sc: SparkContext) =
+  {
     println(s"graph: $relativeGraphPath algorithm: $algo iterations: $iterationCount")
 
-    val durations = for (i <- 0 until iterationCount) yield {
+    for (i <- 0 until iterationCount) {
       val graphLoadingStart = System.nanoTime()
-      val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath))
+      val g: Graph[Int, Int] = Utils.loadGraph(Utils.relGraphPathToPath(relativeGraphPath), partiitonNum)
       val graphLoadingTime = System.nanoTime() - graphLoadingStart
+      printTime("graph", graphLoadingTime)
 
       val algoExecutionTime = algo match {
         case Algorithm.Bfs =>
@@ -38,12 +40,7 @@ object Main {
           System.nanoTime() - start
       }
 
-      (graphLoadingTime, algoExecutionTime)
+      printTime("algo", algoExecutionTime)
     }
-
-    durations.foreach { case (graphTime, algoTime) =>
-      val graphSec = graphTime/1000000000.0
-      val algoSec = algoTime/1000000000.0
-      println(s"graph $graphTime ($graphSec)\nalgo $algoTime ($algoSec)\n")}
   }
 }

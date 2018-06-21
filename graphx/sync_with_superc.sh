@@ -14,7 +14,7 @@ fi
 echo "Syncing files"
 pushd "$DIR" &> /dev/null
 rsync -avzr \
-    target/scala-2.11/*.jar \
+    target/scala-2.11/graphx-perf-comp-assembly-*.jar \
     superc/**/* \
     "$LOGIN_STR":"$REMOTE_DIR"
 popd &> /dev/null

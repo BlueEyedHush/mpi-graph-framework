@@ -6,6 +6,22 @@ import org.apache.spark.graphx.{Graph, VertexId}
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
+case class VertexData[VD](idAdvSent: Boolean = false,
+                          iAmWaitingFor: Long = 0,
+                          waitingForMe: Set[VertexId] = Set.empty,
+                          coloursAlreadyUsedUp: Set[Int] = Set.empty,
+                          colouringPhaseStartedSent: Boolean = false,
+                          colour: Option[Int] = None,
+                          colourPropagatedToNeighbours: Boolean = false,
+                          originalData: VD)
+
+trait Message
+case class NeighbourIdAdvertisment(id: Set[VertexId]) extends Message
+case class NeighbourChoseColour(colours: List[Int]) extends Message
+case object ColourPropagated extends Message
+case object Dummy extends Message
+case object ColouringPhaseStarted extends Message
+
 /**
   * This implementation assumes, that we deal with undirected graph
   * Since in GraphX all edges are directed, each "undirected" edge must
@@ -14,23 +30,6 @@ import scala.reflect.ClassTag
   * Doesn't support loops
   */
 object Colouring {
-
-  case class VertexData[VD](idAdvSent: Boolean = false,
-                            iAmWaitingFor: Long = 0,
-                            waitingForMe: Set[VertexId] = Set.empty,
-                            coloursAlreadyUsedUp: Set[Int] = Set.empty,
-                            colouringPhaseStartedSent: Boolean = false,
-                            colour: Option[Int] = None,
-                            colourPropagatedToNeighbours: Boolean = false,
-                            originalData: VD)
-
-  trait Message
-  case class NeighbourIdAdvertisment(id: Set[VertexId]) extends Message
-  case class NeighbourChoseColour(colours: List[Int]) extends Message
-  case object ColourPropagated extends Message
-  case object Dummy extends Message
-  case object ColouringPhaseStarted extends Message
-
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VD, ED])(implicit sc: SparkContext): Graph[VertexData[VD], ED] = {
     graph
       .mapVertices((_, vdata) => VertexData(originalData = vdata))

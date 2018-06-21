@@ -4,25 +4,31 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.{SparkConf, SparkContext}
 
 object ClusterRunner {
-  def stdG(name: String) = s"../graphs/data/$name.elt"
-
   def main(args: Array[String]): Unit = {
-    Logger.getRootLogger.setLevel(Level.ERROR)
-
-    val sparkConf = new SparkConf().setAppName("example-graphx")
-    implicit val sc = new SparkContext(sparkConf)
 
     val cliArgs = CliParser.parseCli(args.toList)
 
-    val graphs = List(
-      stdG("powergraph_100000_999719"),
-      stdG("powergraph_200000_1999678"),
-      stdG("powergraph_300000_2999660"),
-      stdG("powergraph_400000_3999643"),
-      stdG("powergraph_500000_4999634")
-    )
+    if (!cliArgs.verbose)
+      Logger.getRootLogger.setLevel(Level.ERROR)
 
-    graphs.foreach(g => Main.run(cliArgs.algorithm, 1, g))
+    val slurmJobId = sys.env.getOrElse("SLURM_JOB_ID", "unknownid")
+    val slurmJobName = sys.env.getOrElse("SLURM_JOB_NAME", "unknownname")
+
+    val sparkConf = new SparkConf().setAppName(s"${slurmJobId}_${slurmJobName}")
+
+    if (cliArgs.useKryo)
+      Utils.configureKryo(sparkConf)
+
+    implicit val sc = new SparkContext(sparkConf)
+
+    def byteToMB(x: Long) = "%.2f".format(x.asInstanceOf[Double]/(1024*1024))
+    val perExecMemStr = sc
+      .getExecutorMemoryStatus
+      .map { case (exec, (total, rem)) => s" $exec: ${byteToMB(rem)}/${byteToMB(total)}" }
+      .mkString("\n")
+    println(s"memory available for caching per executor:\n$perExecMemStr\n")
+
+    Main.run(cliArgs.algorithm, cliArgs.iterations, cliArgs.graphPath, cliArgs.partitionNum)
 
     sc.stop()
   }
