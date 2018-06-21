@@ -10,7 +10,7 @@ iter = 1
 algo = "colouring"
 
 job_name = "t0_{}_{}_{}_{}".format(node_count, mem_per_node, g_alias, algo)
-log_dir = prepare_log_dir()
+log_dir = prepare_log_dir("adhoc")
 log_prefix = os.path.join(log_dir, job_name)
 p_count = 2*node_count*cores_per_node
 

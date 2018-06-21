@@ -45,10 +45,10 @@ def r(cmd):
 # Meant for scheduler
 # -------------------
 
-def prepare_log_dir():
+def prepare_log_dir(dir_prefix=""):
     p = get_paths()
     datetime_component = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = os.path.join(p.log_dir, datetime_component)
+    log_dir = os.path.join(p.log_dir, dir_prefix + "_" + datetime_component)
     ensure_dir_exists(log_dir)
     return log_dir
 
